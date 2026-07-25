@@ -24,6 +24,7 @@ type CircleShape = {
   radius: number;
   isBoundary: false;
   groupId?: string;
+  connectedGroupIds?: string[];
 };
 
 type RectShape = {
@@ -32,6 +33,7 @@ type RectShape = {
   points: Point[];
   isBoundary: boolean;
   groupId?: string;
+  connectedGroupIds?: string[];
 };
 
 type CourseShape = CircleShape | RectShape;
@@ -214,6 +216,28 @@ function shapeDistance(first: CourseShape, second: CourseShape): number {
   return Number.POSITIVE_INFINITY;
 }
 
+function shapesAreConnected(
+  first: CourseShape,
+  second: CourseShape,
+): boolean {
+  if (
+    first.groupId !== undefined &&
+    first.groupId === second.groupId
+  ) {
+    return true;
+  }
+  if (
+    first.groupId !== undefined &&
+    second.connectedGroupIds?.includes(first.groupId)
+  ) {
+    return true;
+  }
+  return (
+    second.groupId !== undefined &&
+    first.connectedGroupIds?.includes(second.groupId) === true
+  );
+}
+
 function courseShapes(): CourseShape[] {
   const rectangles: RectShape[] = [
     ...COURSE_RECTS,
@@ -225,6 +249,7 @@ function courseShapes(): CourseShape[] {
     isBoundary: rect.role === "wall",
     groupId:
       rect.groupId ?? (rect.role === "wall" ? "world-boundary" : undefined),
+    connectedGroupIds: rect.connectedGroupIds,
   }));
   const pins: CircleShape[] = COURSE_PINS.map((pin, index) => ({
     id: `pin-${index + 1}`,
@@ -259,10 +284,7 @@ export function inspectCourseClearance(): CourseClearanceReport {
     ) {
       const first = shapes[firstIndex];
       const second = shapes[secondIndex];
-      if (
-        first.groupId !== undefined &&
-        first.groupId === second.groupId
-      ) {
+      if (shapesAreConnected(first, second)) {
         continue;
       }
 

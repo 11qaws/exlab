@@ -77,7 +77,8 @@ function StartPreview({
   layoutSeed: string;
 }) {
   const shift = ((layoutSeed.length * 17) % 17) - 8;
-  const previewY = (worldY: number) => 42 + (worldY / WORLD_HEIGHT) * 468;
+  const previewScaleY = 468 / WORLD_HEIGHT;
+  const previewY = (worldY: number) => 42 + worldY * previewScaleY;
   const activeCount = Math.max(2, participantCount);
   const marbleSpan = Math.min(650, Math.max(220, (activeCount - 1) * 72));
   const marbleStart = 450 - marbleSpan / 2 + shift * 2;
@@ -87,7 +88,7 @@ function StartPreview({
         className="preview-course"
         viewBox="0 0 900 540"
         role="img"
-        aria-label="사이클로이드 커브와 수축 구간을 포함한 비대칭 수직 마블 코스"
+        aria-label="폭이 좁아지고 넓어지며 좌우로 이동하는 비대칭 마블 레이스 코스"
       >
         <defs>
           <pattern
@@ -100,26 +101,39 @@ function StartPreview({
             <rect x="12" width="12" height="12" fill="#e84f83" />
           </pattern>
         </defs>
-        <rect x="45" width="24" height="540" fill="#4f2c39" />
-        <rect x="831" width="24" height="540" fill="#4f2c39" />
-        {COURSE_RECTS.filter(
-          (shape) => shape.role !== "wall" && shape.y < FINISH_Y,
-        ).map((shape, index) => {
+        {COURSE_RECTS.filter((shape) => shape.y < WORLD_HEIGHT).map(
+          (shape, index) => {
           const y = previewY(shape.y);
+          const isVerticalBoundary =
+            shape.role === "wall" && shape.width <= 30;
+          const previewWidth = isVerticalBoundary ? 8 : shape.width;
+          const previewHeight =
+            shape.role === "wall"
+              ? Math.max(4, shape.height * previewScaleY)
+              : shape.role === "gate"
+                ? 10
+                : 7;
           const visualAngle = ((shape.angle ?? 0) * 180 * 0.42) / Math.PI;
           return (
             <rect
               key={`rail-${index}`}
-              x={shape.x - shape.width / 2}
-              y={y - 3}
-              width={shape.width}
-              height={shape.role === "gate" ? 10 : 7}
+              x={shape.x - previewWidth / 2}
+              y={y - previewHeight / 2}
+              width={previewWidth}
+              height={previewHeight}
               rx="4"
-              fill={shape.role === "gate" ? "#754557" : "#684050"}
+              fill={
+                shape.role === "wall"
+                  ? "#4f2c39"
+                  : shape.role === "gate"
+                    ? "#754557"
+                    : "#684050"
+              }
               transform={`rotate(${visualAngle} ${shape.x} ${y})`}
             />
           );
-        })}
+          },
+        )}
         {COURSE_CURVES.map((curve) => (
           <polyline
             key={curve.id}
@@ -127,7 +141,7 @@ function StartPreview({
               .map((point) => `${point.x},${previewY(point.y)}`)
               .join(" ")}
             fill="none"
-            stroke={curve.role === "funnel" ? "#754557" : "#684050"}
+            stroke="#4f2c39"
             strokeWidth="8"
             strokeLinecap="round"
             strokeLinejoin="round"

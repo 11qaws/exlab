@@ -1,12 +1,22 @@
 export const WORLD_WIDTH = 900;
 export const WORLD_HEIGHT = 9000;
-export const FINISH_Y = 8700;
+export const FINISH_Y = 8860;
 export const FINISH_LINE_X = 402;
 export const FINISH_LINE_WIDTH = 96;
 export const MARBLE_RADIUS = 15;
 export const VIEW_HEIGHT = 1040;
 export const TARGET_FIRST_FINISH_SECONDS = 20;
 export const MAX_SIMULATION_SECONDS = 68;
+
+export type BoundarySide = "left" | "right";
+
+export type StraightZone = {
+  id: string;
+  startY: number;
+  endY: number;
+  leftX: number;
+  rightX: number;
+};
 
 export type CourseRect = {
   x: number;
@@ -16,19 +26,25 @@ export type CourseRect = {
   angle?: number;
   role?: "wall" | "rail" | "gate";
   groupId?: string;
+  connectedGroupIds?: string[];
+  zoneId?: string;
+  obstacleKind?: "wall-bumper" | "shelf";
+  attachment?: BoundarySide;
 };
 
 export type CoursePin = {
   x: number;
   y: number;
   radius: number;
+  zoneId: string;
 };
 
 export type CourseCurve = {
   id: string;
   points: { x: number; y: number }[];
   thickness: number;
-  role: "cycloid" | "funnel";
+  role: "boundary";
+  boundarySide: BoundarySide;
 };
 
 export type RotatingBar = {
@@ -38,27 +54,111 @@ export type RotatingBar = {
   height: number;
   baseAngle: number;
   angularSpeed: number;
+  zoneId: string;
 };
 
-function createCycloidCurve(
-  id: string,
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  thickness = 24,
-  segmentCount = 14,
-  role: CourseCurve["role"] = "cycloid",
+const BOUNDARY_THICKNESS = 24;
+const LEFT_BOUNDARY_GROUP = "left-course-boundary";
+const RIGHT_BOUNDARY_GROUP = "right-course-boundary";
+
+export const STRAIGHT_ZONES: StraightZone[] = [
+  { id: "start-deck", startY: 0, endY: 1050, leftX: 80, rightX: 820 },
+  {
+    id: "right-chute",
+    startY: 1200,
+    endY: 1900,
+    leftX: 300,
+    rightX: 820,
+  },
+  {
+    id: "left-chute",
+    startY: 2200,
+    endY: 2900,
+    leftX: 80,
+    rightX: 580,
+  },
+  {
+    id: "central-release",
+    startY: 3250,
+    endY: 4100,
+    leftX: 120,
+    rightX: 800,
+  },
+  {
+    id: "right-squeeze",
+    startY: 4450,
+    endY: 5150,
+    leftX: 420,
+    rightX: 820,
+  },
+  {
+    id: "left-drift",
+    startY: 5500,
+    endY: 6300,
+    leftX: 80,
+    rightX: 620,
+  },
+  {
+    id: "wide-mix",
+    startY: 6650,
+    endY: 7350,
+    leftX: 100,
+    rightX: 800,
+  },
+  {
+    id: "left-sprint",
+    startY: 7500,
+    endY: 8000,
+    leftX: 80,
+    rightX: 520,
+  },
+  {
+    id: "final-gate",
+    startY: 8150,
+    endY: 8650,
+    leftX: 220,
+    rightX: 680,
+  },
+  {
+    id: "finish-corridor",
+    startY: 8820,
+    endY: WORLD_HEIGHT,
+    leftX: 390,
+    rightX: 510,
+  },
+];
+
+function boundaryGroup(side: BoundarySide): string {
+  return side === "left" ? LEFT_BOUNDARY_GROUP : RIGHT_BOUNDARY_GROUP;
+}
+
+function boundaryX(zone: StraightZone, side: BoundarySide): number {
+  return side === "left" ? zone.leftX : zone.rightX;
+}
+
+function createBoundaryTransition(
+  from: StraightZone,
+  to: StraightZone,
+  side: BoundarySide,
+  segmentCount = 12,
 ): CourseCurve {
+  const startX = boundaryX(from, side);
+  const endX = boundaryX(to, side);
   const points = Array.from({ length: segmentCount + 1 }, (_, index) => {
     const progress = index / segmentCount;
-    const theta = Math.PI * progress;
-    const horizontalProgress = (theta - Math.sin(theta)) / Math.PI;
-    const verticalProgress = (1 - Math.cos(theta)) / 2;
+    const horizontalEase = (1 - Math.cos(Math.PI * progress)) / 2;
     return {
-      x: start.x + (end.x - start.x) * horizontalProgress,
-      y: start.y + (end.y - start.y) * verticalProgress,
+      x: startX + (endX - startX) * horizontalEase,
+      y: from.endY + (to.startY - from.endY) * progress,
     };
   });
-  return { id, points, thickness, role };
+  return {
+    id: `${side}-transition-${from.id}-to-${to.id}`,
+    points,
+    thickness: BOUNDARY_THICKNESS,
+    role: "boundary",
+    boundarySide: side,
+  };
 }
 
 function curveSegments(curve: CourseCurve): CourseRect[] {
@@ -72,211 +172,220 @@ function curveSegments(curve: CourseCurve): CourseRect[] {
       width: Math.hypot(dx, dy) + 2,
       height: curve.thickness,
       angle: Math.atan2(dy, dx),
-      role: "rail",
-      groupId: curve.id,
+      role: "wall",
+      groupId: boundaryGroup(curve.boundarySide),
     };
   });
 }
 
-export const COURSE_RECTS: CourseRect[] = [
-  {
-    x: 45,
-    y: WORLD_HEIGHT / 2,
-    width: 70,
-    height: WORLD_HEIGHT,
+function straightBoundary(
+  zone: StraightZone,
+  side: BoundarySide,
+): CourseRect {
+  return {
+    x: boundaryX(zone, side),
+    y: (zone.startY + zone.endY) / 2,
+    width: BOUNDARY_THICKNESS,
+    height: zone.endY - zone.startY + 4,
     role: "wall",
+    groupId: boundaryGroup(side),
+    zoneId: zone.id,
+  };
+}
+
+function zoneById(zoneId: string): StraightZone {
+  const zone = STRAIGHT_ZONES.find((candidate) => candidate.id === zoneId);
+  if (!zone) throw new Error(`Unknown straight zone: ${zoneId}`);
+  return zone;
+}
+
+function wallBumper(
+  zoneId: string,
+  side: BoundarySide,
+  y: number,
+  width: number,
+  angleMagnitude: number,
+): CourseRect {
+  const zone = zoneById(zoneId);
+  const direction = side === "left" ? 1 : -1;
+  const angle = angleMagnitude * direction;
+  return {
+    x:
+      boundaryX(zone, side) +
+      direction * (width / 2) * Math.cos(angleMagnitude),
+    y,
+    width,
+    height: 24,
+    angle,
+    role: "rail",
+    connectedGroupIds: [boundaryGroup(side)],
+    zoneId,
+    obstacleKind: "wall-bumper",
+    attachment: side,
+  };
+}
+
+function shelf(
+  zoneId: string,
+  x: number,
+  y: number,
+  width: number,
+  angle: number,
+): CourseRect {
+  return {
+    x,
+    y,
+    width,
+    height: 22,
+    angle,
+    role: "rail",
+    zoneId,
+    obstacleKind: "shelf",
+  };
+}
+
+export const COURSE_CURVES: CourseCurve[] = STRAIGHT_ZONES.slice(1).flatMap(
+  (zone, index) => {
+    const previous = STRAIGHT_ZONES[index];
+    return [
+      createBoundaryTransition(previous, zone, "left"),
+      createBoundaryTransition(previous, zone, "right"),
+    ];
   },
-  {
-    x: WORLD_WIDTH - 45,
-    y: WORLD_HEIGHT / 2,
-    width: 70,
-    height: WORLD_HEIGHT,
-    role: "wall",
-  },
+);
 
-  // 1. Right-biased opening.
-  { x: 290, y: 1180, width: 340, height: 24, angle: 0.21, role: "rail" },
-  { x: 665, y: 1510, width: 220, height: 24, angle: -0.25, role: "rail" },
-  { x: 390, y: 1780, width: 250, height: 22, angle: 0.14, role: "rail" },
+const COURSE_BOUNDARY_RECTS: CourseRect[] = STRAIGHT_ZONES.flatMap((zone) => [
+  straightBoundary(zone, "left"),
+  straightBoundary(zone, "right"),
+]);
 
-  // 2. Left return with an open centre escape.
-  { x: 590, y: 2210, width: 360, height: 24, angle: -0.19, role: "rail" },
-  { x: 250, y: 2550, width: 260, height: 24, angle: 0.25, role: "rail" },
-  { x: 505, y: 2770, width: 210, height: 22, angle: -0.12, role: "rail" },
+const COURSE_OBSTACLE_RECTS: CourseRect[] = [
+  // Right chute: both walls feed down and inward, then a low centre shelf splits.
+  wallBumper("right-chute", "left", 1340, 180, 0.24),
+  wallBumper("right-chute", "right", 1610, 190, 0.24),
+  shelf("right-chute", 555, 1810, 150, 0.1),
 
-  // 4. Cross-current deck.
-  { x: 345, y: 4050, width: 455, height: 24, angle: 0.18, role: "rail" },
-  { x: 675, y: 4390, width: 205, height: 22, angle: -0.27, role: "rail" },
-  { x: 530, y: 4610, width: 230, height: 22, angle: -0.1, role: "rail" },
+  // Left chute: reverse the sequence so the flow does not repeat.
+  wallBumper("left-chute", "right", 2340, 190, 0.24),
+  wallBumper("left-chute", "left", 2630, 200, 0.22),
+  shelf("left-chute", 360, 2820, 150, -0.12),
 
-  // 5. Offset island passage.
-  { x: 565, y: 5100, width: 430, height: 24, angle: -0.17, role: "rail" },
-  { x: 240, y: 5480, width: 230, height: 22, angle: 0.26, role: "rail" },
-  { x: 420, y: 5700, width: 280, height: 22, angle: 0.12, role: "rail" },
+  // A narrow right-biased straight alternates the attached side.
+  wallBumper("right-squeeze", "left", 4590, 150, 0.22),
+  wallBumper("right-squeeze", "right", 4860, 150, 0.22),
 
-  // 8. Asymmetric final descent.
-  { x: 660, y: 7630, width: 240, height: 22, angle: -0.23, role: "rail" },
-  {
-    x: 390,
-    y: 8730,
-    width: 24,
-    height: 340,
-    role: "gate",
-    groupId: "finish-funnel-left",
-  },
-  {
-    x: 510,
-    y: 8730,
-    width: 24,
-    height: 340,
-    role: "gate",
-    groupId: "finish-funnel-right",
-  },
+  // Long left drift adds a final internal deflection after two wall feeds.
+  wallBumper("left-drift", "left", 5680, 210, 0.24),
+  wallBumper("left-drift", "right", 5990, 190, 0.24),
+  shelf("left-drift", 360, 6200, 160, 0.12),
 
-  {
-    x: WORLD_WIDTH / 2,
-    y: WORLD_HEIGHT - 20,
-    width: WORLD_WIDTH,
-    height: 40,
-    role: "wall",
-  },
+  // The left sprint uses shorter, faster alternating wall deflectors.
+  wallBumper("left-sprint", "left", 7650, 170, 0.25),
+  wallBumper("left-sprint", "right", 7900, 180, 0.25),
 ];
 
-export const COURSE_CURVES: CourseCurve[] = [
-  // A leftward half-cycloid and a rightward half-cycloid replace straight slaloms.
-  createCycloidCurve(
-    "left-cycloid",
-    { x: 705, y: 3020 },
-    { x: 225, y: 3400 },
-  ),
-  createCycloidCurve(
-    "right-cycloid",
-    { x: 195, y: 5820 },
-    { x: 700, y: 6240 },
-  ),
+const BOTTOM_CAP: CourseRect = {
+  x: WORLD_WIDTH / 2,
+  y: WORLD_HEIGHT - 10,
+  width: 120,
+  height: 20,
+  role: "wall",
+  connectedGroupIds: [LEFT_BOUNDARY_GROUP, RIGHT_BOUNDARY_GROUP],
+};
 
-  // A symmetric breathing section: narrow, release, then return to full width.
-  createCycloidCurve(
-    "funnel-in-left",
-    { x: 136, y: 6500 },
-    { x: 330, y: 6810 },
-    24,
-    10,
-    "funnel",
-  ),
-  createCycloidCurve(
-    "funnel-in-right",
-    { x: 764, y: 6500 },
-    { x: 570, y: 6810 },
-    24,
-    10,
-    "funnel",
-  ),
-  createCycloidCurve(
-    "funnel-out-left",
-    { x: 330, y: 6930 },
-    { x: 136, y: 7260 },
-    24,
-    10,
-    "funnel",
-  ),
-  createCycloidCurve(
-    "funnel-out-right",
-    { x: 570, y: 6930 },
-    { x: 764, y: 7260 },
-    24,
-    10,
-    "funnel",
-  ),
-
-  // Final compression feeds a three-marble-wide finish corridor.
-  createCycloidCurve(
-    "finish-funnel-left",
-    { x: 136, y: 8310 },
-    { x: 390, y: 8560 },
-    24,
-    10,
-    "funnel",
-  ),
-  createCycloidCurve(
-    "finish-funnel-right",
-    { x: 764, y: 8310 },
-    { x: 510, y: 8560 },
-    24,
-    10,
-    "funnel",
-  ),
+export const COURSE_RECTS: CourseRect[] = [
+  ...COURSE_BOUNDARY_RECTS,
+  ...COURSE_OBSTACLE_RECTS,
+  BOTTOM_CAP,
 ];
 
 export const COURSE_CURVE_RECTS: CourseRect[] =
   COURSE_CURVES.flatMap(curveSegments);
 
 export const COURSE_PINS: CoursePin[] = [
-  // Opening canopy.
-  ...[145, 300, 475, 650, 760].map((x) => ({ x, y: 360, radius: 19 })),
-  ...[220, 390, 565, 720].map((x) => ({ x, y: 535, radius: 19 })),
-  ...[135, 285, 455, 620, 755].map((x) => ({ x, y: 675, radius: 19 })),
+  // Start canopy: dense but fully separated staggered rows.
+  ...[155, 300, 455, 610, 753].map((x) => ({
+    x,
+    y: 320,
+    radius: 18,
+    zoneId: "start-deck",
+  })),
+  ...[225, 380, 535, 690].map((x) => ({
+    x,
+    y: 500,
+    radius: 18,
+    zoneId: "start-deck",
+  })),
+  ...[147, 285, 440, 595, 750].map((x) => ({
+    x,
+    y: 650,
+    radius: 18,
+    zoneId: "start-deck",
+  })),
 
-  // Large offset islands. No row is mirrored around the centre.
-  { x: 190, y: 1450, radius: 39 },
-  { x: 505, y: 1610, radius: 31 },
-  { x: 735, y: 1920, radius: 43 },
+  // One offset island per biased chute.
+  { x: 650, y: 1450, radius: 24, zoneId: "right-chute" },
+  { x: 260, y: 2450, radius: 28, zoneId: "left-chute" },
 
-  { x: 175, y: 2330, radius: 33 },
-  { x: 470, y: 2460, radius: 44 },
-  { x: 735, y: 2720, radius: 30 },
+  // Central release: deliberately uneven island sizes.
+  { x: 225, y: 3820, radius: 35, zoneId: "central-release" },
+  { x: 490, y: 3890, radius: 28, zoneId: "central-release" },
+  { x: 713, y: 3780, radius: 38, zoneId: "central-release" },
 
-  { x: 265, y: 3560, radius: 41 },
-  { x: 510, y: 3500, radius: 30 },
-  { x: 740, y: 3830, radius: 38 },
+  { x: 620, y: 5050, radius: 30, zoneId: "right-squeeze" },
+  { x: 300, y: 5860, radius: 27, zoneId: "left-drift" },
 
-  { x: 155, y: 4520, radius: 31 },
-  { x: 455, y: 4850, radius: 45 },
-  { x: 750, y: 4720, radius: 34 },
-
-  { x: 235, y: 5250, radius: 38 },
-  { x: 520, y: 5450, radius: 32 },
-  { x: 740, y: 5680, radius: 42 },
-
-  { x: 185, y: 7350, radius: 37 },
-  { x: 310, y: 7480, radius: 43 },
-  { x: 750, y: 7830, radius: 30 },
-
-  { x: 155, y: 8130, radius: 31 },
+  // Wide mix: two offset pin rows recombine marbles after the spinner.
+  ...[180, 345, 520, 710].map((x, index) => ({
+    x,
+    y: 7040,
+    radius: [19, 24, 18, 22][index],
+    zoneId: "wide-mix",
+  })),
+  ...[265, 455, 645].map((x, index) => ({
+    x,
+    y: 7240,
+    radius: [22, 18, 24][index],
+    zoneId: "wide-mix",
+  })),
 ];
 
 export const ROTATING_BARS: RotatingBar[] = [
   {
-    x: 480,
-    y: 930,
+    x: 450,
+    y: 820,
     width: 380,
     height: 24,
     baseAngle: -0.08,
     angularSpeed: 0.014,
+    zoneId: "start-deck",
   },
   {
-    x: 355,
-    y: 3820,
+    x: 460,
+    y: 3500,
     width: 340,
     height: 24,
     baseAngle: 0.1,
     angularSpeed: -0.012,
-  },
-  {
-    x: 575,
-    y: 7440,
-    width: 300,
-    height: 22,
-    baseAngle: -0.12,
-    angularSpeed: 0.016,
+    zoneId: "central-release",
   },
   {
     x: 450,
-    y: 8250,
+    y: 6850,
+    width: 360,
+    height: 22,
+    baseAngle: -0.12,
+    angularSpeed: 0.016,
+    zoneId: "wide-mix",
+  },
+  {
+    x: 450,
+    y: 8400,
     width: 420,
     height: 24,
     baseAngle: 0.04,
     angularSpeed: -0.018,
+    zoneId: "final-gate",
   },
 ];
 

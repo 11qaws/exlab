@@ -9,6 +9,7 @@ import {
   FINISH_Y,
   MARBLE_RADIUS,
   ROTATING_BARS,
+  STRAIGHT_ZONES,
   TARGET_FIRST_FINISH_SECONDS,
   WORLD_HEIGHT,
   rotatingBarAngle,
@@ -74,52 +75,28 @@ test("the asymmetric course targets a roughly twenty-second first finish", () =>
   assert.ok(WORLD_HEIGHT >= 8_000);
   assert.ok(COURSE_RECTS.length + COURSE_CURVE_RECTS.length >= 80);
   assert.ok(COURSE_PINS.length >= 25);
-  assert.equal(
-    COURSE_CURVES.filter((curve) => curve.role === "cycloid").length,
-    2,
-  );
-  assert.equal(
-    COURSE_CURVES.filter((curve) => curve.role === "funnel").length,
-    6,
-  );
+  assert.equal(STRAIGHT_ZONES.length, 10);
+  assert.equal(COURSE_CURVES.length, (STRAIGHT_ZONES.length - 1) * 2);
+  assert.ok(COURSE_CURVES.every((curve) => curve.role === "boundary"));
   assert.ok(COURSE_CURVE_RECTS.length >= 60);
   assert.equal(ROTATING_BARS.length, 4);
 
-  const funnelInLeft = COURSE_CURVES.find(
-    (curve) => curve.id === "funnel-in-left",
+  const widths = STRAIGHT_ZONES.map(
+    (zone) => zone.rightX - zone.leftX,
   );
-  const funnelInRight = COURSE_CURVES.find(
-    (curve) => curve.id === "funnel-in-right",
+  assert.ok(Math.max(...widths) - Math.min(...widths) >= 600);
+  const centres = STRAIGHT_ZONES.map(
+    (zone) => (zone.leftX + zone.rightX) / 2,
   );
-  const funnelOutLeft = COURSE_CURVES.find(
-    (curve) => curve.id === "funnel-out-left",
-  );
-  const funnelOutRight = COURSE_CURVES.find(
-    (curve) => curve.id === "funnel-out-right",
-  );
-  assert.ok(funnelInLeft && funnelInRight && funnelOutLeft && funnelOutRight);
-  const narrowWidth =
-    funnelInRight.points.at(-1)!.x -
-    funnelInLeft.points.at(-1)!.x -
-    funnelInLeft.thickness;
-  const restoredWidth =
-    funnelOutRight.points.at(-1)!.x -
-    funnelOutLeft.points.at(-1)!.x -
-    funnelOutLeft.thickness;
-  assert.ok(narrowWidth > MIN_COURSE_CLEARANCE);
-  assert.ok(restoredWidth > narrowWidth * 2);
+  assert.ok(Math.max(...centres) >= 600);
+  assert.ok(Math.min(...centres) <= 300);
 
-  const finishFunnelLeft = COURSE_CURVES.find(
-    (curve) => curve.id === "finish-funnel-left",
+  const finishCorridor = STRAIGHT_ZONES.find(
+    (zone) => zone.id === "finish-corridor",
   );
-  const finishFunnelRight = COURSE_CURVES.find(
-    (curve) => curve.id === "finish-funnel-right",
-  );
-  assert.ok(finishFunnelLeft && finishFunnelRight);
+  assert.ok(finishCorridor);
   const finishApproachWidth =
-    finishFunnelRight.points.at(-1)!.x -
-    finishFunnelLeft.points.at(-1)!.x -
-    finishFunnelLeft.thickness;
+    finishCorridor.rightX - finishCorridor.leftX - 24;
   assert.equal(finishApproachWidth, FINISH_LINE_WIDTH);
   assert.ok(finishApproachWidth > MIN_COURSE_CLEARANCE);
   const finishSpinner = ROTATING_BARS.at(-1)!;
@@ -143,6 +120,62 @@ test("the asymmetric course targets a roughly twenty-second first finish", () =>
     assert.ok(average >= TARGET_FIRST_FINISH_SECONDS - 5);
     assert.ok(average <= TARGET_FIRST_FINISH_SECONDS + 5);
   }
+});
+
+test("obstacles stay on straight zones and wall bumpers feed inward", () => {
+  const zones = new Map(STRAIGHT_ZONES.map((zone) => [zone.id, zone]));
+  const obstacleRects = COURSE_RECTS.filter(
+    (rect) => rect.obstacleKind !== undefined,
+  );
+
+  for (const rect of obstacleRects) {
+    const zone = zones.get(rect.zoneId!);
+    assert.ok(zone, `missing zone for ${rect.zoneId}`);
+    const angle = rect.angle ?? 0;
+    const halfVerticalExtent =
+      (Math.abs(Math.sin(angle)) * rect.width +
+        Math.abs(Math.cos(angle)) * rect.height) /
+      2;
+    assert.ok(rect.y - halfVerticalExtent >= zone.startY);
+    assert.ok(rect.y + halfVerticalExtent <= zone.endY);
+
+    if (!rect.attachment) continue;
+    const halfHorizontalSpan =
+      (Math.abs(Math.cos(angle)) * rect.width) / 2;
+    if (rect.attachment === "left") {
+      assert.ok(angle > 0);
+      assert.ok(Math.abs(rect.x - halfHorizontalSpan - zone.leftX) < 1e-6);
+      assert.ok(rect.y + Math.sin(angle) * (rect.width / 2) > rect.y);
+    } else {
+      assert.ok(angle < 0);
+      assert.ok(Math.abs(rect.x + halfHorizontalSpan - zone.rightX) < 1e-6);
+      assert.ok(rect.y - Math.sin(angle) * (rect.width / 2) > rect.y);
+    }
+  }
+
+  for (const pin of COURSE_PINS) {
+    const zone = zones.get(pin.zoneId);
+    assert.ok(zone);
+    assert.ok(pin.y - pin.radius >= zone.startY);
+    assert.ok(pin.y + pin.radius <= zone.endY);
+  }
+
+  for (const bar of ROTATING_BARS) {
+    const zone = zones.get(bar.zoneId);
+    assert.ok(zone);
+    const sweepRadius = Math.hypot(bar.width / 2, bar.height / 2);
+    assert.ok(bar.y - sweepRadius >= zone.startY);
+    assert.ok(bar.y + sweepRadius <= zone.endY);
+  }
+
+  assert.ok(
+    obstacleRects.filter((rect) => rect.obstacleKind === "wall-bumper")
+      .length >= 8,
+  );
+  assert.ok(
+    obstacleRects.filter((rect) => rect.obstacleKind === "shelf").length >=
+      3,
+  );
 });
 
 test("rotating bars keep turning through complete revolutions", () => {
