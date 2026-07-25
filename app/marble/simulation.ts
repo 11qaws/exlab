@@ -1,21 +1,23 @@
 import Matter from "matter-js";
 import type { IChamferableBodyDefinition } from "matter-js";
 import { createPrng } from "./core";
+import { assertCourseClearance } from "./course-clearance";
+import {
+  COURSE_CURVE_RECTS,
+  COURSE_PINS,
+  COURSE_RECTS,
+  FINISH_Y,
+  MARBLE_RADIUS,
+  MAX_SIMULATION_SECONDS,
+  ROTATING_BARS,
+  rotatingBarAngle,
+  WORLD_WIDTH,
+} from "./course";
 import type { MarblePose, RaceFrame, RaceSimulation } from "./types";
 
 const { Bodies, Body, Composite, Engine } = Matter;
 
-export const WORLD_WIDTH = 900;
-export const WORLD_HEIGHT = 2500;
-export const FINISH_Y = 2260;
-export const MARBLE_RADIUS = 15;
 export const FRAME_RATE = 30;
-export const VIEW_HEIGHT = 980;
-
-type RaceBodies = {
-  marbles: Matter.Body[];
-  rotatingBar: Matter.Body;
-};
 
 const obstacleOptions: IChamferableBodyDefinition = {
   isStatic: true,
@@ -24,94 +26,47 @@ const obstacleOptions: IChamferableBodyDefinition = {
   render: { visible: false },
 };
 
-function addCourse(engine: Matter.Engine): RaceBodies["rotatingBar"] {
-  const bodies: Matter.Body[] = [];
+const INITIAL_GRAVITY_BY_PARTICIPANT_COUNT: Record<number, number> = {
+  2: 0.5,
+  3: 0.4,
+  4: 0.3,
+  5: 0.25,
+  6: 0.2,
+  7: 0.17,
+  8: 0.14,
+  9: 0.115,
+  10: 0.095,
+};
 
-  bodies.push(
-    Bodies.rectangle(45, WORLD_HEIGHT / 2, 70, WORLD_HEIGHT, obstacleOptions),
-    Bodies.rectangle(
-      WORLD_WIDTH - 45,
-      WORLD_HEIGHT / 2,
-      70,
-      WORLD_HEIGHT,
-      obstacleOptions,
-    ),
-  );
-
-  const pinRows = [
-    { y: 340, xs: [150, 270, 390, 510, 630, 750] },
-    { y: 485, xs: [210, 330, 450, 570, 690] },
-    { y: 630, xs: [150, 270, 390, 510, 630, 750] },
-    { y: 775, xs: [210, 330, 450, 570, 690] },
-  ];
-
-  pinRows.forEach(({ y, xs }) => {
-    xs.forEach((x) => {
-      bodies.push(Bodies.circle(x, y, 19, obstacleOptions));
-    });
-  });
-
-  const rotatingBar = Bodies.rectangle(450, 970, 330, 24, {
-    ...obstacleOptions,
-    chamfer: { radius: 12 },
-    label: "rotating-bar",
-  });
-  bodies.push(rotatingBar);
-
-  bodies.push(
-    Bodies.rectangle(245, 1210, 300, 24, {
-      ...obstacleOptions,
-      angle: 0.24,
-      chamfer: { radius: 10 },
-    }),
-    Bodies.rectangle(655, 1210, 300, 24, {
-      ...obstacleOptions,
-      angle: -0.24,
-      chamfer: { radius: 10 },
-    }),
-    Bodies.circle(450, 1335, 34, obstacleOptions),
-  );
-
-  const gateXs = [145, 265, 385, 515, 635, 755];
-  gateXs.forEach((x, index) => {
-    bodies.push(
-      Bodies.rectangle(x, 1530 + (index % 2) * 105, 24, 165, {
+function addCourse(engine: Matter.Engine): Matter.Body[] {
+  assertCourseClearance();
+  const staticBodies = [
+    ...[...COURSE_RECTS, ...COURSE_CURVE_RECTS].map((shape) =>
+      Bodies.rectangle(shape.x, shape.y, shape.width, shape.height, {
         ...obstacleOptions,
-        angle: index % 2 === 0 ? -0.18 : 0.18,
-        chamfer: { radius: 9 },
+        angle: shape.angle ?? 0,
+        chamfer: {
+          radius: Math.min(
+            shape.role === "gate" ? 9 : 12,
+            shape.width / 2,
+            shape.height / 2,
+          ),
+        },
       }),
-    );
-  });
-
-  bodies.push(
-    Bodies.circle(300, 1810, 36, obstacleOptions),
-    Bodies.circle(450, 1740, 36, obstacleOptions),
-    Bodies.circle(600, 1810, 36, obstacleOptions),
-    Bodies.rectangle(235, 2050, 310, 28, {
+    ),
+    ...COURSE_PINS.map((pin) =>
+      Bodies.circle(pin.x, pin.y, pin.radius, obstacleOptions),
+    ),
+  ];
+  const rotatingBodies = ROTATING_BARS.map((bar, index) =>
+    Bodies.rectangle(bar.x, bar.y, bar.width, bar.height, {
       ...obstacleOptions,
-      angle: 0.42,
       chamfer: { radius: 12 },
+      label: `rotating-bar-${index + 1}`,
     }),
-    Bodies.rectangle(665, 2050, 310, 28, {
-      ...obstacleOptions,
-      angle: -0.42,
-      chamfer: { radius: 12 },
-    }),
-    Bodies.rectangle(320, 2200, 210, 24, {
-      ...obstacleOptions,
-      angle: 0.1,
-      chamfer: { radius: 10 },
-    }),
-    Bodies.rectangle(580, 2200, 210, 24, {
-      ...obstacleOptions,
-      angle: -0.1,
-      chamfer: { radius: 10 },
-    }),
-    Bodies.rectangle(450, WORLD_HEIGHT - 20, WORLD_WIDTH, 40, obstacleOptions),
   );
-
-  Composite.add(engine.world, bodies);
-  return rotatingBar;
+  Composite.add(engine.world, [...staticBodies, ...rotatingBodies]);
+  return rotatingBodies;
 }
 
 function addMarbles(
@@ -174,7 +129,7 @@ function rankMarbles(
 function captureFrame(
   marbles: Matter.Body[],
   finishedSlotIds: string[],
-  barAngle: number,
+  rotatingBarAngles: number[],
 ): RaceFrame {
   const poses: MarblePose[] = marbles.map((marble) => ({
     slotId: marble.label,
@@ -186,7 +141,7 @@ function captureFrame(
     poses,
     rankedSlotIds: rankMarbles(marbles, finishedSlotIds),
     finishedSlotIds: [...finishedSlotIds],
-    barAngle,
+    rotatingBarAngles,
   };
 }
 
@@ -200,15 +155,16 @@ export function simulateRace(
   }
 
   const random = createPrng(raceSeed);
+  const baseGravityY = INITIAL_GRAVITY_BY_PARTICIPANT_COUNT[participantCount];
   const engine = Engine.create({
-    gravity: { x: 0, y: 1.12, scale: 0.001 },
+    gravity: { x: 0, y: baseGravityY, scale: 0.001 },
     enableSleeping: false,
   });
   engine.positionIterations = 8;
   engine.velocityIterations = 6;
   engine.constraintIterations = 2;
 
-  const rotatingBar = addCourse(engine);
+  const rotatingBars = addCourse(engine);
   const { marbles, layoutShift } = addMarbles(
     engine,
     participantCount,
@@ -226,26 +182,50 @@ export function simulateRace(
   const finishedSlotIds: string[] = [];
   const finished = new Set<string>();
   const stepMs = 1000 / 60;
-  const maxSteps = 60 * 52;
+  const maxSteps = 60 * MAX_SIMULATION_SECONDS;
   let winnerFrameIndex = -1;
   let step = 0;
 
   for (; step < maxSteps; step += 1) {
-    const barAngle = Math.sin(step / 48) * 0.72;
-    Body.setAngle(rotatingBar, barAngle);
-    Body.setAngularVelocity(rotatingBar, Math.cos(step / 48) * 0.015);
+    const rotatingBarAngles = rotatingBars.map((body, index) => {
+      const definition = ROTATING_BARS[index];
+      const angle = rotatingBarAngle(definition, step);
+      Body.setAngle(body, angle);
+      Body.setAngularVelocity(
+        body,
+        definition.angularSpeed,
+      );
+      return angle;
+    });
 
-    if (step === 1100) {
-      engine.gravity.y = 1.65;
-      engine.gravity.x = 0.28;
+    if (participantCount <= 3 && step === 720) {
+      engine.gravity.x = 0.13;
     }
-    if (step === 1450) {
-      engine.gravity.x = -0.28;
+    if (participantCount <= 3 && step === 960) {
+      engine.gravity.x = -0.13;
     }
-    if (step === 1800) {
+    if (participantCount <= 3 && step === 1200) {
       engine.gravity.x = 0;
     }
+    if (step === 1500) {
+      engine.gravity.y = 1.45;
+      engine.gravity.x = 0.16;
+    }
     if (step === 2100) {
+      engine.gravity.x = -0.18;
+    }
+    if (step === 2700) {
+      engine.gravity.x = 0;
+      engine.gravity.y = 1.85;
+    }
+    if (step === 3300) {
+      engine.gravity.x = 0.2;
+    }
+    if (step === 3600) {
+      engine.gravity.x = -0.2;
+    }
+    if (step === 3900) {
+      engine.gravity.x = 0;
       engine.gravity.y = 2.3;
     }
 
@@ -259,7 +239,9 @@ export function simulateRace(
     });
 
     if (step % 2 === 0) {
-      frames.push(captureFrame(marbles, finishedSlotIds, barAngle));
+      frames.push(
+        captureFrame(marbles, finishedSlotIds, rotatingBarAngles),
+      );
       if (winnerFrameIndex < 0 && finishedSlotIds.length > 0) {
         winnerFrameIndex = frames.length - 1;
       }

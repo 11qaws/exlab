@@ -8,6 +8,14 @@ import {
   parseRoster,
   shortName,
 } from "./core";
+import {
+  COURSE_CURVES,
+  COURSE_PINS,
+  COURSE_RECTS,
+  FINISH_Y,
+  ROTATING_BARS,
+  WORLD_HEIGHT,
+} from "./course";
 import { FRAME_RATE, simulateRace } from "./simulation";
 import type {
   Candidate,
@@ -67,30 +75,118 @@ function StartPreview({
   layoutSeed: string;
 }) {
   const shift = ((layoutSeed.length * 17) % 17) - 8;
+  const previewY = (worldY: number) => 42 + (worldY / WORLD_HEIGHT) * 468;
+  const activeCount = Math.max(2, participantCount);
+  const marbleSpan = Math.min(650, Math.max(220, (activeCount - 1) * 72));
+  const marbleStart = 450 - marbleSpan / 2 + shift * 2;
   return (
     <div className="map-preview" aria-label="레또 드롭 경기장 미리보기">
-      <div className="preview-start">
-        <span>START</span>
-        <div
-          className="preview-marbles"
-          style={{ transform: `translateX(${shift}px)` }}
-        >
-          {Array.from({ length: Math.max(2, participantCount) }, (_, index) => (
-            <i key={index} />
-          ))}
-        </div>
-      </div>
-      <div className="preview-pins">
-        {Array.from({ length: 17 }, (_, index) => (
-          <i key={index} />
+      <svg
+        className="preview-course"
+        viewBox="0 0 900 540"
+        role="img"
+        aria-label="사이클로이드 커브와 수축 구간을 포함한 비대칭 수직 마블 코스"
+      >
+        <defs>
+          <pattern
+            id="preview-checker"
+            width="24"
+            height="12"
+            patternUnits="userSpaceOnUse"
+          >
+            <rect width="12" height="12" fill="#fff8ef" />
+            <rect x="12" width="12" height="12" fill="#e84f83" />
+          </pattern>
+        </defs>
+        <rect x="45" width="24" height="540" fill="#4f2c39" />
+        <rect x="831" width="24" height="540" fill="#4f2c39" />
+        {COURSE_RECTS.filter(
+          (shape) => shape.role !== "wall" && shape.y < FINISH_Y,
+        ).map((shape, index) => {
+          const y = previewY(shape.y);
+          const visualAngle = ((shape.angle ?? 0) * 180 * 0.42) / Math.PI;
+          return (
+            <rect
+              key={`rail-${index}`}
+              x={shape.x - shape.width / 2}
+              y={y - 3}
+              width={shape.width}
+              height={shape.role === "gate" ? 10 : 7}
+              rx="4"
+              fill={shape.role === "gate" ? "#754557" : "#684050"}
+              transform={`rotate(${visualAngle} ${shape.x} ${y})`}
+            />
+          );
+        })}
+        {COURSE_CURVES.map((curve) => (
+          <polyline
+            key={curve.id}
+            points={curve.points
+              .map((point) => `${point.x},${previewY(point.y)}`)
+              .join(" ")}
+            fill="none"
+            stroke={curve.role === "funnel" ? "#754557" : "#684050"}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         ))}
-      </div>
-      <div className="preview-bar" />
-      <div className="preview-split">
-        <i />
-        <i />
-      </div>
-      <div className="preview-finish">FINISH</div>
+        {COURSE_PINS.map((pin, index) => (
+          <circle
+            key={`pin-${index}`}
+            cx={pin.x}
+            cy={previewY(pin.y)}
+            r={pin.radius > 25 ? 8 : 5}
+            fill="#845165"
+          />
+        ))}
+        {ROTATING_BARS.map((bar, index) => {
+          const y = previewY(bar.y);
+          return (
+            <rect
+              key={`spinner-${index}`}
+              x={bar.x - bar.width / 2}
+              y={y - 5}
+              width={bar.width}
+              height="10"
+              rx="5"
+              fill="#f1b3c6"
+              transform={`rotate(${index % 2 === 0 ? -7 : 8} ${bar.x} ${y})`}
+            />
+          );
+        })}
+        <text x="450" y="19" textAnchor="middle">
+          START
+        </text>
+        {Array.from({ length: activeCount }, (_, index) => (
+          <circle
+            key={`marble-${index}`}
+            cx={
+              marbleStart +
+              (activeCount === 1 ? 0 : (marbleSpan / (activeCount - 1)) * index)
+            }
+            cy="31"
+            r="7"
+            fill="#e84f83"
+            stroke="#fff8ef"
+            strokeWidth="2"
+          />
+        ))}
+        <rect
+          x="315"
+          y={previewY(FINISH_Y)}
+          width="270"
+          height="9"
+          fill="url(#preview-checker)"
+        />
+        <text
+          x="450"
+          y={previewY(FINISH_Y) - 7}
+          textAnchor="middle"
+        >
+          FINISH
+        </text>
+      </svg>
     </div>
   );
 }
@@ -645,7 +741,10 @@ export function MarbleGame() {
           <div className="venue-copy">
             <p className="eyebrow">COURSE 01</p>
             <h2 id="venue-title">레또 드롭</h2>
-            <p>핀 필드, 회전 바, 합류 레일을 통과하는 약 8초의 수직 코스</p>
+            <p>
+              좌·우 사이클로이드와 수축·확장 구간, 3개의 360° 회전 바를
+              통과하는 약 20초 코스
+            </p>
           </div>
           <StartPreview
             participantCount={validation.candidates.length}

@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  COURSE_CURVES,
+  COURSE_CURVE_RECTS,
+  COURSE_PINS,
+  COURSE_RECTS,
+  ROTATING_BARS,
+  TARGET_FIRST_FINISH_SECONDS,
+  WORLD_HEIGHT,
+  rotatingBarAngle,
+} from "../app/marble/course";
+import {
+  inspectCourseClearance,
+  MARBLE_DIAMETER,
+  MIN_COURSE_CLEARANCE,
+} from "../app/marble/course-clearance";
+import {
   buildRacePlan,
   parseRoster,
   shuffleSeeded,
@@ -50,6 +65,89 @@ test("physics simulation produces a stable winner for the same seeds", () => {
   assert.ok(first.winnerFrameIndex >= 0);
 });
 
+test("the asymmetric course targets a roughly twenty-second first finish", () => {
+  assert.ok(WORLD_HEIGHT >= 8_000);
+  assert.ok(COURSE_RECTS.length + COURSE_CURVE_RECTS.length >= 80);
+  assert.ok(COURSE_PINS.length >= 25);
+  assert.equal(
+    COURSE_CURVES.filter((curve) => curve.role === "cycloid").length,
+    2,
+  );
+  assert.equal(
+    COURSE_CURVES.filter((curve) => curve.role === "funnel").length,
+    4,
+  );
+  assert.ok(COURSE_CURVE_RECTS.length >= 60);
+  assert.equal(ROTATING_BARS.length, 3);
+
+  const funnelInLeft = COURSE_CURVES.find(
+    (curve) => curve.id === "funnel-in-left",
+  );
+  const funnelInRight = COURSE_CURVES.find(
+    (curve) => curve.id === "funnel-in-right",
+  );
+  const funnelOutLeft = COURSE_CURVES.find(
+    (curve) => curve.id === "funnel-out-left",
+  );
+  const funnelOutRight = COURSE_CURVES.find(
+    (curve) => curve.id === "funnel-out-right",
+  );
+  assert.ok(funnelInLeft && funnelInRight && funnelOutLeft && funnelOutRight);
+  const narrowWidth =
+    funnelInRight.points.at(-1)!.x -
+    funnelInLeft.points.at(-1)!.x -
+    funnelInLeft.thickness;
+  const restoredWidth =
+    funnelOutRight.points.at(-1)!.x -
+    funnelOutLeft.points.at(-1)!.x -
+    funnelOutLeft.thickness;
+  assert.ok(narrowWidth > MIN_COURSE_CLEARANCE);
+  assert.ok(restoredWidth > narrowWidth * 2);
+
+  for (const participantCount of [5, 10]) {
+    const firstFinishSeconds = Array.from({ length: 12 }, (_, index) => {
+      const simulation = simulateRace(
+        participantCount,
+        `duration-${participantCount}-${index}`,
+        `layout-duration-${index}`,
+      );
+      assert.ok(simulation.physicallyFinishedCount > 0);
+      return simulation.winnerFrameIndex / 30;
+    });
+    const average =
+      firstFinishSeconds.reduce((sum, duration) => sum + duration, 0) /
+      firstFinishSeconds.length;
+
+    assert.ok(average >= TARGET_FIRST_FINISH_SECONDS - 5);
+    assert.ok(average <= TARGET_FIRST_FINISH_SECONDS + 5);
+  }
+});
+
+test("rotating bars keep turning through complete revolutions", () => {
+  for (const bar of ROTATING_BARS) {
+    const rotation =
+      rotatingBarAngle(bar, 600) - rotatingBarAngle(bar, 0);
+    assert.ok(Math.abs(rotation) > Math.PI * 2);
+  }
+});
+
+test("every independent course object leaves more than one marble diameter", () => {
+  const report = inspectCourseClearance();
+  assert.ok(MIN_COURSE_CLEARANCE > MARBLE_DIAMETER);
+  assert.equal(
+    report.violations.length,
+    0,
+    report.violations
+      .slice(0, 12)
+      .map(
+        ({ firstId, secondId, clearance }) =>
+          `${firstId} ↔ ${secondId}: ${clearance.toFixed(1)}px`,
+      )
+      .join(", "),
+  );
+  assert.ok(report.minimumClearance >= MIN_COURSE_CLEARANCE);
+});
+
 test("preselected mode maps the locked result onto physical finish slots", () => {
   const candidates = parseRoster("가\n나\n다\n라").candidates;
   const simulation = simulateRace(4, "race-plan", "layout-plan");
@@ -68,4 +166,3 @@ test("preselected mode maps the locked result onto physical finish slots", () =>
   assert.equal(new Set(plan.rankedCandidateIds).size, 4);
   assert.equal(plan.winnerId, plan.rankedCandidateIds[0]);
 });
-

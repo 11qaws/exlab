@@ -25,7 +25,7 @@ export type RaceFrame = {
   poses: MarblePose[];
   rankedSlotIds: string[];
   finishedSlotIds: string[];
-  barAngle: number;
+  rotatingBarAngles: number[];
 };
 
 export type RaceSimulation = {

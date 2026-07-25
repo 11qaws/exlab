@@ -3,12 +3,17 @@
 import { useEffect, useMemo, useRef } from "react";
 import { shortName } from "./core";
 import {
+  COURSE_CURVES,
+  COURSE_PINS,
+  COURSE_RECTS,
   FINISH_Y,
   MARBLE_RADIUS,
+  ROTATING_BARS,
   VIEW_HEIGHT,
   WORLD_HEIGHT,
   WORLD_WIDTH,
-} from "./simulation";
+} from "./course";
+import type { CourseRect } from "./course";
 import type { RacePlan } from "./types";
 
 type RaceCanvasProps = {
@@ -17,53 +22,9 @@ type RaceCanvasProps = {
   reducedMotion: boolean;
 };
 
-type RectShape = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  angle?: number;
-};
-
-const STATIC_RECTS: RectShape[] = [
-  { x: 45, y: WORLD_HEIGHT / 2, width: 70, height: WORLD_HEIGHT },
-  {
-    x: WORLD_WIDTH - 45,
-    y: WORLD_HEIGHT / 2,
-    width: 70,
-    height: WORLD_HEIGHT,
-  },
-  { x: 245, y: 1210, width: 300, height: 24, angle: 0.24 },
-  { x: 655, y: 1210, width: 300, height: 24, angle: -0.24 },
-  { x: 145, y: 1530, width: 24, height: 165, angle: -0.18 },
-  { x: 265, y: 1635, width: 24, height: 165, angle: 0.18 },
-  { x: 385, y: 1530, width: 24, height: 165, angle: -0.18 },
-  { x: 515, y: 1635, width: 24, height: 165, angle: 0.18 },
-  { x: 635, y: 1530, width: 24, height: 165, angle: -0.18 },
-  { x: 755, y: 1635, width: 24, height: 165, angle: 0.18 },
-  { x: 235, y: 2050, width: 310, height: 28, angle: 0.42 },
-  { x: 665, y: 2050, width: 310, height: 28, angle: -0.42 },
-  { x: 320, y: 2200, width: 210, height: 24, angle: 0.1 },
-  { x: 580, y: 2200, width: 210, height: 24, angle: -0.1 },
-];
-
-const PIN_ROWS = [
-  { y: 340, xs: [150, 270, 390, 510, 630, 750] },
-  { y: 485, xs: [210, 330, 450, 570, 690] },
-  { y: 630, xs: [150, 270, 390, 510, 630, 750] },
-  { y: 775, xs: [210, 330, 450, 570, 690] },
-];
-
-const LARGE_PINS = [
-  { x: 450, y: 1335, radius: 34 },
-  { x: 300, y: 1810, radius: 36 },
-  { x: 450, y: 1740, radius: 36 },
-  { x: 600, y: 1810, radius: 36 },
-];
-
 function roundedRect(
   context: CanvasRenderingContext2D,
-  shape: RectShape,
+  shape: CourseRect,
   scale: number,
   offsetX: number,
   offsetY: number,
@@ -126,25 +87,29 @@ export function RaceCanvas({
 
     const logicalWidth = rect.width;
     const logicalHeight = rect.height;
-    const viewHeight = reducedMotion ? WORLD_HEIGHT : VIEW_HEIGHT;
+    const viewHeight = VIEW_HEIGHT;
     const scale = Math.min(
       logicalWidth / WORLD_WIDTH,
       logicalHeight / viewHeight,
     );
     const offsetX = (logicalWidth - WORLD_WIDTH * scale) / 2;
     const offsetY = (logicalHeight - viewHeight * scale) / 2;
-    const leaderPose = frame.poses.find(
-      (pose) => pose.slotId === frame.rankedSlotIds[0],
+    const leadingPoses = frame.rankedSlotIds
+      .slice(0, 3)
+      .map((slotId) => frame.poses.find((pose) => pose.slotId === slotId))
+      .filter((pose) => pose !== undefined);
+    const focusY =
+      leadingPoses.length > 0
+        ? leadingPoses.reduce((sum, pose) => sum + pose.y, 0) /
+          leadingPoses.length
+        : 0;
+    const targetCameraY = Math.max(
+      0,
+      Math.min(
+        WORLD_HEIGHT - viewHeight,
+        focusY - viewHeight * 0.42,
+      ),
     );
-    const targetCameraY = reducedMotion
-      ? 0
-      : Math.max(
-          0,
-          Math.min(
-            WORLD_HEIGHT - viewHeight,
-            (leaderPose?.y ?? 0) - viewHeight * 0.34,
-          ),
-        );
     cameraYRef.current = reducedMotion
       ? targetCameraY
       : cameraYRef.current + (targetCameraY - cameraYRef.current) * 0.14;
@@ -176,25 +141,29 @@ export function RaceCanvas({
     context.restore();
 
     context.fillStyle = "#5d3342";
-    STATIC_RECTS.forEach((shape) => {
+    COURSE_RECTS.forEach((shape) => {
       roundedRect(context, shape, scale, offsetX, offsetY, cameraY);
     });
 
-    context.fillStyle = "#825163";
-    PIN_ROWS.forEach(({ y, xs }) => {
-      xs.forEach((x) => {
-        context.beginPath();
-        context.arc(
-          offsetX + x * scale,
-          offsetY + (y - cameraY) * scale,
-          19 * scale,
-          0,
-          Math.PI * 2,
-        );
-        context.fill();
+    context.save();
+    context.strokeStyle = "#6f4051";
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    COURSE_CURVES.forEach((curve) => {
+      context.beginPath();
+      curve.points.forEach((point, index) => {
+        const x = offsetX + point.x * scale;
+        const y = offsetY + (point.y - cameraY) * scale;
+        if (index === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
       });
+      context.lineWidth = curve.thickness * scale;
+      context.stroke();
     });
-    LARGE_PINS.forEach(({ x, y, radius }) => {
+    context.restore();
+
+    context.fillStyle = "#825163";
+    COURSE_PINS.forEach(({ x, y, radius }) => {
       context.beginPath();
       context.arc(
         offsetX + x * scale,
@@ -207,21 +176,23 @@ export function RaceCanvas({
     });
 
     context.fillStyle = "#f1b3c6";
-    roundedRect(
-      context,
-      {
-        x: 450,
-        y: 970,
-        width: 330,
-        height: 24,
-        angle: frame.barAngle,
-      },
-      scale,
-      offsetX,
-      offsetY,
-      cameraY,
-      12,
-    );
+    ROTATING_BARS.forEach((bar, index) => {
+      roundedRect(
+        context,
+        {
+          x: bar.x,
+          y: bar.y,
+          width: bar.width,
+          height: bar.height,
+          angle: frame.rotatingBarAngles[index] ?? bar.baseAngle,
+        },
+        scale,
+        offsetX,
+        offsetY,
+        cameraY,
+        12,
+      );
+    });
 
     const finishScreenY = offsetY + (FINISH_Y - cameraY) * scale;
     if (finishScreenY > -20 && finishScreenY < logicalHeight + 20) {
