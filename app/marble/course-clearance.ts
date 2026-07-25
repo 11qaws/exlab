@@ -4,6 +4,8 @@ import {
   COURSE_RECTS,
   MARBLE_RADIUS,
   ROTATING_BARS,
+  STRAIGHT_ZONES,
+  type BoundarySide,
   type CourseRect,
 } from "./course";
 
@@ -45,11 +47,17 @@ export type CourseClearanceViolation = {
   requiredClearance: number;
 };
 
+export type CourseWallCoverageViolation = {
+  zoneId: string;
+  missingSides: BoundarySide[];
+};
+
 export type CourseClearanceReport = {
   minimumClearance: number;
   requiredClearance: number;
   checkedPairCount: number;
   violations: CourseClearanceViolation[];
+  wallCoverageViolations: CourseWallCoverageViolation[];
 };
 
 function rectPoints(rect: CourseRect): Point[] {
@@ -270,6 +278,28 @@ function courseShapes(): CourseShape[] {
   return [...rectangles, ...pins, ...rotatingPivots];
 }
 
+function inspectWallCoverage(): CourseWallCoverageViolation[] {
+  const wallBumpers = COURSE_RECTS.filter(
+    (rect) => rect.obstacleKind === "wall-bumper",
+  );
+  const sides: BoundarySide[] = ["left", "right"];
+
+  return STRAIGHT_ZONES.filter(
+    (zone) => zone.requiresBilateralWallObstacles,
+  ).flatMap((zone) => {
+    const missingSides = sides.filter(
+      (side) =>
+        !wallBumpers.some(
+          (rect) =>
+            rect.zoneId === zone.id && rect.attachment === side,
+        ),
+    );
+    return missingSides.length > 0
+      ? [{ zoneId: zone.id, missingSides }]
+      : [];
+  });
+}
+
 export function inspectCourseClearance(): CourseClearanceReport {
   const shapes = courseShapes();
   const violations: CourseClearanceViolation[] = [];
@@ -306,22 +336,45 @@ export function inspectCourseClearance(): CourseClearanceReport {
     minimumClearance,
     requiredClearance: MIN_COURSE_CLEARANCE,
     checkedPairCount,
-    violations: violations.sort((left, right) => left.clearance - right.clearance),
+    violations: violations.sort(
+      (left, right) => left.clearance - right.clearance,
+    ),
+    wallCoverageViolations: inspectWallCoverage(),
   };
 }
 
 export function assertCourseClearance(): void {
   const report = inspectCourseClearance();
-  if (report.violations.length === 0) return;
+  if (
+    report.violations.length === 0 &&
+    report.wallCoverageViolations.length === 0
+  ) {
+    return;
+  }
 
-  const details = report.violations
+  const clearanceDetails = report.violations
     .slice(0, 8)
     .map(
       ({ firstId, secondId, clearance }) =>
         `${firstId} ↔ ${secondId}: ${clearance.toFixed(1)}px`,
     )
     .join(", ");
-  throw new Error(
-    `코스 최소 통과 폭 ${MIN_COURSE_CLEARANCE}px 위반 ${report.violations.length}건: ${details}`,
-  );
+  const wallCoverageDetails = report.wallCoverageViolations
+    .map(
+      ({ zoneId, missingSides }) =>
+        `${zoneId}: ${missingSides.join("+")}`,
+    )
+    .join(", ");
+  const messages: string[] = [];
+  if (report.violations.length > 0) {
+    messages.push(
+      `최소 통과 폭 ${MIN_COURSE_CLEARANCE}px 위반 ${report.violations.length}건 (${clearanceDetails})`,
+    );
+  }
+  if (report.wallCoverageViolations.length > 0) {
+    messages.push(
+      `직선 구간 양측 벽 장애물 누락 ${report.wallCoverageViolations.length}건 (${wallCoverageDetails})`,
+    );
+  }
+  throw new Error(`코스 검사 실패: ${messages.join("; ")}`);
 }

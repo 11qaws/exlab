@@ -27,15 +27,15 @@ const obstacleOptions: IChamferableBodyDefinition = {
 };
 
 const INITIAL_GRAVITY_BY_PARTICIPANT_COUNT: Record<number, number> = {
-  2: 0.9,
-  3: 0.85,
-  4: 0.8,
-  5: 0.75,
-  6: 0.72,
-  7: 0.69,
-  8: 0.66,
-  9: 0.63,
-  10: 0.6,
+  2: 1.08,
+  3: 1.02,
+  4: 0.96,
+  5: 0.9,
+  6: 0.86,
+  7: 0.83,
+  8: 0.79,
+  9: 0.76,
+  10: 0.72,
 };
 
 function addCourse(engine: Matter.Engine): Matter.Body[] {

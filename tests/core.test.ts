@@ -170,11 +170,33 @@ test("obstacles stay on straight zones and wall bumpers feed inward", () => {
 
   assert.ok(
     obstacleRects.filter((rect) => rect.obstacleKind === "wall-bumper")
-      .length >= 8,
+      .length >= 18,
   );
   assert.ok(
     obstacleRects.filter((rect) => rect.obstacleKind === "shelf").length >=
       3,
+  );
+
+  for (const zone of STRAIGHT_ZONES.filter(
+    (candidate) => candidate.requiresBilateralWallObstacles,
+  )) {
+    for (const side of ["left", "right"] as const) {
+      assert.ok(
+        obstacleRects.some(
+          (rect) =>
+            rect.obstacleKind === "wall-bumper" &&
+            rect.zoneId === zone.id &&
+            rect.attachment === side,
+        ),
+        `${zone.id} is missing its ${side} wall obstacle`,
+      );
+    }
+  }
+
+  assert.equal(
+    STRAIGHT_ZONES.find((zone) => zone.id === "finish-corridor")
+      ?.requiresBilateralWallObstacles,
+    false,
   );
 });
 
@@ -211,6 +233,7 @@ test("every independent course object leaves more than one marble diameter", () 
       )
       .join(", "),
   );
+  assert.deepEqual(report.wallCoverageViolations, []);
   assert.ok(report.minimumClearance >= MIN_COURSE_CLEARANCE);
 });
 

@@ -16,6 +16,7 @@ export type StraightZone = {
   endY: number;
   leftX: number;
   rightX: number;
+  requiresBilateralWallObstacles: boolean;
 };
 
 export type CourseRect = {
@@ -62,13 +63,21 @@ const LEFT_BOUNDARY_GROUP = "left-course-boundary";
 const RIGHT_BOUNDARY_GROUP = "right-course-boundary";
 
 export const STRAIGHT_ZONES: StraightZone[] = [
-  { id: "start-deck", startY: 0, endY: 1050, leftX: 80, rightX: 820 },
+  {
+    id: "start-deck",
+    startY: 0,
+    endY: 1050,
+    leftX: 80,
+    rightX: 820,
+    requiresBilateralWallObstacles: true,
+  },
   {
     id: "right-chute",
     startY: 1200,
     endY: 1900,
     leftX: 300,
     rightX: 820,
+    requiresBilateralWallObstacles: true,
   },
   {
     id: "left-chute",
@@ -76,6 +85,7 @@ export const STRAIGHT_ZONES: StraightZone[] = [
     endY: 2900,
     leftX: 80,
     rightX: 580,
+    requiresBilateralWallObstacles: true,
   },
   {
     id: "central-release",
@@ -83,6 +93,7 @@ export const STRAIGHT_ZONES: StraightZone[] = [
     endY: 4100,
     leftX: 120,
     rightX: 800,
+    requiresBilateralWallObstacles: true,
   },
   {
     id: "right-squeeze",
@@ -90,6 +101,7 @@ export const STRAIGHT_ZONES: StraightZone[] = [
     endY: 5150,
     leftX: 420,
     rightX: 820,
+    requiresBilateralWallObstacles: true,
   },
   {
     id: "left-drift",
@@ -97,6 +109,7 @@ export const STRAIGHT_ZONES: StraightZone[] = [
     endY: 6300,
     leftX: 80,
     rightX: 620,
+    requiresBilateralWallObstacles: true,
   },
   {
     id: "wide-mix",
@@ -104,6 +117,7 @@ export const STRAIGHT_ZONES: StraightZone[] = [
     endY: 7350,
     leftX: 100,
     rightX: 800,
+    requiresBilateralWallObstacles: true,
   },
   {
     id: "left-sprint",
@@ -111,6 +125,7 @@ export const STRAIGHT_ZONES: StraightZone[] = [
     endY: 8000,
     leftX: 80,
     rightX: 520,
+    requiresBilateralWallObstacles: true,
   },
   {
     id: "final-gate",
@@ -118,6 +133,7 @@ export const STRAIGHT_ZONES: StraightZone[] = [
     endY: 8650,
     leftX: 220,
     rightX: 680,
+    requiresBilateralWallObstacles: true,
   },
   {
     id: "finish-corridor",
@@ -125,6 +141,7 @@ export const STRAIGHT_ZONES: StraightZone[] = [
     endY: WORLD_HEIGHT,
     leftX: 390,
     rightX: 510,
+    requiresBilateralWallObstacles: false,
   },
 ];
 
@@ -260,6 +277,10 @@ const COURSE_BOUNDARY_RECTS: CourseRect[] = STRAIGHT_ZONES.flatMap((zone) => [
 ]);
 
 const COURSE_OBSTACLE_RECTS: CourseRect[] = [
+  // Start deck: block both wall-hugging launch lines before the first spinner.
+  wallBumper("start-deck", "left", 760, 160, 0.22),
+  wallBumper("start-deck", "right", 980, 160, 0.22),
+
   // Right chute: both walls feed down and inward, then a low centre shelf splits.
   wallBumper("right-chute", "left", 1340, 180, 0.24),
   wallBumper("right-chute", "right", 1610, 190, 0.24),
@@ -270,6 +291,10 @@ const COURSE_OBSTACLE_RECTS: CourseRect[] = [
   wallBumper("left-chute", "left", 2630, 200, 0.22),
   shelf("left-chute", 360, 2820, 150, -0.12),
 
+  // Central release: the spinner cannot leave either boundary as a clean lane.
+  wallBumper("central-release", "left", 3340, 160, 0.22),
+  wallBumper("central-release", "right", 4030, 160, 0.22),
+
   // A narrow right-biased straight alternates the attached side.
   wallBumper("right-squeeze", "left", 4590, 150, 0.22),
   wallBumper("right-squeeze", "right", 4860, 150, 0.22),
@@ -279,9 +304,17 @@ const COURSE_OBSTACLE_RECTS: CourseRect[] = [
   wallBumper("left-drift", "right", 5990, 190, 0.24),
   shelf("left-drift", 360, 6200, 160, 0.12),
 
+  // Wide mix: close both side lanes before the offset pin rows.
+  wallBumper("wide-mix", "left", 6700, 160, 0.22),
+  wallBumper("wide-mix", "right", 6820, 160, 0.22),
+
   // The left sprint uses shorter, faster alternating wall deflectors.
   wallBumper("left-sprint", "left", 7650, 170, 0.25),
   wallBumper("left-sprint", "right", 7900, 180, 0.25),
+
+  // Final gate: force both wall lines into the rotating entrance obstacle.
+  wallBumper("final-gate", "left", 8200, 120, 0.2),
+  wallBumper("final-gate", "right", 8600, 120, 0.2),
 ];
 
 const BOTTOM_CAP: CourseRect = {
