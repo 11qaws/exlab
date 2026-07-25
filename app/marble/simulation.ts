@@ -2,6 +2,7 @@ import Matter from "matter-js";
 import type { IChamferableBodyDefinition } from "matter-js";
 import { createPrng } from "./core";
 import { assertCourseClearance } from "./course-clearance";
+import { createRaceDynamics } from "./dynamics";
 import {
   COURSE_CURVE_RECTS,
   COURSE_PINS,
@@ -10,21 +11,27 @@ import {
   MARBLE_RADIUS,
   MAX_SIMULATION_SECONDS,
   ROTATING_BARS,
-  rotatingBarAngle,
   WORLD_WIDTH,
 } from "./course";
-import type { MarblePose, RaceFrame, RaceSimulation } from "./types";
+import type {
+  MarblePose,
+  RaceDynamics,
+  RaceFrame,
+  RaceSimulation,
+} from "./types";
 
 const { Bodies, Body, Composite, Engine } = Matter;
 
 export const FRAME_RATE = 30;
 
-const obstacleOptions: IChamferableBodyDefinition = {
+const obstacleOptions = (
+  restitution: number,
+): IChamferableBodyDefinition => ({
   isStatic: true,
   friction: 0.02,
-  restitution: 0.45,
+  restitution,
   render: { visible: false },
-};
+});
 
 const INITIAL_GRAVITY_BY_PARTICIPANT_COUNT: Record<number, number> = {
   2: 1.08,
@@ -38,12 +45,15 @@ const INITIAL_GRAVITY_BY_PARTICIPANT_COUNT: Record<number, number> = {
   10: 0.72,
 };
 
-function addCourse(engine: Matter.Engine): Matter.Body[] {
+function addCourse(
+  engine: Matter.Engine,
+  dynamics: RaceDynamics,
+): Matter.Body[] {
   assertCourseClearance();
   const staticBodies = [
     ...[...COURSE_RECTS, ...COURSE_CURVE_RECTS].map((shape) =>
       Bodies.rectangle(shape.x, shape.y, shape.width, shape.height, {
-        ...obstacleOptions,
+        ...obstacleOptions(dynamics.obstacleRestitution),
         angle: shape.angle ?? 0,
         chamfer: {
           radius: Math.min(
@@ -55,12 +65,17 @@ function addCourse(engine: Matter.Engine): Matter.Body[] {
       }),
     ),
     ...COURSE_PINS.map((pin) =>
-      Bodies.circle(pin.x, pin.y, pin.radius, obstacleOptions),
+      Bodies.circle(
+        pin.x,
+        pin.y,
+        pin.radius,
+        obstacleOptions(dynamics.pinRestitution),
+      ),
     ),
   ];
   const rotatingBodies = ROTATING_BARS.map((bar, index) =>
     Bodies.rectangle(bar.x, bar.y, bar.width, bar.height, {
-      ...obstacleOptions,
+      ...obstacleOptions(dynamics.obstacleRestitution),
       chamfer: { radius: 12 },
       label: `rotating-bar-${index + 1}`,
     }),
@@ -73,6 +88,7 @@ function addMarbles(
   engine: Matter.Engine,
   count: number,
   layoutSeed: string,
+  restitution: number,
 ): { marbles: Matter.Body[]; layoutShift: number } {
   const random = createPrng(layoutSeed);
   const maxShift = count >= 9 ? 18 : 52;
@@ -87,7 +103,7 @@ function addMarbles(
       friction: 0.012,
       frictionAir: 0.0015,
       frictionStatic: 0,
-      restitution: 0.38,
+      restitution,
       density: 0.001,
       label: `slot-${index + 1}`,
       slop: 0.02,
@@ -155,20 +171,26 @@ export function simulateRace(
   }
 
   const random = createPrng(raceSeed);
+  const dynamics = createRaceDynamics(raceSeed);
   const baseGravityY = INITIAL_GRAVITY_BY_PARTICIPANT_COUNT[participantCount];
   const engine = Engine.create({
-    gravity: { x: 0, y: baseGravityY, scale: 0.001 },
+    gravity: {
+      x: 0,
+      y: baseGravityY * dynamics.gravityScale,
+      scale: 0.001,
+    },
     enableSleeping: false,
   });
   engine.positionIterations = 8;
   engine.velocityIterations = 6;
   engine.constraintIterations = 2;
 
-  const rotatingBars = addCourse(engine);
+  const rotatingBars = addCourse(engine, dynamics);
   const { marbles, layoutShift } = addMarbles(
     engine,
     participantCount,
     layoutSeed,
+    dynamics.marbleRestitution,
   );
 
   marbles.forEach((marble) => {
@@ -188,8 +210,9 @@ export function simulateRace(
 
   for (; step < maxSteps; step += 1) {
     const rotatingBarAngles = rotatingBars.map((body, index) => {
-      const definition = ROTATING_BARS[index];
-      const angle = rotatingBarAngle(definition, step);
+      const definition = dynamics.rotatingBars[index];
+      const angle =
+        definition.baseAngle + step * definition.angularSpeed;
       Body.setAngle(body, angle);
       Body.setAngularVelocity(
         body,
@@ -198,35 +221,32 @@ export function simulateRace(
       return angle;
     });
 
-    if (participantCount <= 3 && step === 720) {
-      engine.gravity.x = 0.13;
-    }
-    if (participantCount <= 3 && step === 960) {
-      engine.gravity.x = -0.13;
-    }
-    if (participantCount <= 3 && step === 1200) {
-      engine.gravity.x = 0;
-    }
+    engine.gravity.x =
+      dynamics.windPulses.find(
+        (pulse) => step >= pulse.startStep && step < pulse.endStep,
+      )?.gravityX ?? 0;
     if (step === 1500) {
       engine.gravity.y = 1.85;
-      engine.gravity.x = 0.16;
-    }
-    if (step === 2100) {
-      engine.gravity.x = -0.18;
     }
     if (step === 2700) {
-      engine.gravity.x = 0;
       engine.gravity.y = 2.2;
     }
-    if (step === 3300) {
-      engine.gravity.x = 0.2;
-    }
-    if (step === 3600) {
-      engine.gravity.x = -0.2;
-    }
     if (step === 3900) {
-      engine.gravity.x = 0;
       engine.gravity.y = 2.8;
+    }
+
+    for (const marble of marbles) {
+      const forceZone = dynamics.forceZones.find(
+        (zone) =>
+          marble.position.y >= zone.startY &&
+          marble.position.y < zone.endY,
+      );
+      if (forceZone) {
+        Body.applyForce(marble, marble.position, {
+          x: forceZone.forceX,
+          y: forceZone.forceY,
+        });
+      }
     }
 
     Engine.update(engine, stepMs);
@@ -272,5 +292,6 @@ export function simulateRace(
     simulationSteps: step + 1,
     physicallyFinishedCount: finishedSlotIds.length,
     timedOut: finishedSlotIds.length !== participantCount,
+    dynamics,
   };
 }

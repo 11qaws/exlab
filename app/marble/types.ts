@@ -28,6 +28,35 @@ export type RaceFrame = {
   rotatingBarAngles: number[];
 };
 
+export type SpinnerDynamics = {
+  baseAngle: number;
+  angularSpeed: number;
+};
+
+export type WindPulse = {
+  startStep: number;
+  endStep: number;
+  gravityX: number;
+};
+
+export type ForceZone = {
+  startY: number;
+  endY: number;
+  forceX: number;
+  forceY: number;
+};
+
+export type RaceDynamics = {
+  fingerprint: string;
+  gravityScale: number;
+  marbleRestitution: number;
+  obstacleRestitution: number;
+  pinRestitution: number;
+  rotatingBars: SpinnerDynamics[];
+  windPulses: WindPulse[];
+  forceZones: ForceZone[];
+};
+
 export type RaceSimulation = {
   frames: RaceFrame[];
   fullFinishOrder: string[];
@@ -37,6 +66,7 @@ export type RaceSimulation = {
   simulationSteps: number;
   physicallyFinishedCount: number;
   timedOut: boolean;
+  dynamics: RaceDynamics;
 };
 
 export type RacePlan = {

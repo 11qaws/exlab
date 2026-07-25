@@ -36,6 +36,12 @@ import {
   parseRoster,
   shuffleSeeded,
 } from "../app/marble/core";
+import {
+  COUNTDOWN_SEQUENCE,
+  countdownStepDuration,
+  nextCountdownStep,
+} from "../app/marble/countdown";
+import { createRaceDynamics } from "../app/marble/dynamics";
 import { simulateRace } from "../app/marble/simulation";
 
 test("roster accepts two through ten participants", () => {
@@ -77,8 +83,33 @@ test("physics simulation produces a stable winner for the same seeds", () => {
   const second = simulateRace(5, "race-fixed", "layout-fixed");
   assert.equal(first.fullFinishOrder.length, 5);
   assert.deepEqual(first.fullFinishOrder, second.fullFinishOrder);
+  assert.deepEqual(first.dynamics, second.dynamics);
   assert.ok(first.frames.length > 30);
   assert.ok(first.winnerFrameIndex >= 0);
+});
+
+test("countdown exposes 3, 2, 1, and GO before the race starts", () => {
+  assert.deepEqual(COUNTDOWN_SEQUENCE, [3, 2, 1, "GO"]);
+  assert.equal(nextCountdownStep(3), 2);
+  assert.equal(nextCountdownStep(2), 1);
+  assert.equal(nextCountdownStep(1), "GO");
+  assert.equal(nextCountdownStep("GO"), null);
+  assert.ok(countdownStepDuration("GO", false) >= 350);
+});
+
+test("seeded dynamics vary races without breaking the final spinner rule", () => {
+  const first = createRaceDynamics("dynamics-a");
+  const replay = createRaceDynamics("dynamics-a");
+  const second = createRaceDynamics("dynamics-b");
+  assert.deepEqual(first, replay);
+  assert.notDeepEqual(first, second);
+  assert.equal(first.rotatingBars.length, ROTATING_BARS.length);
+  assert.equal(
+    Math.sign(first.rotatingBars.at(-1)!.angularSpeed),
+    Math.sign(ROTATING_BARS.at(-1)!.angularSpeed),
+  );
+  assert.ok(first.windPulses.length >= 3);
+  assert.ok(first.forceZones.length >= 2);
 });
 
 test("the asymmetric course targets a roughly twenty-second first finish", () => {

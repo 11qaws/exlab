@@ -9,6 +9,11 @@ import {
   shortName,
 } from "./core";
 import {
+  countdownStepDuration,
+  nextCountdownStep,
+  type CountdownStep,
+} from "./countdown";
+import {
   COURSE_CURVES,
   COURSE_PINS,
   COURSE_RECTS,
@@ -218,7 +223,7 @@ export function MarbleGame() {
   const [phase, setPhase] = useState<Phase>("ready");
   const [plan, setPlan] = useState<RacePlan | null>(null);
   const [frameIndex, setFrameIndex] = useState(0);
-  const [countdown, setCountdown] = useState(3);
+  const [countdown, setCountdown] = useState<CountdownStep>(3);
   const [errorMessage, setErrorMessage] = useState("");
   const [toast, setToast] = useState("");
   const [history, setHistory] = useState<StoredRaceResult[]>([]);
@@ -280,17 +285,21 @@ export function MarbleGame() {
 
   useEffect(() => {
     if (phase !== "countdown") return;
-    if (countdown <= 0) {
-      const timer = window.setTimeout(() => {
-        setFrameIndex(0);
-        setPhase("running");
-      }, 0);
-      return () => window.clearTimeout(timer);
-    }
-    playTone(countdown === 1 ? 680 : 520, 0.1);
+    playTone(
+      countdown === "GO" ? 760 : countdown === 1 ? 680 : 520,
+      countdown === "GO" ? 0.14 : 0.1,
+    );
     const timer = window.setTimeout(
-      () => setCountdown((value) => value - 1),
-      reducedMotion ? 450 : 760,
+      () => {
+        const next = nextCountdownStep(countdown);
+        if (next === null) {
+          setFrameIndex(0);
+          setPhase("running");
+          return;
+        }
+        setCountdown(next);
+      },
+      countdownStepDuration(countdown, reducedMotion),
     );
     return () => window.clearTimeout(timer);
     // playTone intentionally reads the latest sound preference.
@@ -512,6 +521,10 @@ export function MarbleGame() {
                 <dd>{plan.simulation.layoutShift}px</dd>
               </div>
               <div>
+                <dt>물리 변형</dt>
+                <dd>{plan.simulation.dynamics.fingerprint}</dd>
+              </div>
+              <div>
                 <dt>물리 완주</dt>
                 <dd>
                   {plan.simulation.physicallyFinishedCount}/
@@ -554,8 +567,12 @@ export function MarbleGame() {
             />
             {phase === "countdown" && (
               <div className="countdown" aria-live="assertive">
-                <span>{countdown > 0 ? countdown : "GO"}</span>
-                <p>모든 게이트가 동시에 열립니다</p>
+                <span>{countdown}</span>
+                <p>
+                  {countdown === "GO"
+                    ? "경기 시작"
+                    : "물리 조건을 확정했습니다"}
+                </p>
               </div>
             )}
             {isFinishing && (
@@ -607,7 +624,7 @@ export function MarbleGame() {
           <span aria-hidden="true">●</span>
           MARBLE SHOWDOWN
         </a>
-        <span className="prototype-badge">FUNCTIONAL TEST</span>
+        <span className="prototype-badge">VERSION 1.0.1</span>
       </header>
 
       <section className="intro">
