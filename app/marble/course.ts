@@ -1,12 +1,13 @@
 export const WORLD_WIDTH = 900;
 export const WORLD_HEIGHT = 9000;
 export const FINISH_Y = 8860;
-export const FINISH_LINE_X = 402;
-export const FINISH_LINE_WIDTH = 96;
+export const FINISH_LINE_X = 420;
+export const FINISH_LINE_WIDTH = 60;
 export const MARBLE_RADIUS = 15;
 export const VIEW_HEIGHT = 1040;
 export const TARGET_FIRST_FINISH_SECONDS = 20;
 export const MAX_SIMULATION_SECONDS = 68;
+export const COURSE_BOUNDARY_THICKNESS = 24;
 
 export type BoundarySide = "left" | "right";
 
@@ -56,9 +57,11 @@ export type RotatingBar = {
   baseAngle: number;
   angularSpeed: number;
   zoneId: string;
+  placement?: "finish-entrance";
+  wallSide?: BoundarySide;
 };
 
-const BOUNDARY_THICKNESS = 24;
+const BOUNDARY_THICKNESS = COURSE_BOUNDARY_THICKNESS;
 const LEFT_BOUNDARY_GROUP = "left-course-boundary";
 const RIGHT_BOUNDARY_GROUP = "right-course-boundary";
 
@@ -139,8 +142,8 @@ export const STRAIGHT_ZONES: StraightZone[] = [
     id: "finish-corridor",
     startY: 8820,
     endY: WORLD_HEIGHT,
-    leftX: 390,
-    rightX: 510,
+    leftX: 408,
+    rightX: 492,
     requiresBilateralWallObstacles: false,
   },
 ];
@@ -320,7 +323,7 @@ const COURSE_OBSTACLE_RECTS: CourseRect[] = [
 const BOTTOM_CAP: CourseRect = {
   x: WORLD_WIDTH / 2,
   y: WORLD_HEIGHT - 10,
-  width: 120,
+  width: 84,
   height: 20,
   role: "wall",
   connectedGroupIds: [LEFT_BOUNDARY_GROUP, RIGHT_BOUNDARY_GROUP],
@@ -412,16 +415,27 @@ export const ROTATING_BARS: RotatingBar[] = [
     zoneId: "wide-mix",
   },
   {
-    x: 450,
-    y: 8400,
-    width: 420,
-    height: 24,
-    baseAngle: 0.04,
-    angularSpeed: -0.018,
+    x: 350,
+    y: 8585,
+    width: 120,
+    height: 22,
+    baseAngle: 0.12,
+    angularSpeed: -0.02,
     zoneId: "final-gate",
+    placement: "finish-entrance",
+    wallSide: "left",
   },
 ];
 
 export function rotatingBarAngle(bar: RotatingBar, step: number) {
   return bar.baseAngle + step * bar.angularSpeed;
+}
+
+export function rotatingBarTurnsTowardWall(bar: RotatingBar): boolean {
+  if (!bar.wallSide) return false;
+  // At the upstream contact point, clockwise motion feeds left and
+  // counter-clockwise motion feeds right.
+  return bar.wallSide === "left"
+    ? bar.angularSpeed < 0
+    : bar.angularSpeed > 0;
 }

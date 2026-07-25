@@ -208,7 +208,7 @@ export function simulateRace(
       engine.gravity.x = 0;
     }
     if (step === 1500) {
-      engine.gravity.y = 1.45;
+      engine.gravity.y = 1.85;
       engine.gravity.x = 0.16;
     }
     if (step === 2100) {
@@ -216,7 +216,7 @@ export function simulateRace(
     }
     if (step === 2700) {
       engine.gravity.x = 0;
-      engine.gravity.y = 1.85;
+      engine.gravity.y = 2.2;
     }
     if (step === 3300) {
       engine.gravity.x = 0.2;
@@ -226,7 +226,7 @@ export function simulateRace(
     }
     if (step === 3900) {
       engine.gravity.x = 0;
-      engine.gravity.y = 2.3;
+      engine.gravity.y = 2.8;
     }
 
     Engine.update(engine, stepMs);

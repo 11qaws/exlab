@@ -590,7 +590,9 @@ export function MarbleGame() {
               ))}
             </ol>
             <p className="camera-note">
-              {reducedMotion ? "전체 경기장 보기" : "자동 카메라 · 선두 추적"}
+              {reducedMotion
+                ? "선두 추적 · 이동 모션 축소"
+                : "관성 카메라 · 선두 변경 0.5초"}
             </p>
           </aside>
         </div>

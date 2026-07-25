@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import {
+  advanceVerticalCamera,
+  INITIAL_LEADER_FOCUS_STATE,
+  INITIAL_VERTICAL_CAMERA_STATE,
+  resolveLeaderFocus,
+  type LeaderFocusState,
+  type VerticalCameraState,
+} from "./camera";
 import { shortName } from "./core";
 import {
   COURSE_CURVES,
@@ -56,7 +64,12 @@ export function RaceCanvas({
   reducedMotion,
 }: RaceCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const cameraYRef = useRef(0);
+  const leaderFocusRef = useRef<LeaderFocusState>({
+    ...INITIAL_LEADER_FOCUS_STATE,
+  });
+  const verticalCameraRef = useRef<VerticalCameraState>({
+    ...INITIAL_VERTICAL_CAMERA_STATE,
+  });
   const frame =
     plan.simulation.frames[
       Math.min(frameIndex, plan.simulation.frames.length - 1)
@@ -69,6 +82,11 @@ export function RaceCanvas({
   const leaderCandidate = candidateById.get(
     plan.slotToCandidateId[frame.rankedSlotIds[0]],
   );
+
+  useEffect(() => {
+    leaderFocusRef.current = { ...INITIAL_LEADER_FOCUS_STATE };
+    verticalCameraRef.current = { ...INITIAL_VERTICAL_CAMERA_STATE };
+  }, [plan.runId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -96,15 +114,19 @@ export function RaceCanvas({
     );
     const offsetX = (logicalWidth - WORLD_WIDTH * scale) / 2;
     const offsetY = (logicalHeight - viewHeight * scale) / 2;
-    const leadingPoses = frame.rankedSlotIds
-      .slice(0, 3)
-      .map((slotId) => frame.poses.find((pose) => pose.slotId === slotId))
-      .filter((pose) => pose !== undefined);
-    const focusY =
-      leadingPoses.length > 0
-        ? leadingPoses.reduce((sum, pose) => sum + pose.y, 0) /
-          leadingPoses.length
-        : 0;
+    leaderFocusRef.current = resolveLeaderFocus(
+      leaderFocusRef.current,
+      frame.rankedSlotIds[0],
+      frameIndex,
+    );
+    const focusedPose = frame.poses.find(
+      (pose) =>
+        pose.slotId === leaderFocusRef.current.focusedSlotId,
+    );
+    const currentLeaderPose = frame.poses.find(
+      (pose) => pose.slotId === frame.rankedSlotIds[0],
+    );
+    const focusY = focusedPose?.y ?? currentLeaderPose?.y ?? 0;
     const targetCameraY = Math.max(
       0,
       Math.min(
@@ -112,10 +134,13 @@ export function RaceCanvas({
         focusY - viewHeight * 0.42,
       ),
     );
-    cameraYRef.current = reducedMotion
-      ? targetCameraY
-      : cameraYRef.current + (targetCameraY - cameraYRef.current) * 0.14;
-    const cameraY = cameraYRef.current;
+    verticalCameraRef.current = advanceVerticalCamera(
+      verticalCameraRef.current,
+      targetCameraY,
+      WORLD_HEIGHT - viewHeight,
+      reducedMotion,
+    );
+    const cameraY = verticalCameraRef.current.positionY;
 
     const background = context.createLinearGradient(
       0,
@@ -273,7 +298,13 @@ export function RaceCanvas({
         context.fillText(label, x, y - MARBLE_RADIUS * scale - 18);
       }
     });
-  }, [candidateById, frame, plan.slotToCandidateId, reducedMotion]);
+  }, [
+    candidateById,
+    frame,
+    frameIndex,
+    plan.slotToCandidateId,
+    reducedMotion,
+  ]);
 
   return (
     <canvas

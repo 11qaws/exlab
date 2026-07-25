@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  COURSE_BOUNDARY_THICKNESS,
   COURSE_CURVES,
   COURSE_CURVE_RECTS,
   COURSE_PINS,
@@ -13,7 +14,16 @@ import {
   TARGET_FIRST_FINISH_SECONDS,
   WORLD_HEIGHT,
   rotatingBarAngle,
+  rotatingBarTurnsTowardWall,
 } from "../app/marble/course";
+import {
+  advanceVerticalCamera,
+  INITIAL_LEADER_FOCUS_STATE,
+  INITIAL_VERTICAL_CAMERA_STATE,
+  LEADER_FOCUS_DELAY_FRAMES,
+  LEADER_FOCUS_DELAY_SECONDS,
+  resolveLeaderFocus,
+} from "../app/marble/camera";
 import {
   inspectCourseClearance,
   MARBLE_DIAMETER,
@@ -96,12 +106,22 @@ test("the asymmetric course targets a roughly twenty-second first finish", () =>
   );
   assert.ok(finishCorridor);
   const finishApproachWidth =
-    finishCorridor.rightX - finishCorridor.leftX - 24;
+    finishCorridor.rightX -
+    finishCorridor.leftX -
+    COURSE_BOUNDARY_THICKNESS;
   assert.equal(finishApproachWidth, FINISH_LINE_WIDTH);
+  assert.equal(finishApproachWidth, 60);
   assert.ok(finishApproachWidth > MIN_COURSE_CLEARANCE);
-  const finishSpinner = ROTATING_BARS.at(-1)!;
-  assert.ok(finishSpinner.y > 8_000 && finishSpinner.y < FINISH_Y);
-  assert.ok(finishSpinner.width >= FINISH_LINE_WIDTH * 4);
+  const finishEntranceSpinner = ROTATING_BARS.find(
+    (bar) => bar.placement === "finish-entrance",
+  );
+  assert.ok(finishEntranceSpinner);
+  assert.equal(finishEntranceSpinner.wallSide, "left");
+  assert.ok(rotatingBarTurnsTowardWall(finishEntranceSpinner));
+  assert.ok(
+    finishEntranceSpinner.y > 8_000 &&
+      finishEntranceSpinner.y < FINISH_Y,
+  );
 
   for (const participantCount of [5, 10]) {
     const firstFinishSeconds = Array.from({ length: 12 }, (_, index) => {
@@ -208,6 +228,47 @@ test("rotating bars keep turning through complete revolutions", () => {
   }
 });
 
+test("camera waits half a second before following a new leader", () => {
+  assert.equal(LEADER_FOCUS_DELAY_SECONDS, 0.5);
+  assert.equal(LEADER_FOCUS_DELAY_FRAMES, 15);
+
+  let focus = resolveLeaderFocus(
+    INITIAL_LEADER_FOCUS_STATE,
+    "slot-a",
+    0,
+  );
+  assert.equal(focus.focusedSlotId, "slot-a");
+
+  focus = resolveLeaderFocus(focus, "slot-b", 20);
+  assert.equal(focus.focusedSlotId, "slot-a");
+  assert.equal(focus.pendingSlotId, "slot-b");
+  focus = resolveLeaderFocus(focus, "slot-b", 34);
+  assert.equal(focus.focusedSlotId, "slot-a");
+  focus = resolveLeaderFocus(focus, "slot-b", 35);
+  assert.equal(focus.focusedSlotId, "slot-b");
+});
+
+test("camera follows vertically with damped acceleration", () => {
+  const first = advanceVerticalCamera(
+    INITIAL_VERTICAL_CAMERA_STATE,
+    500,
+    1_000,
+    false,
+  );
+  const second = advanceVerticalCamera(first, 500, 1_000, false);
+  assert.ok(first.positionY > 0 && first.positionY < 500);
+  assert.ok(second.positionY > first.positionY);
+  assert.ok(second.velocityY > first.velocityY);
+
+  const reduced = advanceVerticalCamera(
+    INITIAL_VERTICAL_CAMERA_STATE,
+    500,
+    1_000,
+    true,
+  );
+  assert.deepEqual(reduced, { positionY: 500, velocityY: 0 });
+});
+
 test("rotating bar clearance reserves one marble at each pivot", () => {
   assert.equal(ROTATING_BAR_CLEARANCE_MODEL, "pivot-marble");
   assert.equal(ROTATING_BAR_CLEARANCE_RADIUS, MARBLE_RADIUS);
@@ -234,6 +295,7 @@ test("every independent course object leaves more than one marble diameter", () 
       .join(", "),
   );
   assert.deepEqual(report.wallCoverageViolations, []);
+  assert.deepEqual(report.finalEntranceSpinnerViolations, []);
   assert.ok(report.minimumClearance >= MIN_COURSE_CLEARANCE);
 });
 

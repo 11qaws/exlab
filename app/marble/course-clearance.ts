@@ -5,6 +5,7 @@ import {
   MARBLE_RADIUS,
   ROTATING_BARS,
   STRAIGHT_ZONES,
+  rotatingBarTurnsTowardWall,
   type BoundarySide,
   type CourseRect,
 } from "./course";
@@ -52,12 +53,18 @@ export type CourseWallCoverageViolation = {
   missingSides: BoundarySide[];
 };
 
+export type CourseFinalEntranceSpinnerViolation = {
+  barIndex: number | null;
+  reason: string;
+};
+
 export type CourseClearanceReport = {
   minimumClearance: number;
   requiredClearance: number;
   checkedPairCount: number;
   violations: CourseClearanceViolation[];
   wallCoverageViolations: CourseWallCoverageViolation[];
+  finalEntranceSpinnerViolations: CourseFinalEntranceSpinnerViolation[];
 };
 
 function rectPoints(rect: CourseRect): Point[] {
@@ -300,6 +307,41 @@ function inspectWallCoverage(): CourseWallCoverageViolation[] {
   });
 }
 
+function inspectFinalEntranceSpinner(): CourseFinalEntranceSpinnerViolation[] {
+  const finalGate = STRAIGHT_ZONES.find(
+    (zone) => zone.id === "final-gate",
+  );
+  const entranceSpinners = ROTATING_BARS.flatMap((bar, index) =>
+    bar.placement === "finish-entrance" ? [{ bar, index }] : [],
+  );
+  if (!finalGate || entranceSpinners.length === 0) {
+    return [{ barIndex: null, reason: "missing finish-entrance spinner" }];
+  }
+
+  const centreX = (finalGate.leftX + finalGate.rightX) / 2;
+  return entranceSpinners.flatMap(({ bar, index }) => {
+    const reasons: string[] = [];
+    const sweepRadius = Math.hypot(bar.width / 2, bar.height / 2);
+    if (bar.zoneId !== finalGate.id) {
+      reasons.push("spinner is outside final-gate");
+    }
+    if (bar.y + sweepRadius < finalGate.endY - COURSE_CLEARANCE_MARGIN) {
+      reasons.push("spinner does not reach the final entrance");
+    }
+    if (
+      (bar.wallSide === "left" && bar.x >= centreX) ||
+      (bar.wallSide === "right" && bar.x <= centreX) ||
+      !bar.wallSide
+    ) {
+      reasons.push("spinner is not beside its declared wall");
+    }
+    if (!rotatingBarTurnsTowardWall(bar)) {
+      reasons.push("spinner does not rotate toward its wall");
+    }
+    return reasons.map((reason) => ({ barIndex: index, reason }));
+  });
+}
+
 export function inspectCourseClearance(): CourseClearanceReport {
   const shapes = courseShapes();
   const violations: CourseClearanceViolation[] = [];
@@ -340,6 +382,7 @@ export function inspectCourseClearance(): CourseClearanceReport {
       (left, right) => left.clearance - right.clearance,
     ),
     wallCoverageViolations: inspectWallCoverage(),
+    finalEntranceSpinnerViolations: inspectFinalEntranceSpinner(),
   };
 }
 
@@ -347,7 +390,8 @@ export function assertCourseClearance(): void {
   const report = inspectCourseClearance();
   if (
     report.violations.length === 0 &&
-    report.wallCoverageViolations.length === 0
+    report.wallCoverageViolations.length === 0 &&
+    report.finalEntranceSpinnerViolations.length === 0
   ) {
     return;
   }
@@ -374,6 +418,14 @@ export function assertCourseClearance(): void {
   if (report.wallCoverageViolations.length > 0) {
     messages.push(
       `직선 구간 양측 벽 장애물 누락 ${report.wallCoverageViolations.length}건 (${wallCoverageDetails})`,
+    );
+  }
+  if (report.finalEntranceSpinnerViolations.length > 0) {
+    const details = report.finalEntranceSpinnerViolations
+      .map(({ barIndex, reason }) => `${barIndex ?? "none"}: ${reason}`)
+      .join(", ");
+    messages.push(
+      `결승 입구 회전 막대 규칙 위반 ${report.finalEntranceSpinnerViolations.length}건 (${details})`,
     );
   }
   throw new Error(`코스 검사 실패: ${messages.join("; ")}`);
