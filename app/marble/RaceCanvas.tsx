@@ -6,6 +6,8 @@ import {
   COURSE_CURVES,
   COURSE_PINS,
   COURSE_RECTS,
+  FINISH_LINE_WIDTH,
+  FINISH_LINE_X,
   FINISH_Y,
   MARBLE_RADIUS,
   ROTATING_BARS,
@@ -196,11 +198,12 @@ export function RaceCanvas({
 
     const finishScreenY = offsetY + (FINISH_Y - cameraY) * scale;
     if (finishScreenY > -20 && finishScreenY < logicalHeight + 20) {
-      const startX = offsetX + 315 * scale;
-      const cell = 18 * scale;
+      const startX = offsetX + FINISH_LINE_X * scale;
+      const columnCount = 8;
+      const cell = (FINISH_LINE_WIDTH / columnCount) * scale;
       context.save();
       for (let row = 0; row < 2; row += 1) {
-        for (let column = 0; column < 15; column += 1) {
+        for (let column = 0; column < columnCount; column += 1) {
           context.fillStyle =
             (row + column) % 2 === 0 ? "#fff8ef" : "#ff6f9f";
           context.fillRect(

@@ -12,6 +12,8 @@ import {
   COURSE_CURVES,
   COURSE_PINS,
   COURSE_RECTS,
+  FINISH_LINE_WIDTH,
+  FINISH_LINE_X,
   FINISH_Y,
   ROTATING_BARS,
   WORLD_HEIGHT,
@@ -173,9 +175,9 @@ function StartPreview({
           />
         ))}
         <rect
-          x="315"
+          x={FINISH_LINE_X}
           y={previewY(FINISH_Y)}
-          width="270"
+          width={FINISH_LINE_WIDTH}
           height="9"
           fill="url(#preview-checker)"
         />
@@ -742,8 +744,8 @@ export function MarbleGame() {
             <p className="eyebrow">COURSE 01</p>
             <h2 id="venue-title">레또 드롭</h2>
             <p>
-              좌·우 사이클로이드와 수축·확장 구간, 3개의 360° 회전 바를
-              통과하는 약 20초 코스
+              좌·우 사이클로이드와 수축·확장 구간, 결승 회전 관문을
+              포함한 4개의 360° 회전 바를 통과하는 약 20초 코스
             </p>
           </div>
           <StartPreview

@@ -1,6 +1,8 @@
 export const WORLD_WIDTH = 900;
 export const WORLD_HEIGHT = 9000;
 export const FINISH_Y = 8700;
+export const FINISH_LINE_X = 402;
+export const FINISH_LINE_WIDTH = 96;
 export const MARBLE_RADIUS = 15;
 export const VIEW_HEIGHT = 1040;
 export const TARGET_FIRST_FINISH_SECONDS = 20;
@@ -114,9 +116,22 @@ export const COURSE_RECTS: CourseRect[] = [
 
   // 8. Asymmetric final descent.
   { x: 660, y: 7630, width: 240, height: 22, angle: -0.23, role: "rail" },
-  { x: 295, y: 7930, width: 350, height: 23, angle: 0.18, role: "rail" },
-  { x: 610, y: 8240, width: 310, height: 23, angle: -0.16, role: "rail" },
-  { x: 248, y: 8500, width: 260, height: 22, angle: 0.11, role: "rail" },
+  {
+    x: 390,
+    y: 8730,
+    width: 24,
+    height: 340,
+    role: "gate",
+    groupId: "finish-funnel-left",
+  },
+  {
+    x: 510,
+    y: 8730,
+    width: 24,
+    height: 340,
+    role: "gate",
+    groupId: "finish-funnel-right",
+  },
 
   {
     x: WORLD_WIDTH / 2,
@@ -173,6 +188,24 @@ export const COURSE_CURVES: CourseCurve[] = [
     10,
     "funnel",
   ),
+
+  // Final compression feeds a three-marble-wide finish corridor.
+  createCycloidCurve(
+    "finish-funnel-left",
+    { x: 136, y: 8310 },
+    { x: 390, y: 8560 },
+    24,
+    10,
+    "funnel",
+  ),
+  createCycloidCurve(
+    "finish-funnel-right",
+    { x: 764, y: 8310 },
+    { x: 510, y: 8560 },
+    24,
+    10,
+    "funnel",
+  ),
 ];
 
 export const COURSE_CURVE_RECTS: CourseRect[] =
@@ -210,8 +243,6 @@ export const COURSE_PINS: CoursePin[] = [
   { x: 750, y: 7830, radius: 30 },
 
   { x: 155, y: 8130, radius: 31 },
-  { x: 455, y: 8370, radius: 38 },
-  { x: 745, y: 8460, radius: 34 },
 ];
 
 export const ROTATING_BARS: RotatingBar[] = [
@@ -238,6 +269,14 @@ export const ROTATING_BARS: RotatingBar[] = [
     height: 22,
     baseAngle: -0.12,
     angularSpeed: 0.016,
+  },
+  {
+    x: 450,
+    y: 8250,
+    width: 420,
+    height: 24,
+    baseAngle: 0.04,
+    angularSpeed: -0.018,
   },
 ];
 

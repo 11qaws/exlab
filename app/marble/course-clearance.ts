@@ -11,6 +11,8 @@ export const MARBLE_DIAMETER = MARBLE_RADIUS * 2;
 export const COURSE_CLEARANCE_MARGIN = 6;
 export const MIN_COURSE_CLEARANCE =
   MARBLE_DIAMETER + COURSE_CLEARANCE_MARGIN;
+export const ROTATING_BAR_CLEARANCE_MODEL = "pivot-marble" as const;
+export const ROTATING_BAR_CLEARANCE_RADIUS = MARBLE_RADIUS;
 
 type Point = { x: number; y: number };
 
@@ -232,15 +234,15 @@ function courseShapes(): CourseShape[] {
     radius: pin.radius,
     isBoundary: false,
   }));
-  const rotatingSweeps: CircleShape[] = ROTATING_BARS.map((bar, index) => ({
-    id: `rotating-sweep-${index + 1}`,
+  const rotatingPivots: CircleShape[] = ROTATING_BARS.map((bar, index) => ({
+    id: `rotating-pivot-${index + 1}`,
     kind: "circle",
     x: bar.x,
     y: bar.y,
-    radius: Math.hypot(bar.width / 2, bar.height / 2),
+    radius: ROTATING_BAR_CLEARANCE_RADIUS,
     isBoundary: false,
   }));
-  return [...rectangles, ...pins, ...rotatingSweeps];
+  return [...rectangles, ...pins, ...rotatingPivots];
 }
 
 export function inspectCourseClearance(): CourseClearanceReport {

@@ -5,6 +5,9 @@ import {
   COURSE_CURVE_RECTS,
   COURSE_PINS,
   COURSE_RECTS,
+  FINISH_LINE_WIDTH,
+  FINISH_Y,
+  MARBLE_RADIUS,
   ROTATING_BARS,
   TARGET_FIRST_FINISH_SECONDS,
   WORLD_HEIGHT,
@@ -14,6 +17,8 @@ import {
   inspectCourseClearance,
   MARBLE_DIAMETER,
   MIN_COURSE_CLEARANCE,
+  ROTATING_BAR_CLEARANCE_MODEL,
+  ROTATING_BAR_CLEARANCE_RADIUS,
 } from "../app/marble/course-clearance";
 import {
   buildRacePlan,
@@ -75,10 +80,10 @@ test("the asymmetric course targets a roughly twenty-second first finish", () =>
   );
   assert.equal(
     COURSE_CURVES.filter((curve) => curve.role === "funnel").length,
-    4,
+    6,
   );
   assert.ok(COURSE_CURVE_RECTS.length >= 60);
-  assert.equal(ROTATING_BARS.length, 3);
+  assert.equal(ROTATING_BARS.length, 4);
 
   const funnelInLeft = COURSE_CURVES.find(
     (curve) => curve.id === "funnel-in-left",
@@ -104,6 +109,23 @@ test("the asymmetric course targets a roughly twenty-second first finish", () =>
   assert.ok(narrowWidth > MIN_COURSE_CLEARANCE);
   assert.ok(restoredWidth > narrowWidth * 2);
 
+  const finishFunnelLeft = COURSE_CURVES.find(
+    (curve) => curve.id === "finish-funnel-left",
+  );
+  const finishFunnelRight = COURSE_CURVES.find(
+    (curve) => curve.id === "finish-funnel-right",
+  );
+  assert.ok(finishFunnelLeft && finishFunnelRight);
+  const finishApproachWidth =
+    finishFunnelRight.points.at(-1)!.x -
+    finishFunnelLeft.points.at(-1)!.x -
+    finishFunnelLeft.thickness;
+  assert.equal(finishApproachWidth, FINISH_LINE_WIDTH);
+  assert.ok(finishApproachWidth > MIN_COURSE_CLEARANCE);
+  const finishSpinner = ROTATING_BARS.at(-1)!;
+  assert.ok(finishSpinner.y > 8_000 && finishSpinner.y < FINISH_Y);
+  assert.ok(finishSpinner.width >= FINISH_LINE_WIDTH * 4);
+
   for (const participantCount of [5, 10]) {
     const firstFinishSeconds = Array.from({ length: 12 }, (_, index) => {
       const simulation = simulateRace(
@@ -128,6 +150,17 @@ test("rotating bars keep turning through complete revolutions", () => {
     const rotation =
       rotatingBarAngle(bar, 600) - rotatingBarAngle(bar, 0);
     assert.ok(Math.abs(rotation) > Math.PI * 2);
+  }
+});
+
+test("rotating bar clearance reserves one marble at each pivot", () => {
+  assert.equal(ROTATING_BAR_CLEARANCE_MODEL, "pivot-marble");
+  assert.equal(ROTATING_BAR_CLEARANCE_RADIUS, MARBLE_RADIUS);
+  for (const bar of ROTATING_BARS) {
+    assert.ok(
+      ROTATING_BAR_CLEARANCE_RADIUS <
+        Math.hypot(bar.width / 2, bar.height / 2),
+    );
   }
 });
 
