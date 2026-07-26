@@ -377,8 +377,13 @@ test("finish entrance has paired launch bumpers beside the narrow lane", () => {
   const rightInnerEdge = right.x - right.width / 2;
   const clearance = rightInnerEdge - leftInnerEdge;
   assert.ok(clearance >= MIN_COURSE_CLEARANCE);
-  assert.equal(leftInnerEdge, FINISH_LINE_X);
-  assert.equal(rightInnerEdge, FINISH_LINE_X + FINISH_LINE_WIDTH);
+  assert.equal(left.width, 81);
+  assert.equal(right.width, 81);
+  assert.equal(left.height, 27);
+  assert.equal(right.height, 27);
+  assert.ok(leftInnerEdge <= FINISH_LINE_X);
+  assert.ok(rightInnerEdge >= FINISH_LINE_X + FINISH_LINE_WIDTH);
+  assert.equal(clearance, 78);
 
   const bounds = courseBoundsAtY(left.y);
   const wallHalfWidth = COURSE_BOUNDARY_THICKNESS / 2;

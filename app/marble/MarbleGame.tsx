@@ -1025,7 +1025,7 @@ export function MarbleGame() {
           <span aria-hidden="true">●</span>
           Ex Lab
         </a>
-        <span className="prototype-badge">RACE · VERSION 1.1.3</span>
+        <span className="prototype-badge">RACE · VERSION 1.1.4</span>
       </header>
 
       <section className="intro">

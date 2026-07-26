@@ -563,10 +563,10 @@ const BASE_COURSE_BUMPERS: CourseBumper[] = [
   // The final pair is embedded in both narrowing walls. Any contact kicks
   // the marble back upward before it can enter the 60px finish corridor.
   {
-    x: 375,
+    x: 370.5,
     y: 8760,
-    width: 90,
-    height: 30,
+    width: 81,
+    height: 27,
     angle: 0,
     zoneId: "finish-corridor",
     kind: "finish-launch",
@@ -575,10 +575,10 @@ const BASE_COURSE_BUMPERS: CourseBumper[] = [
     connectedGroupIds: [LEFT_BOUNDARY_GROUP],
   },
   {
-    x: 525,
+    x: 529.5,
     y: 8760,
-    width: 90,
-    height: 30,
+    width: 81,
+    height: 27,
     angle: 0,
     zoneId: "finish-corridor",
     kind: "finish-launch",
