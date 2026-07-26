@@ -1,6 +1,6 @@
 {
   "name": "ex-lab-race",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -10,6 +10,7 @@
     "build": "vinext build",
     "start": "vinext start",
     "test": "npm run build && tsx --test tests/*.test.ts tests/*.test.mjs",
+    "benchmark:obstacles": "tsx scripts/benchmark-race-obstacles.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },

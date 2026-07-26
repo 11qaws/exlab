@@ -19,6 +19,7 @@ import {
   courseBoundsAtY,
 } from "./course";
 import type {
+  BumperFlash,
   MarblePose,
   RaceDynamics,
   RaceFrame,
@@ -29,6 +30,7 @@ const { Bodies, Body, Composite, Engine, Events } = Matter;
 
 export const FRAME_RATE = 30;
 export const RESULT_REVEAL_DELAY_FRAMES = Math.round(FRAME_RATE * 1.2);
+export const BUMPER_FLASH_DECAY = 0.68;
 const MAX_MARBLE_HORIZONTAL_SPEED = 18;
 const scaledCourseStep = (baseStep: number) =>
   Math.round(baseStep * COURSE_LENGTH_SCALE);
@@ -93,8 +95,10 @@ function addCourse(
     }),
   );
   const bumperBodies = COURSE_BUMPERS.map((bumper, index) =>
-    Bodies.circle(bumper.x, bumper.y, bumper.radius, {
+    Bodies.rectangle(bumper.x, bumper.y, bumper.width, bumper.height, {
       ...obstacleOptions(0.98),
+      angle: bumper.angle,
+      chamfer: { radius: bumper.height / 2 },
       label: `active-bumper-${index}`,
     }),
   );
@@ -109,6 +113,7 @@ function addCourse(
 function registerBumperKicks(
   engine: Matter.Engine,
   bumperBodies: Matter.Body[],
+  onBumperHit: (bumperIndex: number, x: number, y: number) => void,
 ) {
   const bumperIndexById = new Map(
     bumperBodies.map((body, index) => [body.id, index]),
@@ -128,7 +133,10 @@ function registerBumperKicks(
             : null;
       if (!bumperBody || !marble?.label.startsWith("slot-")) return;
 
-      const definition = COURSE_BUMPERS[bumperIndexById.get(bumperBody.id)!];
+      const bumperIndex = bumperIndexById.get(bumperBody.id)!;
+      const definition = COURSE_BUMPERS[bumperIndex];
+      const contact = pair.collision.supports[0] ?? marble.position;
+      onBumperHit(bumperIndex, contact.x, contact.y);
       const dx = marble.position.x - bumperBody.position.x;
       const dy = marble.position.y - bumperBody.position.y;
       const distance = Math.max(0.001, Math.hypot(dx, dy));
@@ -146,14 +154,18 @@ function registerBumperKicks(
 
       const normalX = dx / distance;
       const normalY = Math.min(dy / distance, -0.35);
-      const normalLength = Math.hypot(normalX, normalY);
+      const mixedNormalX =
+        normalX * 0.5 + Math.sin(definition.angle) * 1.8;
+      const mixedNormalY =
+        normalY * 0.5 - Math.cos(definition.angle) * 0.75;
+      const normalLength = Math.hypot(mixedNormalX, mixedNormalY);
       Body.setVelocity(marble, {
         x:
           marble.velocity.x * 0.4 +
-          (normalX / normalLength) * definition.kickSpeed,
+          (mixedNormalX / normalLength) * definition.kickSpeed,
         y: Math.min(
           marble.velocity.y * 0.25 +
-            (normalY / normalLength) * definition.kickSpeed,
+            (mixedNormalY / normalLength) * definition.kickSpeed,
           -definition.kickSpeed * 0.45,
         ),
       });
@@ -235,6 +247,7 @@ function captureFrame(
   marbles: Matter.Body[],
   finishedSlotIds: string[],
   rotatingBarAngles: number[],
+  bumperFlashes: BumperFlash[],
 ): RaceFrame {
   const poses: MarblePose[] = marbles.map((marble) => ({
     slotId: marble.label,
@@ -247,6 +260,7 @@ function captureFrame(
     rankedSlotIds: rankMarbles(marbles, finishedSlotIds),
     finishedSlotIds: [...finishedSlotIds],
     rotatingBarAngles,
+    bumperFlashes: bumperFlashes.map((flash) => ({ ...flash })),
   };
 }
 
@@ -286,7 +300,14 @@ export function simulateRace(
     engine,
     dynamics,
   );
-  registerBumperKicks(engine, bumperBodies);
+  const bumperFlashes = COURSE_BUMPERS.map((bumper) => ({
+    level: 0,
+    x: bumper.x,
+    y: bumper.y,
+  }));
+  registerBumperKicks(engine, bumperBodies, (bumperIndex, x, y) => {
+    bumperFlashes[bumperIndex] = { level: 1, x, y };
+  });
   const { marbles, layoutShift } = addMarbles(
     engine,
     participantCount,
@@ -422,8 +443,19 @@ export function simulateRace(
 
     if (step % 2 === 0) {
       frames.push(
-        captureFrame(marbles, finishedSlotIds, rotatingBarAngles),
+        captureFrame(
+          marbles,
+          finishedSlotIds,
+          rotatingBarAngles,
+          bumperFlashes,
+        ),
       );
+      bumperFlashes.forEach((flash) => {
+        flash.level =
+          flash.level < 0.04
+            ? 0
+            : flash.level * BUMPER_FLASH_DECAY;
+      });
       if (firstFinishFrameIndex < 0 && finishedSlotIds.length > 0) {
         firstFinishFrameIndex = frames.length - 1;
       }

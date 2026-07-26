@@ -41,11 +41,18 @@ export type MarblePose = {
   angle: number;
 };
 
+export type BumperFlash = {
+  level: number;
+  x: number;
+  y: number;
+};
+
 export type RaceFrame = {
   poses: MarblePose[];
   rankedSlotIds: string[];
   finishedSlotIds: string[];
   rotatingBarAngles: number[];
+  bumperFlashes: BumperFlash[];
 };
 
 export type SpinnerDynamics = {

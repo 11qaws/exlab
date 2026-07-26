@@ -25,7 +25,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "./course";
-import type { CourseRect } from "./course";
+import type { CourseBumper, CourseRect } from "./course";
 import type { RacePlan } from "./types";
 
 type RaceCanvasProps = {
@@ -57,6 +57,99 @@ function roundedRect(
     radius * scale,
   );
   context.fill();
+  context.restore();
+}
+
+function drawBumper(
+  context: CanvasRenderingContext2D,
+  bumper: CourseBumper,
+  scale: number,
+  offsetX: number,
+  offsetY: number,
+  cameraY: number,
+) {
+  const x = offsetX + bumper.x * scale;
+  const y = offsetY + (bumper.y - cameraY) * scale;
+  context.save();
+  context.translate(x, y);
+  context.rotate(bumper.angle);
+  context.shadowColor =
+    bumper.kind === "finish-launch"
+      ? "rgba(255, 173, 74, 0.72)"
+      : "rgba(232, 79, 131, 0.68)";
+  context.shadowBlur = 14 * scale;
+  context.fillStyle =
+    bumper.kind === "finish-launch" ? "#ffad4a" : "#e84f83";
+  context.strokeStyle = "#fff8ef";
+  context.lineWidth = Math.max(2, 3 * scale);
+  context.beginPath();
+  context.roundRect(
+    (-bumper.width * scale) / 2,
+    (-bumper.height * scale) / 2,
+    bumper.width * scale,
+    bumper.height * scale,
+    (bumper.height * scale) / 2,
+  );
+  context.fill();
+  context.stroke();
+  context.shadowBlur = 0;
+  context.fillStyle =
+    bumper.kind === "finish-launch" ? "#fff0c7" : "#ffd0df";
+  context.beginPath();
+  context.roundRect(
+    (-bumper.width * scale) / 2 + 12 * scale,
+    -3 * scale,
+    Math.max(10, (bumper.width - 24) * scale),
+    6 * scale,
+    3 * scale,
+  );
+  context.fill();
+  context.restore();
+}
+
+function drawBumperFlash(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  level: number,
+  scale: number,
+  reducedMotion: boolean,
+  rayOffset: number,
+) {
+  if (level <= 0) return;
+  const progress = 1 - level;
+  const radius = (18 + progress * 42) * scale;
+  context.save();
+  context.translate(x, y);
+  context.globalAlpha = Math.min(1, level * 1.35);
+  const glow = context.createRadialGradient(0, 0, 0, 0, 0, radius);
+  glow.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+  glow.addColorStop(0.28, "rgba(255, 226, 133, 0.72)");
+  glow.addColorStop(1, "rgba(255, 173, 74, 0)");
+  context.fillStyle = glow;
+  context.beginPath();
+  context.arc(0, 0, radius, 0, Math.PI * 2);
+  context.fill();
+
+  context.strokeStyle = "#fff8ef";
+  context.lineWidth = Math.max(1.5, 2.5 * scale);
+  context.beginPath();
+  context.arc(0, 0, radius * 0.58, 0, Math.PI * 2);
+  context.stroke();
+
+  if (!reducedMotion) {
+    context.rotate(rayOffset);
+    context.lineCap = "round";
+    for (let index = 0; index < 8; index += 1) {
+      const angle = (Math.PI * 2 * index) / 8;
+      const start = (12 + progress * 8) * scale;
+      const end = (24 + progress * 30) * scale;
+      context.beginPath();
+      context.moveTo(Math.cos(angle) * start, Math.sin(angle) * start);
+      context.lineTo(Math.cos(angle) * end, Math.sin(angle) * end);
+      context.stroke();
+    }
+  }
   context.restore();
 }
 
@@ -245,33 +338,25 @@ export function RaceCanvas({
       context.fill();
     });
 
-    COURSE_BUMPERS.forEach((bumper) => {
-      const x = offsetX + bumper.x * scale;
+    COURSE_BUMPERS.forEach((bumper, index) => {
       const y = offsetY + (bumper.y - cameraY) * scale;
-      if (y < -bumper.radius * scale || y > logicalHeight + bumper.radius * scale) {
+      const extent = Math.max(bumper.width, bumper.height) * scale;
+      if (y < -extent || y > logicalHeight + extent) {
         return;
       }
-      context.save();
-      context.shadowColor =
-        bumper.kind === "finish-launch"
-          ? "rgba(255, 173, 74, 0.7)"
-          : "rgba(232, 79, 131, 0.65)";
-      context.shadowBlur = 14 * scale;
-      context.fillStyle =
-        bumper.kind === "finish-launch" ? "#ffad4a" : "#e84f83";
-      context.strokeStyle = "#fff8ef";
-      context.lineWidth = Math.max(2, 4 * scale);
-      context.beginPath();
-      context.arc(x, y, bumper.radius * scale, 0, Math.PI * 2);
-      context.fill();
-      context.stroke();
-      context.shadowBlur = 0;
-      context.fillStyle =
-        bumper.kind === "finish-launch" ? "#fff0c7" : "#ffd0df";
-      context.beginPath();
-      context.arc(x, y, bumper.radius * scale * 0.38, 0, Math.PI * 2);
-      context.fill();
-      context.restore();
+      const flash = frame.bumperFlashes[index];
+      if (flash?.level > 0) {
+        drawBumperFlash(
+          context,
+          offsetX + flash.x * scale,
+          offsetY + (flash.y - cameraY) * scale,
+          flash.level,
+          scale,
+          reducedMotion,
+          index * 0.37 + frameIndex * 0.08,
+        );
+      }
+      drawBumper(context, bumper, scale, offsetX, offsetY, cameraY);
     });
 
     context.fillStyle = "#f1b3c6";

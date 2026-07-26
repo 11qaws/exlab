@@ -9,6 +9,7 @@ import {
   COURSE_PINS,
   COURSE_RECTS,
   COURSE_SECTIONS,
+  FINISH_LINE_X,
   FINISH_LINE_WIDTH,
   FINISH_Y,
   MARBLE_RADIUS,
@@ -267,8 +268,12 @@ test("obstacles stay on straight zones and wall bumpers feed inward", () => {
   )) {
     const zone = zones.get(bumper.zoneId);
     assert.ok(zone);
-    assert.ok(bumper.y - bumper.radius >= zone.startY);
-    assert.ok(bumper.y + bumper.radius <= zone.endY);
+    const halfVerticalExtent =
+      (Math.abs(Math.sin(bumper.angle)) * bumper.width +
+        Math.abs(Math.cos(bumper.angle)) * bumper.height) /
+      2;
+    assert.ok(bumper.y - halfVerticalExtent >= zone.startY);
+    assert.ok(bumper.y + halfVerticalExtent <= zone.endY);
   }
 
   for (const bar of ROTATING_BARS) {
@@ -367,11 +372,48 @@ test("finish entrance has paired launch bumpers beside the narrow lane", () => {
     assert.ok(bumper.kickSpeed >= 6);
   }
   const [left, right] = launchBumpers;
-  const clearance =
-    Math.hypot(left.x - right.x, left.y - right.y) -
-    left.radius -
-    right.radius;
+  const leftInnerEdge = left.x + left.width / 2;
+  const rightInnerEdge = right.x - right.width / 2;
+  const clearance = rightInnerEdge - leftInnerEdge;
   assert.ok(clearance >= MIN_COURSE_CLEARANCE);
+  assert.equal(leftInnerEdge, FINISH_LINE_X);
+  assert.equal(rightInnerEdge, FINISH_LINE_X + FINISH_LINE_WIDTH);
+
+  const bounds = courseBoundsAtY(left.y);
+  const wallHalfWidth = COURSE_BOUNDARY_THICKNESS / 2;
+  assert.ok(
+    left.x - left.width / 2 <=
+      bounds.leftX - wallHalfWidth - MARBLE_RADIUS,
+  );
+  assert.ok(
+    right.x + right.width / 2 >=
+      bounds.rightX + wallHalfWidth + MARBLE_RADIUS,
+  );
+});
+
+test("active bumpers are pill-shaped bars", () => {
+  for (const bumper of COURSE_BUMPERS) {
+    assert.ok(bumper.width >= bumper.height * 2);
+    assert.ok(bumper.height >= MARBLE_RADIUS);
+    assert.ok(Number.isFinite(bumper.angle));
+  }
+});
+
+test("race frames expose bounded bumper collision flashes", () => {
+  const result = simulateRace(5, "flash-test", "flash-layout");
+  const flashes = result.frames.flatMap((frame) => frame.bumperFlashes);
+
+  assert.ok(
+    result.frames.every(
+      (frame) => frame.bumperFlashes.length === COURSE_BUMPERS.length,
+    ),
+  );
+  assert.ok(flashes.some((flash) => flash.level > 0));
+  for (const flash of flashes) {
+    assert.ok(flash.level >= 0 && flash.level <= 1);
+    assert.ok(Number.isFinite(flash.x));
+    assert.ok(Number.isFinite(flash.y));
+  }
 });
 
 test("catch-up force starts only after a meaningful leader gap", () => {

@@ -1,11 +1,13 @@
 import {
   COURSE_BUMPERS,
+  COURSE_BOUNDARY_THICKNESS,
   COURSE_CURVE_RECTS,
   COURSE_PINS,
   COURSE_RECTS,
   MARBLE_RADIUS,
   ROTATING_BARS,
   STRAIGHT_ZONES,
+  courseBoundsAtY,
   rotatingBarTurnsTowardWall,
   type BoundarySide,
   type CourseRect,
@@ -281,12 +283,16 @@ function courseShapes(): CourseShape[] {
     radius: pin.radius,
     isBoundary: false,
   }));
-  const bumpers: CircleShape[] = COURSE_BUMPERS.map((bumper, index) => ({
+  const bumpers: RectShape[] = COURSE_BUMPERS.map((bumper, index) => ({
     id: `active-bumper-${index + 1}`,
-    kind: "circle",
-    x: bumper.x,
-    y: bumper.y,
-    radius: bumper.radius,
+    kind: "rect",
+    points: rectPoints({
+      x: bumper.x,
+      y: bumper.y,
+      width: bumper.width,
+      height: bumper.height,
+      angle: bumper.angle,
+    }),
     isBoundary: false,
     connectedGroupIds: bumper.connectedGroupIds,
   }));
@@ -373,6 +379,10 @@ function inspectFinalLaunchBumpers(): CourseFinalLaunchBumperViolation[] {
     (bumper) => bumper.kind === "finish-launch",
   );
   const violations: CourseFinalLaunchBumperViolation[] = [];
+  const resolvedBySide = new Map<
+    BoundarySide,
+    (typeof launchBumpers)[number]
+  >();
   for (const side of ["left", "right"] as const) {
     const matches = launchBumpers.filter(
       (bumper) => bumper.attachment === side,
@@ -385,6 +395,7 @@ function inspectFinalLaunchBumpers(): CourseFinalLaunchBumperViolation[] {
       continue;
     }
     const bumper = matches[0];
+    resolvedBySide.set(side, bumper);
     if (
       bumper.y <= finalGate.endY ||
       bumper.y >= finishCorridor.startY
@@ -400,6 +411,39 @@ function inspectFinalLaunchBumpers(): CourseFinalLaunchBumperViolation[] {
         reason: "launch bumper kick is too weak",
       });
     }
+    const bounds = courseBoundsAtY(bumper.y);
+    const halfHorizontalSpan =
+      (Math.abs(Math.cos(bumper.angle)) * bumper.width +
+        Math.abs(Math.sin(bumper.angle)) * bumper.height) /
+      2;
+    const outerEdge =
+      side === "left"
+        ? bumper.x - halfHorizontalSpan
+        : bumper.x + halfHorizontalSpan;
+    const outerWallFace =
+      side === "left"
+        ? bounds.leftX - COURSE_BOUNDARY_THICKNESS / 2
+        : bounds.rightX + COURSE_BOUNDARY_THICKNESS / 2;
+    const sealsOuterPocket =
+      side === "left"
+        ? outerEdge <= outerWallFace - MARBLE_RADIUS
+        : outerEdge >= outerWallFace + MARBLE_RADIUS;
+    if (!sealsOuterPocket) {
+      violations.push({
+        side,
+        reason: "launch bumper does not bridge the outer wall face",
+      });
+    }
+    if (
+      !bumper.connectedGroupIds?.some((groupId) =>
+        groupId.includes(`${side}-course-boundary`),
+      )
+    ) {
+      violations.push({
+        side,
+        reason: "launch bumper is not connected to its boundary group",
+      });
+    }
   }
 
   if (launchBumpers.length !== 2) {
@@ -407,6 +451,18 @@ function inspectFinalLaunchBumpers(): CourseFinalLaunchBumperViolation[] {
       side: null,
       reason: `expected two finish launch bumpers, found ${launchBumpers.length}`,
     });
+  }
+  const left = resolvedBySide.get("left");
+  const right = resolvedBySide.get("right");
+  if (left && right) {
+    const leftInnerEdge = left.x + left.width / 2;
+    const rightInnerEdge = right.x - right.width / 2;
+    if (rightInnerEdge - leftInnerEdge < MIN_COURSE_CLEARANCE) {
+      violations.push({
+        side: null,
+        reason: "finish launch bars leave less than one marble passage",
+      });
+    }
   }
   return violations;
 }

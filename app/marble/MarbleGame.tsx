@@ -240,23 +240,33 @@ function StartPreview({
         ))}
         {COURSE_BUMPERS.map((bumper, index) => (
           <g key={`bumper-${index}`}>
-            <circle
-              cx={bumper.x}
-              cy={previewY(bumper.y)}
-              r={bumper.kind === "finish-launch" ? 10 : 8}
+            <rect
+              x={bumper.x - bumper.width / 2}
+              y={previewY(bumper.y) - 5}
+              width={bumper.width}
+              height="10"
+              rx="5"
               fill={
                 bumper.kind === "finish-launch" ? "#ffad4a" : "#e84f83"
               }
               stroke="#fff8ef"
               strokeWidth="2"
+              transform={`rotate(${(bumper.angle * 180 * 0.5) / Math.PI} ${
+                bumper.x
+              } ${previewY(bumper.y)})`}
             />
-            <circle
-              cx={bumper.x}
-              cy={previewY(bumper.y)}
-              r={bumper.kind === "finish-launch" ? 3.5 : 3}
+            <rect
+              x={bumper.x - bumper.width / 2 + 12}
+              y={previewY(bumper.y) - 1.5}
+              width={bumper.width - 24}
+              height="3"
+              rx="1.5"
               fill={
                 bumper.kind === "finish-launch" ? "#fff0c7" : "#ffd0df"
               }
+              transform={`rotate(${(bumper.angle * 180 * 0.5) / Math.PI} ${
+                bumper.x
+              } ${previewY(bumper.y)})`}
             />
           </g>
         ))}
@@ -1015,7 +1025,7 @@ export function MarbleGame() {
           <span aria-hidden="true">●</span>
           Ex Lab
         </a>
-        <span className="prototype-badge">RACE · VERSION 1.1.1</span>
+        <span className="prototype-badge">RACE · VERSION 1.1.2</span>
       </header>
 
       <section className="intro">

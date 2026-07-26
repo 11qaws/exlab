@@ -48,7 +48,9 @@ export type CoursePin = {
 export type CourseBumper = {
   x: number;
   y: number;
-  radius: number;
+  width: number;
+  height: number;
+  angle: number;
   zoneId: string;
   kind: "field" | "finish-launch";
   kickSpeed: number;
@@ -494,64 +496,78 @@ export const COURSE_PINS: CoursePin[] = BASE_COURSE_PINS.map((pin) => ({
 const BASE_COURSE_BUMPERS: CourseBumper[] = [
   // 25% Bumper Run: replace the opening pin language with active rebounds.
   {
-    x: 260,
+    x: 270,
     y: 2450,
-    radius: 34,
+    width: 105,
+    height: 30,
+    angle: 0.2,
     zoneId: "left-chute",
     kind: "field",
-    kickSpeed: 4.8,
+    kickSpeed: 4.2,
   },
   {
-    x: 340,
+    x: 380,
     y: 3650,
-    radius: 34,
+    width: 105,
+    height: 30,
+    angle: -0.2,
     zoneId: "central-release",
     kind: "field",
-    kickSpeed: 4.6,
+    kickSpeed: 4,
   },
   {
-    x: 610,
+    x: 540,
     y: 3705,
-    radius: 32,
+    width: 105,
+    height: 30,
+    angle: 0.2,
     zoneId: "central-release",
     kind: "field",
-    kickSpeed: 4.4,
+    kickSpeed: 4,
   },
 
   // 50% Squeeze Gates: fewer, larger bumpers sit between attached rails.
   {
-    x: 570,
+    x: 650,
     y: 4740,
-    radius: 34,
+    width: 105,
+    height: 30,
+    angle: -0.18,
     zoneId: "right-squeeze",
     kind: "field",
-    kickSpeed: 4.8,
+    kickSpeed: 4.2,
   },
   {
-    x: 470,
+    x: 300,
     y: 5750,
-    radius: 34,
+    width: 110,
+    height: 30,
+    angle: 0.2,
     zoneId: "left-drift",
     kind: "field",
-    kickSpeed: 4.6,
+    kickSpeed: 4,
   },
 
   // 75% Final Mix: one last active rebound follows the dense pin field.
   {
-    x: 300,
+    x: 250,
     y: 7750,
-    radius: 32,
+    width: 105,
+    height: 30,
+    angle: -0.2,
     zoneId: "left-sprint",
     kind: "field",
-    kickSpeed: 4.8,
+    kickSpeed: 4.2,
   },
 
   // The final pair is embedded in both narrowing walls. Any contact kicks
   // the marble back upward before it can enter the 60px finish corridor.
   {
-    x: 365,
+    x: 375,
     y: 8760,
-    radius: 36,
+    width: 90,
+    height: 30,
+    angle: 0,
     zoneId: "finish-corridor",
     kind: "finish-launch",
     kickSpeed: 7.2,
@@ -559,9 +575,11 @@ const BASE_COURSE_BUMPERS: CourseBumper[] = [
     connectedGroupIds: [LEFT_BOUNDARY_GROUP],
   },
   {
-    x: 535,
+    x: 525,
     y: 8760,
-    radius: 36,
+    width: 90,
+    height: 30,
+    angle: 0,
     zoneId: "finish-corridor",
     kind: "finish-launch",
     kickSpeed: 7.2,
