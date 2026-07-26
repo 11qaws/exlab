@@ -31,6 +31,7 @@ import {
   isCloseRace,
   isFinalApproach,
 } from "./race-presentation";
+import { overtakeZoomIntensity } from "./race-playback";
 import {
   obstacleColor,
   obstacleRoleColor,
@@ -46,6 +47,12 @@ type RaceCanvasProps = {
   reducedMotion: boolean;
   mapMode: RaceMapMode;
   playbackEpoch?: number;
+  finalOvertake?: {
+    fromSlotId: string;
+    toSlotId: string;
+    progress: number;
+    hasOvertaken: boolean;
+  } | null;
 };
 
 export function resolveRaceFrame(
@@ -54,11 +61,61 @@ export function resolveRaceFrame(
 ): RaceFrame | null {
   if (frames.length === 0) return null;
   const finiteIndex = Number.isFinite(frameIndex) ? frameIndex : 0;
-  const safeIndex = Math.max(
+  const clampedIndex = Math.max(
     0,
-    Math.min(Math.floor(finiteIndex), frames.length - 1),
+    Math.min(finiteIndex, frames.length - 1),
   );
-  return frames[safeIndex] ?? frames[0] ?? null;
+  const baseIndex = Math.floor(clampedIndex);
+  const nextIndex = Math.min(baseIndex + 1, frames.length - 1);
+  const baseFrame = frames[baseIndex] ?? frames[0] ?? null;
+  const nextFrame = frames[nextIndex] ?? baseFrame;
+  const progress = clampedIndex - baseIndex;
+  if (!baseFrame || !nextFrame || progress <= 0 || baseFrame === nextFrame) {
+    return baseFrame;
+  }
+
+  const interpolate = (from: number, to: number) =>
+    from + (to - from) * progress;
+  const interpolateAngle = (from: number, to: number) => {
+    const delta = Math.atan2(Math.sin(to - from), Math.cos(to - from));
+    return from + delta * progress;
+  };
+  const nextPoseBySlot = new Map(
+    nextFrame.poses.map((pose) => [pose.slotId, pose]),
+  );
+
+  return {
+    poses: baseFrame.poses.map((pose) => {
+      const nextPose = nextPoseBySlot.get(pose.slotId);
+      return nextPose
+        ? {
+            slotId: pose.slotId,
+            x: interpolate(pose.x, nextPose.x),
+            y: interpolate(pose.y, nextPose.y),
+            angle: interpolateAngle(pose.angle, nextPose.angle),
+          }
+        : pose;
+    }),
+    // Ranking and finish state remain causal: interpolation never exposes the
+    // next captured frame's result before its source-frame boundary.
+    rankedSlotIds: baseFrame.rankedSlotIds,
+    finishedSlotIds: baseFrame.finishedSlotIds,
+    rotatingBarAngles: baseFrame.rotatingBarAngles.map((angle, index) =>
+      interpolateAngle(
+        angle,
+        nextFrame.rotatingBarAngles[index] ?? angle,
+      ),
+    ),
+    bumperFlashes: baseFrame.bumperFlashes.map((flash, index) => {
+      const nextFlash = nextFrame.bumperFlashes[index];
+      if (!nextFlash || nextFlash.level >= flash.level) return flash;
+      return {
+        level: interpolate(flash.level, nextFlash.level),
+        x: interpolate(flash.x, nextFlash.x),
+        y: interpolate(flash.y, nextFlash.y),
+      };
+    }),
+  };
 }
 
 export function resolveRaceFocusSlotId(
@@ -110,6 +167,10 @@ function colorWithAlpha(color: string, alpha: number): string {
   const green = Number.parseInt(value.slice(2, 4), 16);
   const blue = Number.parseInt(value.slice(4, 6), 16);
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function clampPercent(value: number): number {
+  return Math.max(8, Math.min(92, value));
 }
 
 function drawBumper(
@@ -210,6 +271,7 @@ export function RaceCanvas({
   reducedMotion,
   mapMode,
   playbackEpoch = 0,
+  finalOvertake = null,
 }: RaceCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const leaderFocusRef = useRef<LeaderFocusState>({
@@ -218,6 +280,7 @@ export function RaceCanvas({
   const verticalCameraRef = useRef<VerticalCameraState>({
     ...INITIAL_VERTICAL_CAMERA_STATE,
   });
+  const verticalCameraFrameRef = useRef<number | null>(null);
   const frame = resolveRaceFrame(plan.simulation.frames, frameIndex);
   const previousFrame = resolveRaceFrame(
     plan.simulation.frames,
@@ -235,7 +298,7 @@ export function RaceCanvas({
   const focusLeaderSlotId = frame
     ? resolveRaceFocusSlotId(
         frame,
-        plan.simulation.targetFinishCount,
+        plan.simulation.resultGateCount,
       )
     : undefined;
   const focusLeaderPose = frame?.poses.find(
@@ -248,11 +311,11 @@ export function RaceCanvas({
   const stableLeadChanges = useMemo(
     () =>
       findStableLeadChanges(plan.simulation.frames, {
-        targetFinishCount: plan.simulation.targetFinishCount,
+        targetFinishCount: plan.simulation.resultGateCount,
       }),
     [
       plan.simulation.frames,
-      plan.simulation.targetFinishCount,
+      plan.simulation.resultGateCount,
     ],
   );
   const activeLeadChange = [...stableLeadChanges]
@@ -262,6 +325,8 @@ export function RaceCanvas({
         frameIndex >= change.frameIndex &&
         frameIndex <= change.frameIndex + 30,
     );
+  const highlightedOvertakeSlotId =
+    finalOvertake?.toSlotId ?? activeLeadChange?.toSlotId;
   const closeRace =
     frame && frame.finishedSlotIds.length === 0
       ? isCloseRace(frame)
@@ -278,7 +343,7 @@ export function RaceCanvas({
           focusLeaderPose &&
             frame &&
             frame.finishedSlotIds.length <
-              plan.simulation.targetFinishCount &&
+              plan.simulation.resultGateCount &&
             focusLeaderPose.y / FINISH_Y >= 0.88,
         );
   const candidateById = useMemo(
@@ -290,10 +355,30 @@ export function RaceCanvas({
   const leaderCandidate = leaderSlotId
     ? candidateById.get(plan.slotToCandidateId[leaderSlotId])
     : undefined;
+  const finalOvertakeCandidate = finalOvertake
+    ? candidateById.get(
+        plan.slotToCandidateId[finalOvertake.toSlotId],
+      )
+    : undefined;
+  const cinematicSlotId = finalOvertake?.toSlotId;
+  const cinematicIntensity =
+    !reducedMotion && finalOvertake
+      ? overtakeZoomIntensity(finalOvertake.progress)
+      : 0;
+  const cinematicScale = 1 + cinematicIntensity;
+  const cinematicPose = frame?.poses.find(
+    (pose) => pose.slotId === cinematicSlotId,
+  );
+  const cinematicOrigin = cinematicPose
+    ? `${clampPercent(
+        (cinematicPose.x / WORLD_WIDTH) * 100,
+      ).toFixed(2)}% 42%`
+    : "50% 42%";
 
   useEffect(() => {
     leaderFocusRef.current = { ...INITIAL_LEADER_FOCUS_STATE };
     verticalCameraRef.current = { ...INITIAL_VERTICAL_CAMERA_STATE };
+    verticalCameraFrameRef.current = null;
   }, [plan.runId, playbackEpoch]);
 
   useEffect(() => {
@@ -307,10 +392,14 @@ export function RaceCanvas({
     if (!parent) return;
     const rect = parent.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
+    const pixelWidth = Math.max(1, Math.floor(rect.width * dpr));
+    const pixelHeight = Math.max(1, Math.floor(rect.height * dpr));
+    const cssWidth = `${rect.width}px`;
+    const cssHeight = `${rect.height}px`;
+    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+    if (canvas.style.width !== cssWidth) canvas.style.width = cssWidth;
+    if (canvas.style.height !== cssHeight) canvas.style.height = cssHeight;
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const logicalWidth = rect.width;
@@ -342,11 +431,18 @@ export function RaceCanvas({
         focusY - viewHeight * 0.42,
       ),
     );
+    const previousCameraFrame = verticalCameraFrameRef.current;
+    const cameraFrameDelta =
+      previousCameraFrame === null
+        ? 1
+        : Math.max(0, frameIndex - previousCameraFrame);
+    verticalCameraFrameRef.current = frameIndex;
     verticalCameraRef.current = advanceVerticalCamera(
       verticalCameraRef.current,
       targetCameraY,
       WORLD_HEIGHT - viewHeight,
       reducedMotion,
+      cameraFrameDelta,
     );
     const cameraY = verticalCameraRef.current.positionY;
 
@@ -658,7 +754,7 @@ export function RaceCanvas({
       }
 
       if (
-        activeLeadChange?.toSlotId === pose.slotId &&
+        highlightedOvertakeSlotId === pose.slotId &&
         !reducedMotion &&
         scale > 0.5
       ) {
@@ -693,6 +789,7 @@ export function RaceCanvas({
     frame,
     frameIndex,
     focusLeaderSlotId,
+    highlightedOvertakeSlotId,
     mapMode,
     plan.slotToCandidateId,
     previousFrame,
@@ -703,9 +800,30 @@ export function RaceCanvas({
   return (
     <canvas
       ref={canvasRef}
-      className={`race-canvas ${finalApproach ? "is-final-approach" : ""}`}
+      data-render-frame={frameIndex.toFixed(3)}
+      className={[
+        "race-canvas",
+        finalApproach ? "is-final-approach" : "",
+        finalOvertake ? "is-final-overtake" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={
+        cinematicIntensity > 0
+          ? {
+              transform: `scale(${cinematicScale.toFixed(4)})`,
+              transformOrigin: cinematicOrigin,
+            }
+          : undefined
+      }
       role="img"
-      aria-label={`Race 경기장. 현재 선두는 ${leaderCandidate?.name ?? "확인 중"}입니다.`}
+      aria-label={
+        finalOvertakeCandidate
+          ? finalOvertake?.hasOvertaken
+            ? `Race 경기장. 마지막 구간에서 ${finalOvertakeCandidate.name} 참가자가 선두를 추월했습니다.`
+            : `Race 경기장. 마지막 구간에서 ${finalOvertakeCandidate.name} 참가자가 선두 추월을 시도하고 있습니다.`
+          : `Race 경기장. 현재 선두는 ${leaderCandidate?.name ?? "확인 중"}입니다.`
+      }
     />
   );
 }

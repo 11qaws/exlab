@@ -33,6 +33,10 @@ export type LeadChange = {
   gap: number;
 };
 
+export type FinalSectionOvertake = LeadChange & {
+  overtakeFrameIndex: number;
+};
+
 export type StableLeadChangeOptions = {
   holdFrames?: number;
   meaningfulGap?: number;
@@ -244,6 +248,48 @@ export function latestStableLeadChange(
 }
 
 /**
+ * Selects confirmed physical overtakes whose actual first lead frame occurs
+ * inside FINAL MIX before anyone finishes. The future hold/gap check only
+ * decides whether the raw overall first/second-place change is meaningful;
+ * presentation still starts on the physical frame where that change happened.
+ */
+export function findFinalSectionOvertakes(
+  frames: readonly RaceFrame[],
+  options: StableLeadChangeOptions = {},
+): FinalSectionOvertake[] {
+  const finalSection = COURSE_SECTIONS.at(-1)!;
+  const overallLeadOptions = {
+    ...options,
+    targetFinishCount: 1,
+  };
+
+  return findStableLeadChanges(frames, overallLeadOptions).flatMap(
+    (change) => {
+      const triggerFrame = frames[change.holdStartFrameIndex];
+      const overtakingPose = triggerFrame
+        ? poseBySlotId(triggerFrame, change.toSlotId)
+        : undefined;
+      if (
+        !triggerFrame ||
+        triggerFrame.finishedSlotIds.length > 0 ||
+        !overtakingPose ||
+        overtakingPose.y < finalSection.startY ||
+        overtakingPose.y >= FINISH_Y
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          ...change,
+          overtakeFrameIndex: change.holdStartFrameIndex,
+        },
+      ];
+    },
+  );
+}
+
+/**
  * A live close-race state is only reported before the first arrival. Arrival
  * timing has its own photo-finish signal and should not be inferred from
  * bodies continuing below the finish line.
@@ -276,18 +322,30 @@ export function isFinalApproach(
   return progress !== null && progress.overall >= startProgress;
 }
 
-function arrivalAtPlace(
+export function resolveFinishFrameIndex(
   frames: readonly RaceFrame[],
   place: number,
-): { slotId: string; frameIndex: number } | null {
+): number | null {
   if (!Number.isInteger(place) || place < 1) {
     throw new RangeError("place must be a positive integer.");
   }
   for (let frameIndex = 0; frameIndex < frames.length; frameIndex += 1) {
     const slotId = frames[frameIndex].finishedSlotIds[place - 1];
-    if (slotId) return { slotId, frameIndex };
+    if (slotId) return frameIndex;
   }
   return null;
+}
+
+function arrivalAtPlace(
+  frames: readonly RaceFrame[],
+  place: number,
+): { slotId: string; frameIndex: number } | null {
+  const frameIndex = resolveFinishFrameIndex(frames, place);
+  if (frameIndex === null) return null;
+  return {
+    slotId: frames[frameIndex].finishedSlotIds[place - 1],
+    frameIndex,
+  };
 }
 
 /**

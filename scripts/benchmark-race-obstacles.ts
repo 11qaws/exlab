@@ -143,6 +143,27 @@ function measureRace(participantCount: number, seedIndex: number) {
     `obstacle-layout-${participantCount}-${seedIndex}`,
   );
   const lastMeasuredFrame = Math.max(0, simulation.firstFinishFrameIndex);
+  const leaderGaps = simulation.frames
+    .slice(0, lastMeasuredFrame + 1)
+    .flatMap((frame) => {
+      const leader = frame.poses.find(
+        (pose) => pose.slotId === frame.rankedSlotIds[0],
+      );
+      const runnerUp = frame.poses.find(
+        (pose) => pose.slotId === frame.rankedSlotIds[1],
+      );
+      return leader && runnerUp
+        ? [Math.max(0, leader.y - runnerUp.y)]
+        : [];
+    })
+    .sort((left, right) => left - right);
+  const leaderGapP95 =
+    leaderGaps[
+      Math.min(
+        leaderGaps.length - 1,
+        Math.floor(leaderGaps.length * 0.95),
+      )
+    ] ?? 0;
   const activeContacts = new Set<string>();
   const touchedAny = new Set<string>();
   const touchedBumper = new Set<string>();
@@ -279,11 +300,29 @@ function measureRace(participantCount: number, seedIndex: number) {
     finalEntryToFinishSeconds:
       (simulation.firstFinishFrameIndex - safeFinalEntryFrameIndex) / 30,
     maximumWinnerBacktrack,
+    averageLeaderGap:
+      leaderGaps.reduce((sum, gap) => sum + gap, 0) /
+      Math.max(1, leaderGaps.length),
+    leaderGapP95,
+    maximumLeaderGap: leaderGaps.at(-1) ?? 0,
+    leaderGapFrames: leaderGaps.length,
+    leaderGapFramesAbove1000: leaderGaps.filter((gap) => gap > 1000)
+      .length,
   };
 }
 
+const seedCountArgument = process.argv.find((value) =>
+  value.startsWith("--seeds="),
+);
+const seedCount = seedCountArgument
+  ? Number.parseInt(seedCountArgument.slice("--seeds=".length), 10)
+  : 12;
+if (!Number.isInteger(seedCount) || seedCount < 1) {
+  throw new RangeError("--seeds must be a positive integer.");
+}
+
 const samples = [5, 10].flatMap((participantCount) =>
-  Array.from({ length: 12 }, (_, seedIndex) =>
+  Array.from({ length: seedCount }, (_, seedIndex) =>
     measureRace(participantCount, seedIndex),
   ),
 );
@@ -350,6 +389,24 @@ function summarize(
     finalEntryRankCorrelation: average("finalEntryRankCorrelation"),
     finalEntryToFinishSeconds: average("finalEntryToFinishSeconds"),
     maximumWinnerBacktrack: average("maximumWinnerBacktrack"),
+    averageLeaderGap: average("averageLeaderGap"),
+    averageRaceLeaderGapP95: average("leaderGapP95"),
+    averageRaceMaximumLeaderGap: average("maximumLeaderGap"),
+    maximumLeaderGap: Math.max(
+      ...selected.map((sample) => sample.maximumLeaderGap),
+    ),
+    leaderGapFrameRateAbove1000:
+      selected.reduce(
+        (sum, sample) => sum + sample.leaderGapFramesAbove1000,
+        0,
+      ) /
+      Math.max(
+        1,
+        selected.reduce(
+          (sum, sample) => sum + sample.leaderGapFrames,
+          0,
+        ),
+      ),
   };
 }
 

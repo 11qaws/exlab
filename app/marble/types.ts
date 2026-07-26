@@ -75,6 +75,9 @@ export type RaceSimulation = {
   fullFinishOrder: string[];
   firstFinishFrameIndex: number;
   awardFrameIndex: number;
+  podiumFrameIndex: number;
+  resultGateCount: number;
+  resultGateFrameIndex: number;
   targetFinishCount: number;
   visibleFinishedCount: number;
   durationMs: number;

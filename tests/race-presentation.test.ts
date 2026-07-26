@@ -4,6 +4,7 @@ import {
   CLOSE_RACE_GAP,
   FINAL_APPROACH_PROGRESS,
   PHOTO_FINISH_FRAMES,
+  findFinalSectionOvertakes,
   findStableLeadChanges,
   isCloseRace,
   isFinalApproach,
@@ -11,6 +12,7 @@ import {
   latestStableLeadChange,
   resolveArrivalDelta,
   resolveCourseProgress,
+  resolveFinishFrameIndex,
 } from "../app/marble/race-presentation";
 import {
   COURSE_SECTIONS,
@@ -111,6 +113,53 @@ test("stable lead change waits for a meaningful physical gap", () => {
     }),
   );
   assert.equal(findStableLeadChanges(frames)[0].frameIndex, 8);
+});
+
+function stableOvertakeAt(y: number): RaceFrame[] {
+  return [
+    frame(["a", "b"], { a: y, b: y - MARBLE_RADIUS * 2 }),
+    ...Array.from({ length: 6 }, (_, index) =>
+      frame(["b", "a"], {
+        a: y - MARBLE_RADIUS + index,
+        b: y + index,
+      }),
+    ),
+  ];
+}
+
+test("final-section overtakes cue the physical start of a confirmed change", () => {
+  const finalStartY = COURSE_SECTIONS.at(-1)!.startY;
+  assert.deepEqual(
+    findFinalSectionOvertakes(stableOvertakeAt(finalStartY - 1)),
+    [],
+  );
+
+  const [overtake] = findFinalSectionOvertakes(
+    stableOvertakeAt(finalStartY),
+  );
+  assert.ok(overtake);
+  assert.equal(overtake.overtakeFrameIndex, 1);
+  assert.equal(overtake.holdStartFrameIndex, 1);
+  assert.equal(overtake.frameIndex, 6);
+  assert.equal(overtake.fromSlotId, "a");
+  assert.equal(overtake.toSlotId, "b");
+});
+
+test("final-section cinematic ignores races for remaining places after first arrival", () => {
+  const finalStartY = COURSE_SECTIONS.at(-1)!.startY;
+  const postFinishFrames = stableOvertakeAt(finalStartY).map(
+    (raceFrame) => ({
+      ...raceFrame,
+      finishedSlotIds: ["winner"],
+    }),
+  );
+
+  assert.deepEqual(
+    findFinalSectionOvertakes(postFinishFrames, {
+      targetFinishCount: 3,
+    }),
+    [],
+  );
 });
 
 test("stable lead changes continue through later winner competitions", () => {
@@ -265,6 +314,9 @@ function finishFrames(
 
 test("arrival delta is derived from cumulative physical finish frames", () => {
   const frames = finishFrames(2, 5);
+  assert.equal(resolveFinishFrameIndex(frames, 1), 2);
+  assert.equal(resolveFinishFrameIndex(frames, 2), 5);
+  assert.equal(resolveFinishFrameIndex(frames.slice(0, 4), 2), null);
   assert.deepEqual(resolveArrivalDelta(frames), {
     firstPlace: 1,
     secondPlace: 2,

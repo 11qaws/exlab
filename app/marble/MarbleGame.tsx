@@ -37,11 +37,14 @@ import {
   WORLD_HEIGHT,
 } from "./course";
 import {
+  CHASE_ASSIST_TARGET_GAP,
   FRAME_RATE,
-  RESULT_REVEAL_DELAY_FRAMES,
+  MINIMUM_RESULT_FINISHERS,
+  START_MAX_HORIZONTAL_JITTER,
   simulateRace,
 } from "./simulation";
 import {
+  findFinalSectionOvertakes,
   findStableLeadChanges,
   isCloseRace,
   isFinalApproach,
@@ -49,6 +52,15 @@ import {
   resolveArrivalDelta,
   resolveCourseProgress,
 } from "./race-presentation";
+import {
+  advanceRacePlayback,
+  createRacePlaybackClock,
+  FINAL_OVERTAKE_DURATION_MS,
+  FINAL_OVERTAKE_PLAYBACK_RATE,
+  RESULT_HOLD_DURATION_MS,
+  resolveFinalOvertakeTriggerFrame,
+  type RacePlaybackClock,
+} from "./race-playback";
 import {
   DEFAULT_RACE_MAP_MODE,
   obstacleColor,
@@ -83,6 +95,7 @@ const DEFAULT_ROSTER = [
 const ROSTER_KEY = "marble-game:roster";
 const HISTORY_KEY = "marble-game:history";
 const PREVIEW_DURATION_MS = 10_000;
+const MAX_PRESENTATION_DELTA_MS = 100;
 
 type Phase =
   | "ready"
@@ -92,6 +105,13 @@ type Phase =
   | "running"
   | "result"
   | "error";
+
+type FinalOvertakeCue = {
+  fromSlotId: string;
+  toSlotId: string;
+  progress: number;
+  hasOvertaken: boolean;
+};
 
 function candidateForSlot(
   plan: RacePlan,
@@ -409,6 +429,7 @@ function LiveRacePreview({
   const [remainingSeconds, setRemainingSeconds] = useState(10);
 
   useEffect(() => {
+    let retryTimer = 0;
     const timer = window.setTimeout(() => {
       setPreviewFrameIndex(0);
       setRemainingSeconds(10);
@@ -450,9 +471,16 @@ function LiveRacePreview({
         );
       } catch {
         setPreviewPlan(null);
+        retryTimer = window.setTimeout(
+          () => setPreviewCycle((value) => value + 1),
+          750,
+        );
       }
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(retryTimer);
+    };
   }, [candidates, layoutSeed, previewCycle]);
 
   useEffect(() => {
@@ -547,28 +575,55 @@ export function MarbleGame() {
   const [phase, setPhase] = useState<Phase>("ready");
   const [plan, setPlan] = useState<RacePlan | null>(null);
   const [frameIndex, setFrameIndex] = useState(0);
+  const [renderFrameIndex, setRenderFrameIndex] = useState(0);
   const [countdown, setCountdown] = useState<CountdownStep>(3);
   const [errorMessage, setErrorMessage] = useState("");
   const [toast, setToast] = useState("");
   const [history, setHistory] = useState<StoredRaceResult[]>([]);
   const [isReplay, setIsReplay] = useState(false);
   const [playbackEpoch, setPlaybackEpoch] = useState(0);
+  const [finalOvertakeCue, setFinalOvertakeCue] =
+    useState<FinalOvertakeCue | null>(null);
+  const [resultHoldRemainingMs, setResultHoldRemainingMs] = useState(
+    RESULT_HOLD_DURATION_MS,
+  );
   const generationKey = useRef(0);
   const audioContext = useRef<AudioContext | null>(null);
   const historyRef = useRef<StoredRaceResult[]>([]);
   const resultHistoryCheckpoint = useRef<RaceHistoryCheckpoint | null>(
     null,
   );
-  const raceStartedAt = useRef<number | null>(null);
+  const playbackClock = useRef<RacePlaybackClock>(
+    createRacePlaybackClock(),
+  );
+  const lastPlaybackTimestamp = useRef<number | null>(null);
   const reducedMotion = useReducedMotion();
   const stableLeadChanges = useMemo(
     () =>
       plan
         ? findStableLeadChanges(plan.simulation.frames, {
-            targetFinishCount: plan.simulation.targetFinishCount,
+            targetFinishCount: plan.simulation.resultGateCount,
           })
         : [],
     [plan],
+  );
+  const finalOvertakeEvents = useMemo(
+    () =>
+      plan
+        ? findFinalSectionOvertakes(
+            plan.simulation.frames,
+          ).map((overtake) => ({
+            ...overtake,
+            triggerFrameIndex: resolveFinalOvertakeTriggerFrame(
+              overtake.overtakeFrameIndex,
+              FRAME_RATE,
+              reducedMotion
+                ? 1
+                : FINAL_OVERTAKE_PLAYBACK_RATE,
+            ),
+          }))
+        : [],
+    [plan, reducedMotion],
   );
   const photoFinish = useMemo(
     () => (plan ? isPhotoFinish(plan.simulation.frames) : false),
@@ -627,6 +682,21 @@ export function MarbleGame() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  useEffect(() => {
+    const resetPlaybackTimestamp = () => {
+      lastPlaybackTimestamp.current = null;
+    };
+    document.addEventListener(
+      "visibilitychange",
+      resetPlaybackTimestamp,
+    );
+    return () =>
+      document.removeEventListener(
+        "visibilitychange",
+        resetPlaybackTimestamp,
+      );
+  }, []);
+
   const playTone = (frequency: number, duration = 0.11) => {
     if (!soundEnabled) return;
     try {
@@ -667,7 +737,11 @@ export function MarbleGame() {
         const next = nextCountdownStep(countdown);
         if (next === null) {
           setFrameIndex(0);
-          raceStartedAt.current = performance.now();
+          setRenderFrameIndex(0);
+          playbackClock.current = createRacePlaybackClock();
+          lastPlaybackTimestamp.current = null;
+          setFinalOvertakeCue(null);
+          setResultHoldRemainingMs(RESULT_HOLD_DURATION_MS);
           setPhase("running");
           return;
         }
@@ -683,32 +757,100 @@ export function MarbleGame() {
   useEffect(() => {
     if (
       (phase !== "running" && phase !== "result") ||
-      !plan ||
-      raceStartedAt.current === null
+      !plan
     ) {
       return;
     }
     let animationFrame = 0;
     const lastFrameIndex = plan.simulation.frames.length - 1;
-    const resultRevealFrame = Math.min(
-      lastFrameIndex,
-      plan.simulation.awardFrameIndex + RESULT_REVEAL_DELAY_FRAMES,
-    );
 
     const animate = (now: number) => {
-      const nextFrame = Math.min(
-        lastFrameIndex,
-        Math.floor(
-          ((now - raceStartedAt.current!) / 1000) * FRAME_RATE,
-        ),
+      if (document.visibilityState === "hidden") {
+        lastPlaybackTimestamp.current = null;
+        animationFrame = requestAnimationFrame(animate);
+        return;
+      }
+      const previousTimestamp = lastPlaybackTimestamp.current;
+      lastPlaybackTimestamp.current = now;
+      const deltaMs =
+        previousTimestamp === null
+          ? 0
+          : Math.min(
+              MAX_PRESENTATION_DELTA_MS,
+              Math.max(0, now - previousTimestamp),
+            );
+      const nextClock = advanceRacePlayback(
+        playbackClock.current,
+        deltaMs,
+        finalOvertakeEvents,
+        {
+          frameRate: FRAME_RATE,
+          slowMotionEnabled: !reducedMotion,
+          resultGateFrameIndex:
+            plan.simulation.resultGateFrameIndex,
+        },
       );
+      playbackClock.current = nextClock;
+      const renderSourceFrame = Math.min(
+        lastFrameIndex,
+        nextClock.sourceFrame,
+      );
+      const nextFrame = Math.floor(renderSourceFrame);
+      const activeOvertake =
+        nextClock.activeEventIndex === null
+          ? null
+          : finalOvertakeEvents[nextClock.activeEventIndex];
       setFrameIndex(nextFrame);
-      if (phase === "running" && nextFrame >= resultRevealFrame) {
+      setRenderFrameIndex(
+        activeOvertake && !reducedMotion
+          ? renderSourceFrame
+          : nextFrame,
+      );
+      setFinalOvertakeCue(
+        activeOvertake
+          ? {
+              fromSlotId: activeOvertake.fromSlotId,
+              toSlotId: activeOvertake.toSlotId,
+              progress: Math.min(
+                1,
+                nextClock.effectElapsedMs /
+                  FINAL_OVERTAKE_DURATION_MS,
+              ),
+              hasOvertaken:
+                nextClock.sourceFrame >=
+                activeOvertake.overtakeFrameIndex,
+            }
+          : null,
+      );
+      setResultHoldRemainingMs(
+        nextClock.resultGateReached
+          ? Math.max(
+              0,
+              RESULT_HOLD_DURATION_MS -
+                nextClock.resultHoldElapsedMs,
+            )
+          : RESULT_HOLD_DURATION_MS,
+      );
+      const winnerThresholdReached =
+        nextClock.sourceFrame >=
+        plan.simulation.awardFrameIndex;
+      if (
+        phase === "running" &&
+        nextClock.resultGateReached &&
+        nextClock.resultHoldElapsedMs >=
+          RESULT_HOLD_DURATION_MS &&
+        winnerThresholdReached
+      ) {
         playTone(880, 0.42);
         setPhase("result");
         return;
       }
-      if (nextFrame >= lastFrameIndex) return;
+      if (
+        phase === "result" &&
+        nextClock.sourceFrame >= lastFrameIndex
+      ) {
+        return;
+      }
       animationFrame = requestAnimationFrame(animate);
     };
 
@@ -716,7 +858,12 @@ export function MarbleGame() {
     return () => cancelAnimationFrame(animationFrame);
     // playTone intentionally reads the latest sound preference.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, plan]);
+  }, [
+    finalOvertakeEvents,
+    phase,
+    plan,
+    reducedMotion,
+  ]);
 
   useEffect(() => {
     if (phase !== "result" || !plan || isReplay) return;
@@ -786,7 +933,10 @@ export function MarbleGame() {
     setPhase("generating");
     setErrorMessage("");
     setIsReplay(false);
-    raceStartedAt.current = null;
+    playbackClock.current = createRacePlaybackClock();
+    lastPlaybackTimestamp.current = null;
+    setFinalOvertakeCue(null);
+    setResultHoldRemainingMs(RESULT_HOLD_DURATION_MS);
     window.setTimeout(() => {
       try {
         const raceSeed = createSeed("race");
@@ -810,6 +960,7 @@ export function MarbleGame() {
         );
         setPlan(nextPlan);
         setFrameIndex(0);
+        setRenderFrameIndex(0);
         setPhase("waiting");
       } catch (error) {
         setErrorMessage(
@@ -827,6 +978,11 @@ export function MarbleGame() {
     await audioContext.current?.resume();
     setCountdown(3);
     setFrameIndex(0);
+    setRenderFrameIndex(0);
+    playbackClock.current = createRacePlaybackClock();
+    lastPlaybackTimestamp.current = null;
+    setFinalOvertakeCue(null);
+    setResultHoldRemainingMs(RESULT_HOLD_DURATION_MS);
     setPlaybackEpoch((value) => value + 1);
     setPhase("countdown");
   };
@@ -840,6 +996,11 @@ export function MarbleGame() {
     if (!plan) return;
     setIsReplay(true);
     setFrameIndex(0);
+    setRenderFrameIndex(0);
+    playbackClock.current = createRacePlaybackClock();
+    lastPlaybackTimestamp.current = null;
+    setFinalOvertakeCue(null);
+    setResultHoldRemainingMs(RESULT_HOLD_DURATION_MS);
     setPlaybackEpoch((value) => value + 1);
     setCountdown(3);
     setPhase("countdown");
@@ -849,9 +1010,13 @@ export function MarbleGame() {
     generationKey.current += 1;
     setPlan(null);
     setFrameIndex(0);
+    setRenderFrameIndex(0);
     setPhase("ready");
     setIsReplay(false);
-    raceStartedAt.current = null;
+    playbackClock.current = createRacePlaybackClock();
+    lastPlaybackTimestamp.current = null;
+    setFinalOvertakeCue(null);
+    setResultHoldRemainingMs(RESULT_HOLD_DURATION_MS);
     setLayoutSeed(createSeed("layout"));
   };
 
@@ -890,6 +1055,19 @@ export function MarbleGame() {
       currentFrame.finishedSlotIds.length,
       plan.winnerCount,
     );
+    const podiumFinishCount = Math.min(
+      MINIMUM_RESULT_FINISHERS,
+      plan.candidates.length,
+    );
+    const podiumReached =
+      currentFrame.finishedSlotIds.length >= podiumFinishCount;
+    const resultGateReached =
+      currentFrame.finishedSlotIds.length >=
+      plan.simulation.resultGateCount;
+    const resultHoldSeconds = Math.max(
+      0,
+      Math.ceil(resultHoldRemainingMs / 1000),
+    );
     const isFinishing =
       phase === "running" &&
       frameIndex >= plan.simulation.firstFinishFrameIndex;
@@ -900,7 +1078,8 @@ export function MarbleGame() {
       ? plan.slotToCandidateId[activeRankedSlotIds[0]]
       : undefined;
     const presentationFrame =
-      confirmedWinnerCount < plan.winnerCount &&
+      currentFrame.finishedSlotIds.length <
+        plan.simulation.resultGateCount &&
       activeRankedSlotIds.length > 0
         ? {
             ...currentFrame,
@@ -920,6 +1099,9 @@ export function MarbleGame() {
     const leadChangeCandidate = leadChangeActive
       ? candidateForSlot(plan, latestLeadChange.toSlotId)
       : undefined;
+    const finalOvertakeCandidate = finalOvertakeCue
+      ? candidateForSlot(plan, finalOvertakeCue.toSlotId)
+      : undefined;
     const leaderPose = currentFrame.poses.find(
       (pose) => pose.slotId === presentationFrame.rankedSlotIds[0],
     );
@@ -936,9 +1118,13 @@ export function MarbleGame() {
             plan.simulation.frames.slice(0, frameIndex + 1),
           )
         : null;
-    const physicalMoment = finalApproach
-      ? "FINAL APPROACH"
-      : leadChangeCandidate
+    const physicalMoment = finalOvertakeCandidate
+      ? finalOvertakeCue?.hasOvertaken
+        ? `${shortName(finalOvertakeCandidate.name, 7)} FINAL OVERTAKE`
+        : `${shortName(finalOvertakeCandidate.name, 7)} 추월 임박`
+      : finalApproach
+        ? "FINAL APPROACH"
+        : leadChangeCandidate
         ? `${shortName(leadChangeCandidate.name, 7)} 선두 교체`
         : closeRace
           ? "초접전"
@@ -1040,12 +1226,27 @@ export function MarbleGame() {
                 <dd>{plan.raceSeed}</dd>
               </div>
               <div>
-                <dt>출발 이동</dt>
-                <dd>{plan.simulation.layoutShift}px</dd>
+                <dt>출발 배치</dt>
+                <dd>
+                  중심 {plan.simulation.layoutShift}px · 슬롯 지터 ±
+                  {START_MAX_HORIZONTAL_JITTER}px
+                </dd>
               </div>
               <div>
                 <dt>물리 변형</dt>
                 <dd>{plan.simulation.dynamics.fingerprint}</dd>
+              </div>
+              <div>
+                <dt>추격 보정</dt>
+                <dd>
+                  거리·순위 기반 · {CHASE_ASSIST_TARGET_GAP}px 목표
+                </dd>
+              </div>
+              <div>
+                <dt>결과 전환</dt>
+                <dd>
+                  최소 {podiumFinishCount}위 표시 후 3초
+                </dd>
               </div>
               <div>
                 <dt>물리 완주</dt>
@@ -1082,14 +1283,18 @@ export function MarbleGame() {
                   ? "방송 대기"
                   : phase === "countdown"
                     ? "출발 준비"
-                    : confirmedWinnerCount >= plan.winnerCount
-                      ? "당첨 인원 도착 완료"
+                    : resultGateReached
+                      ? "결과 발표 대기"
+                      : confirmedWinnerCount >= plan.winnerCount
+                        ? `${podiumFinishCount}위 도착 대기`
                       : physicalMoment}
               </span>
               <strong>
                 {phase === "waiting"
                   ? `${plan.candidates.length}명 · ${plan.winnerCount}명 당첨`
-                  : confirmedWinnerCount > 0
+                  : resultGateReached
+                    ? `${plan.simulation.resultGateCount}위 도착 · 결과까지 ${resultHoldSeconds}초`
+                    : confirmedWinnerCount > 0
                     ? `${confirmedWinnerCount} / ${plan.winnerCount} 당첨 확정`
                     : `${Math.round((courseProgress?.overall ?? 0) * 100)}% · 선두 간격 ${
                         leaderGap ?? "—"
@@ -1102,11 +1307,28 @@ export function MarbleGame() {
           <section className="race-stage">
             <RaceCanvas
               plan={plan}
-              frameIndex={frameIndex}
+              frameIndex={renderFrameIndex}
               reducedMotion={reducedMotion}
               mapMode={mapMode}
               playbackEpoch={playbackEpoch}
+              finalOvertake={finalOvertakeCue}
             />
+            {finalOvertakeCue && finalOvertakeCandidate && (
+              <div className="final-overtake-cue" aria-hidden="true">
+                <span>
+                  {finalOvertakeCue.hasOvertaken
+                    ? "FINAL OVERTAKE"
+                    : "FINAL DUEL"}
+                </span>
+                <strong>
+                  {reducedMotion ? "" : "0.5× SLOW · "}
+                  {shortName(finalOvertakeCandidate.name, 9)}{" "}
+                  {finalOvertakeCue.hasOvertaken
+                    ? "선두 교체"
+                    : "추월 임박"}
+                </strong>
+              </div>
+            )}
             {phase === "waiting" && (
               <div
                 className="broadcast-waiting"
@@ -1150,13 +1372,20 @@ export function MarbleGame() {
             )}
             {isFinishing && (
               <div className="finish-banner" aria-live="assertive">
-                {photoFinish && arrivalDelta
+                {resultGateReached
+                  ? `${plan.simulation.resultGateCount}위 도착 · 결과 발표까지 ${resultHoldSeconds}초`
+                  : podiumReached &&
+                      confirmedWinnerCount < plan.winnerCount
+                    ? `${podiumFinishCount}위 도착 · ${
+                        plan.winnerCount - confirmedWinnerCount
+                      }명 당첨 확정 대기`
+                    : confirmedWinnerCount >= plan.winnerCount
+                      ? `${plan.winnerCount}명 당첨 확정 · ${podiumFinishCount}위 도착 대기`
+                      : photoFinish && arrivalDelta
                   ? `PHOTO FINISH · ${arrivalDelta.deltaSeconds.toFixed(2)}초 차`
-                  : confirmedWinnerCount >= plan.winnerCount
-                  ? `${plan.winnerCount}명 당첨 확정!`
-                  : `${confirmedWinnerCount}번째 당첨 확정 · ${
-                      plan.winnerCount - confirmedWinnerCount
-                    }명 남음`}
+                        : `${confirmedWinnerCount}번째 당첨 확정 · ${
+                            plan.winnerCount - confirmedWinnerCount
+                          }명 남음`}
               </div>
             )}
           </section>
@@ -1204,8 +1433,11 @@ export function MarbleGame() {
                 : `선두 간격 ${leaderGap ?? "—"}px`}
             </p>
             <p className="visually-hidden" aria-live="polite">
-              {leadChangeCandidate
-                ? `${leadChangeCandidate.name} 선두 교체`
+              {finalOvertakeCandidate &&
+              finalOvertakeCue?.hasOvertaken
+                ? `${finalOvertakeCandidate.name} 마지막 구간 선두 교체`
+                : leadChangeCandidate
+                  ? `${leadChangeCandidate.name} 선두 교체`
                 : ""}
             </p>
           </aside>
@@ -1223,7 +1455,7 @@ export function MarbleGame() {
         </a>
         <div className="product-header-actions">
           <MapThemeToggle mode={mapMode} onChange={setMapMode} />
-          <span className="prototype-badge">RACE · VERSION 1.2.0</span>
+          <span className="prototype-badge">RACE · VERSION 1.2.1</span>
         </div>
       </header>
 
@@ -1440,7 +1672,8 @@ export function MarbleGame() {
             <h2 id="venue-title">Race</h2>
             <p>
               좌·우 사이클로이드와 수축·확장 구간, 네 가지 구간 패턴,
-              고탄성 범퍼와 한쪽 위험 레인을 통과하는 약 30초 물리 코스
+              고탄성 범퍼와 한쪽 위험 레인, 1,000px 목표 추격 보정을
+              통과하는 약 30초 물리 코스
             </p>
             <CourseLegend />
           </div>
@@ -1453,7 +1686,7 @@ export function MarbleGame() {
           <div className="venue-meta">
             <div>
               <span>출발 방식</span>
-              <strong>동일 높이 · 동시 개방</strong>
+              <strong>불규칙 간격 · 동일 높이 동시 개방</strong>
             </div>
             <button className="secondary-button" onClick={handleRegenerateLayout}>
               자동 배치 다시 만들기

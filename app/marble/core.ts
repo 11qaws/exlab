@@ -324,6 +324,19 @@ export function buildRacePlan(
   if (simulation.targetFinishCount !== winnerCount) {
     throw new Error("물리 경기와 결과 계획의 당첨 인원이 일치하지 않습니다.");
   }
+  const expectedResultGateCount = Math.min(
+    candidates.length,
+    Math.max(3, winnerCount),
+  );
+  if (
+    simulation.resultGateCount !== expectedResultGateCount ||
+    simulation.podiumFrameIndex < 0 ||
+    simulation.resultGateFrameIndex < simulation.podiumFrameIndex
+  ) {
+    throw new Error(
+      "최소 3위까지 유지하는 결과 전환 기준이 유효하지 않습니다.",
+    );
+  }
 
   const slotToCandidateId = { ...simulation.slotToCandidateId };
   const candidateIds = new Set(candidates.map((candidate) => candidate.id));

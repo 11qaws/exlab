@@ -8,6 +8,7 @@ import {
   COURSE_BUMPERS,
   COURSE_PINS,
   COURSE_RECTS,
+  courseBoundsAtY,
   FINISH_Y,
   MARBLE_RADIUS,
   MAX_SIMULATION_SECONDS,
@@ -27,16 +28,89 @@ const { Bodies, Body, Composite, Engine, Events } = Matter;
 
 export const FRAME_RATE = 30;
 export const PHYSICS_SUBSTEPS = 2;
-export const RESULT_REVEAL_DELAY_FRAMES = Math.round(FRAME_RATE * 1.2);
 export const BUMPER_FLASH_DECAY = 0.68;
+export const MINIMUM_RESULT_FINISHERS = 3;
+export const START_MAX_HORIZONTAL_JITTER = 12;
+export const START_MIN_CENTER_GAP = MARBLE_RADIUS * 2 + 6;
+export const MARBLE_START_Y = scaleCourseY(145);
+export const CHASE_ASSIST_TARGET_GAP = 1_000;
+export const CHASE_ASSIST_START_GAP = 600;
+export const CHASE_ASSIST_FULL_GAP = CHASE_ASSIST_TARGET_GAP;
+export const CHASE_ASSIST_SECOND_PLACE_MAX_BONUS = 0.25;
+export const CHASE_ASSIST_LAST_PLACE_MAX_BONUS = 0.32;
+export const CHASE_ASSIST_CLOSING_SPEED_LIMIT = 600;
+export const FIXED_GUIDE_FRICTION = 0;
+const START_WALL_CLEARANCE = 6;
+export type StaticCollisionMaterial = {
+  friction: number;
+  frictionStatic: number;
+  restitution: number;
+};
 const obstacleOptions = (
   restitution: number,
-): IChamferableBodyDefinition => ({
+): IChamferableBodyDefinition & StaticCollisionMaterial => ({
   isStatic: true,
   friction: 0.02,
+  frictionStatic: 0.5,
   restitution,
   render: { visible: false },
 });
+const fixedGuideOptions = (
+  restitution: number,
+): IChamferableBodyDefinition & StaticCollisionMaterial => ({
+  ...obstacleOptions(restitution),
+  friction: FIXED_GUIDE_FRICTION,
+  frictionStatic: 0,
+});
+const activeObstacleOptions = (
+  restitution: number,
+): IChamferableBodyDefinition & StaticCollisionMaterial => ({
+  ...obstacleOptions(restitution),
+  friction: 0,
+  frictionStatic: 0,
+});
+
+/**
+ * Matter.js replaces a body's requested friction and restitution when
+ * `isStatic` is applied. Restore the authored material on every part after
+ * construction so fixed guides remain slick and bumpers retain their bounce.
+ */
+export function restoreStaticCollisionMaterial<T extends Matter.Body>(
+  body: T,
+  material: StaticCollisionMaterial,
+): T {
+  body.parts.forEach((part) => {
+    part.friction = material.friction;
+    part.frictionStatic = material.frictionStatic;
+    part.restitution = material.restitution;
+  });
+  return body;
+}
+
+function staticRectangle(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  options: IChamferableBodyDefinition & StaticCollisionMaterial,
+): Matter.Body {
+  return restoreStaticCollisionMaterial(
+    Bodies.rectangle(x, y, width, height, options),
+    options,
+  );
+}
+
+function staticCircle(
+  x: number,
+  y: number,
+  radius: number,
+  options: IChamferableBodyDefinition & StaticCollisionMaterial,
+): Matter.Body {
+  return restoreStaticCollisionMaterial(
+    Bodies.circle(x, y, radius, options),
+    options,
+  );
+}
 
 const INITIAL_GRAVITY_BY_PARTICIPANT_COUNT: Record<number, number> = {
   2: 1.08,
@@ -68,6 +142,95 @@ export function sharedGravityMultiplier(
   return 6;
 }
 
+export function chaseAssistGravityBonus(
+  rank: number,
+  participantCount: number,
+  distanceBehindLeader: number,
+  closingSpeed = 0,
+): number {
+  if (
+    !Number.isInteger(rank) ||
+    !Number.isInteger(participantCount) ||
+    participantCount < 2 ||
+    rank < 1 ||
+    rank > participantCount ||
+    !Number.isFinite(distanceBehindLeader) ||
+    !Number.isFinite(closingSpeed)
+  ) {
+    throw new RangeError("Invalid chase-assist ranking input.");
+  }
+  if (rank === 1 || distanceBehindLeader <= CHASE_ASSIST_START_GAP) {
+    return 0;
+  }
+
+  const distanceProgress = Math.max(
+    0,
+    Math.min(
+      1,
+      (distanceBehindLeader - CHASE_ASSIST_START_GAP) /
+        (CHASE_ASSIST_FULL_GAP - CHASE_ASSIST_START_GAP),
+    ),
+  );
+  const easedDistance =
+    distanceProgress *
+    distanceProgress *
+    (3 - 2 * distanceProgress);
+  const closingProgress = Math.max(
+    0,
+    Math.min(1, closingSpeed / CHASE_ASSIST_CLOSING_SPEED_LIMIT),
+  );
+  const closingDamping =
+    1 -
+    closingProgress *
+      closingProgress *
+      (3 - 2 * closingProgress);
+  const rankDepth =
+    participantCount <= 2
+      ? 0
+      : (rank - 2) / (participantCount - 2);
+  const maximumBonus =
+    CHASE_ASSIST_SECOND_PLACE_MAX_BONUS +
+    (CHASE_ASSIST_LAST_PLACE_MAX_BONUS -
+      CHASE_ASSIST_SECOND_PLACE_MAX_BONUS) *
+      rankDepth;
+  return easedDistance * maximumBonus * closingDamping;
+}
+
+function applyChaseAssist(
+  marbles: Matter.Body[],
+  finished: ReadonlySet<string>,
+  gravityY: number,
+) {
+  const activeMarbles = marbles
+    .filter((marble) => !finished.has(marble.label))
+    .sort(
+      (left, right) => right.position.y - left.position.y,
+    );
+  const leader = activeMarbles[0];
+  if (!leader) return;
+
+  activeMarbles.slice(1).forEach((marble, index) => {
+    const distanceBehindLeader = Math.max(
+      0,
+      leader.position.y - marble.position.y,
+    );
+    const gravityBonus = chaseAssistGravityBonus(
+      index + 2,
+      activeMarbles.length,
+      distanceBehindLeader,
+      Math.max(
+        0,
+        (marble.velocity.y - leader.velocity.y) * 60,
+      ),
+    );
+    if (gravityBonus <= 0) return;
+    Body.applyForce(marble, marble.position, {
+      x: 0,
+      y: marble.mass * gravityY * 0.001 * gravityBonus,
+    });
+  });
+}
+
 function addCourse(
   engine: Matter.Engine,
   dynamics: RaceDynamics,
@@ -78,24 +241,32 @@ function addCourse(
   assertCourseClearance();
   const staticBodies = [
     ...[...COURSE_RECTS, ...COURSE_CURVE_RECTS].map((shape) =>
-      Bodies.rectangle(shape.x, shape.y, shape.width, shape.height, {
-        ...obstacleOptions(
-          shape.material === "elastic"
-            ? dynamics.bumperRestitution
-            : dynamics.obstacleRestitution,
-        ),
-        angle: shape.angle ?? 0,
-        chamfer: {
-          radius: Math.min(
-            shape.role === "gate" ? 9 : 12,
-            shape.width / 2,
-            shape.height / 2,
-          ),
+      staticRectangle(
+        shape.x,
+        shape.y,
+        shape.width,
+        shape.height,
+        {
+          ...(shape.obstacleKind
+            ? fixedGuideOptions(dynamics.obstacleRestitution)
+            : obstacleOptions(
+                shape.material === "elastic"
+                  ? dynamics.bumperRestitution
+                  : dynamics.obstacleRestitution,
+              )),
+          angle: shape.angle ?? 0,
+          chamfer: {
+            radius: Math.min(
+              shape.role === "gate" ? 9 : 12,
+              shape.width / 2,
+              shape.height / 2,
+            ),
+          },
         },
-      }),
+      ),
     ),
     ...COURSE_PINS.map((pin) =>
-      Bodies.circle(
+      staticCircle(
         pin.x,
         pin.y,
         pin.radius,
@@ -104,15 +275,15 @@ function addCourse(
     ),
   ];
   const rotatingBodies = ROTATING_BARS.map((bar, index) =>
-    Bodies.rectangle(bar.x, bar.y, bar.width, bar.height, {
-      ...obstacleOptions(dynamics.spinnerRestitution),
+    staticRectangle(bar.x, bar.y, bar.width, bar.height, {
+      ...activeObstacleOptions(dynamics.spinnerRestitution),
       chamfer: { radius: 12 },
       label: `rotating-bar-${index + 1}`,
     }),
   );
   const bumperBodies = COURSE_BUMPERS.map((bumper, index) =>
-    Bodies.rectangle(bumper.x, bumper.y, bumper.width, bumper.height, {
-      ...obstacleOptions(dynamics.bumperRestitution),
+    staticRectangle(bumper.x, bumper.y, bumper.width, bumper.height, {
+      ...activeObstacleOptions(dynamics.bumperRestitution),
       angle: bumper.angle,
       chamfer: { radius: bumper.height / 2 },
       label: `active-bumper-${index}`,
@@ -159,22 +330,82 @@ function registerBumperContacts(
   });
 }
 
+export type MarbleStartLayout = {
+  layoutShift: number;
+  positions: { x: number; y: number }[];
+};
+
+export function createMarbleStartLayout(
+  count: number,
+  layoutSeed: string,
+): MarbleStartLayout {
+  if (!Number.isInteger(count) || count < 2 || count > 10) {
+    throw new RangeError("count must be an integer between 2 and 10.");
+  }
+  const shiftRandom = createPrng(layoutSeed);
+  const jitterRandom = createPrng(`${layoutSeed}:start-jitter-v1`);
+  const maxShift = count >= 9 ? 18 : 52;
+  const layoutShift = Math.round(
+    (shiftRandom() * 2 - 1) * maxShift,
+  );
+  const usableWidth = Math.min(650, Math.max(220, (count - 1) * 72));
+  const startX = WORLD_WIDTH / 2 - usableWidth / 2 + layoutShift;
+  const spacing = count === 1 ? 0 : usableWidth / (count - 1);
+  const bounds = courseBoundsAtY(MARBLE_START_Y);
+  const leftLimit =
+    bounds.leftX + MARBLE_RADIUS + START_WALL_CLEARANCE;
+  const rightLimit =
+    bounds.rightX - MARBLE_RADIUS - START_WALL_CLEARANCE;
+  const wallAllowance = Math.max(
+    0,
+    Math.min(
+      startX - leftLimit,
+      rightLimit - (startX + usableWidth),
+    ),
+  );
+  const maximumJitter = Math.max(
+    0,
+    Math.min(
+      START_MAX_HORIZONTAL_JITTER,
+      (spacing - START_MIN_CENTER_GAP) / 2,
+      wallAllowance,
+    ),
+  );
+  const rawJitters = Array.from(
+    { length: count },
+    () => jitterRandom() * 2 - 1,
+  );
+  const meanJitter =
+    rawJitters.reduce((sum, value) => sum + value, 0) / count;
+  const centeredJitters = rawJitters.map(
+    (value) => value - meanJitter,
+  );
+  const largestMagnitude = Math.max(
+    ...centeredJitters.map((value) => Math.abs(value)),
+    1,
+  );
+  const jitterScale = maximumJitter / largestMagnitude;
+
+  return {
+    layoutShift,
+    positions: centeredJitters.map((jitter, index) => ({
+      x: startX + index * spacing + jitter * jitterScale,
+      y: MARBLE_START_Y,
+    })),
+  };
+}
+
 function addMarbles(
   engine: Matter.Engine,
   count: number,
   layoutSeed: string,
   restitution: number,
 ): { marbles: Matter.Body[]; layoutShift: number } {
-  const random = createPrng(layoutSeed);
-  const maxShift = count >= 9 ? 18 : 52;
-  const layoutShift = Math.round((random() * 2 - 1) * maxShift);
-  const usableWidth = Math.min(650, Math.max(220, (count - 1) * 72));
-  const startX = WORLD_WIDTH / 2 - usableWidth / 2 + layoutShift;
-  const spacing = count === 1 ? 0 : usableWidth / (count - 1);
+  const startLayout = createMarbleStartLayout(count, layoutSeed);
 
   const marbles = Array.from({ length: count }, (_, index) => {
-    const x = startX + index * spacing;
-    const marble = Bodies.circle(x, scaleCourseY(145), MARBLE_RADIUS, {
+    const position = startLayout.positions[index];
+    const marble = Bodies.circle(position.x, position.y, MARBLE_RADIUS, {
       friction: 0.012,
       frictionAir: 0.0015,
       frictionStatic: 0,
@@ -189,7 +420,7 @@ function addMarbles(
   });
 
   Composite.add(engine.world, marbles);
-  return { marbles, layoutShift };
+  return { marbles, layoutShift: startLayout.layoutShift };
 }
 
 function rankMarbles(
@@ -312,10 +543,20 @@ export function simulateRace(
   const frames: RaceFrame[] = [];
   const finishedSlotIds: string[] = [];
   const finished = new Set<string>();
+  const podiumFinishCount = Math.min(
+    MINIMUM_RESULT_FINISHERS,
+    participantCount,
+  );
+  const resultGateCount = Math.max(
+    targetFinishCount,
+    podiumFinishCount,
+  );
   const substepMs = 1000 / 60 / PHYSICS_SUBSTEPS;
   const maxSteps = 60 * MAX_SIMULATION_SECONDS;
   let firstFinishFrameIndex = -1;
   let awardFrameIndex = -1;
+  let podiumFrameIndex = -1;
+  let resultGateFrameIndex = -1;
   let step = 0;
 
   for (; step < maxSteps; step += 1) {
@@ -326,6 +567,11 @@ export function simulateRace(
         baseGravityY *
         dynamics.gravityScale *
         sharedGravityMultiplier(physicsStep / 60);
+      applyChaseAssist(
+        marbles,
+        finished,
+        baseGravityY * dynamics.gravityScale,
+      );
       rotatingBarAngles = rotatingBars.map((body, index) => {
         const definition = dynamics.rotatingBars[index];
         const angle =
@@ -373,6 +619,18 @@ export function simulateRace(
       ) {
         awardFrameIndex = frames.length - 1;
       }
+      if (
+        podiumFrameIndex < 0 &&
+        finishedSlotIds.length >= podiumFinishCount
+      ) {
+        podiumFrameIndex = frames.length - 1;
+      }
+      if (
+        resultGateFrameIndex < 0 &&
+        finishedSlotIds.length >= resultGateCount
+      ) {
+        resultGateFrameIndex = frames.length - 1;
+      }
     }
 
     if (
@@ -389,6 +647,11 @@ export function simulateRace(
       `${targetFinishCount}명의 결승 통과를 확인하지 못했습니다. 새 코스로 다시 시도해 주세요.`,
     );
   }
+  if (podiumFrameIndex < 0 || resultGateFrameIndex < 0) {
+    throw new Error(
+      `${resultGateCount}위까지 결승 통과를 확인하지 못했습니다. 새 코스로 다시 시도해 주세요.`,
+    );
+  }
   const safeFirstFinishFrame =
     firstFinishFrameIndex >= 0 ? firstFinishFrameIndex : awardFrameIndex;
   const visibleFinishedCount =
@@ -400,6 +663,9 @@ export function simulateRace(
     fullFinishOrder,
     firstFinishFrameIndex: safeFirstFinishFrame,
     awardFrameIndex,
+    podiumFrameIndex,
+    resultGateCount,
+    resultGateFrameIndex,
     targetFinishCount,
     visibleFinishedCount,
     durationMs: Math.round((frames.length / FRAME_RATE) * 1000),

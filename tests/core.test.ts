@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import Matter from "matter-js";
 import {
   COURSE_BUMPERS,
   COURSE_BOUNDARY_THICKNESS,
@@ -16,6 +17,7 @@ import {
   STRAIGHT_ZONES,
   TARGET_FIRST_FINISH_SECONDS,
   WORLD_HEIGHT,
+  WORLD_WIDTH,
   courseBoundsAtY,
   rotatingBarAngle,
   rotatingBarTurnsTowardWall,
@@ -55,7 +57,18 @@ import {
 } from "../app/marble/countdown";
 import { createRaceDynamics } from "../app/marble/dynamics";
 import {
+  CHASE_ASSIST_FULL_GAP,
+  CHASE_ASSIST_CLOSING_SPEED_LIMIT,
+  CHASE_ASSIST_LAST_PLACE_MAX_BONUS,
+  CHASE_ASSIST_SECOND_PLACE_MAX_BONUS,
+  CHASE_ASSIST_START_GAP,
+  CHASE_ASSIST_TARGET_GAP,
+  MARBLE_START_Y,
   PHYSICS_SUBSTEPS,
+  START_MIN_CENTER_GAP,
+  chaseAssistGravityBonus,
+  createMarbleStartLayout,
+  restoreStaticCollisionMaterial,
   sharedGravityMultiplier,
   simulateRace,
 } from "../app/marble/simulation";
@@ -145,6 +158,76 @@ test("seeded shuffle is deterministic", () => {
   );
 });
 
+test("layout seed creates a centered, irregular, non-overlapping start row", () => {
+  const first = createMarbleStartLayout(10, "start-layout-a");
+  const replay = createMarbleStartLayout(10, "start-layout-a");
+  const different = createMarbleStartLayout(10, "start-layout-b");
+  assert.deepEqual(first, replay);
+  assert.notDeepEqual(first.positions, different.positions);
+  assert.ok(
+    first.positions.every((position) => position.y === MARBLE_START_Y),
+  );
+  const averageX =
+    first.positions.reduce((sum, position) => sum + position.x, 0) /
+    first.positions.length;
+  assert.ok(
+    Math.abs(
+      averageX - (WORLD_WIDTH / 2 + first.layoutShift),
+    ) <
+      0.000_001,
+  );
+  const startBounds = courseBoundsAtY(MARBLE_START_Y);
+  first.positions.forEach((position, index) => {
+    assert.ok(position.x - MARBLE_RADIUS >= startBounds.leftX);
+    assert.ok(position.x + MARBLE_RADIUS <= startBounds.rightX);
+    if (index === 0) return;
+    assert.ok(
+      position.x - first.positions[index - 1].x >=
+        START_MIN_CENTER_GAP,
+    );
+  });
+});
+
+test("distance and live rank bound the transparent chase acceleration", () => {
+  assert.equal(
+    chaseAssistGravityBonus(1, 10, CHASE_ASSIST_FULL_GAP * 2),
+    0,
+  );
+  assert.equal(
+    chaseAssistGravityBonus(2, 10, CHASE_ASSIST_START_GAP),
+    0,
+  );
+  const secondAtTarget = chaseAssistGravityBonus(
+    2,
+    10,
+    CHASE_ASSIST_TARGET_GAP,
+  );
+  const lastAtTarget = chaseAssistGravityBonus(
+    10,
+    10,
+    CHASE_ASSIST_TARGET_GAP,
+  );
+  assert.ok(secondAtTarget > 0);
+  assert.ok(lastAtTarget > secondAtTarget);
+  assert.equal(
+    chaseAssistGravityBonus(2, 10, CHASE_ASSIST_FULL_GAP),
+    CHASE_ASSIST_SECOND_PLACE_MAX_BONUS,
+  );
+  assert.equal(
+    chaseAssistGravityBonus(10, 10, CHASE_ASSIST_FULL_GAP),
+    CHASE_ASSIST_LAST_PLACE_MAX_BONUS,
+  );
+  assert.equal(
+    chaseAssistGravityBonus(
+      10,
+      10,
+      CHASE_ASSIST_FULL_GAP,
+      CHASE_ASSIST_CLOSING_SPEED_LIMIT,
+    ),
+    0,
+  );
+});
+
 test("physics simulation produces a stable winner for the same seeds", () => {
   const slots = simulationSlots(5);
   const first = simulateRace(slots, "race-fixed", "layout-fixed");
@@ -155,6 +238,9 @@ test("physics simulation produces a stable winner for the same seeds", () => {
   assert.ok(first.frames.length > 30);
   assert.ok(first.firstFinishFrameIndex >= 0);
   assert.ok(first.awardFrameIndex >= first.firstFinishFrameIndex);
+  assert.equal(first.resultGateCount, 3);
+  assert.ok(first.podiumFrameIndex >= first.awardFrameIndex);
+  assert.ok(first.resultGateFrameIndex >= first.podiumFrameIndex);
 });
 
 test("countdown exposes 3, 2, 1, and GO before the race starts", () => {
@@ -180,7 +266,6 @@ test("seeded dynamics vary races without breaking the final spinner rule", () =>
   assert.ok(first.bumperRestitution >= 1.22);
   assert.ok(first.bumperRestitution <= 1.32);
   assert.ok(first.spinnerRestitution > first.obstacleRestitution);
-  assert.equal("catchUp" in first, false);
   assert.equal("windPulses" in first, false);
   assert.equal("forceZones" in first, false);
 });
@@ -499,6 +584,90 @@ test("race frame selection survives preview plan transitions", () => {
   assert.equal(resolveRaceFrame([], 0), null);
 });
 
+test("fractional race frames interpolate motion without revealing future results", () => {
+  const frames = [
+    {
+      poses: [
+        {
+          slotId: "slot-1",
+          x: 10,
+          y: 20,
+          angle: Math.PI - 0.1,
+        },
+      ],
+      rankedSlotIds: ["slot-1", "slot-2"],
+      finishedSlotIds: [],
+      rotatingBarAngles: [Math.PI - 0.2],
+      bumperFlashes: [{ level: 1, x: 10, y: 20 }],
+    },
+    {
+      poses: [
+        {
+          slotId: "slot-1",
+          x: 30,
+          y: 60,
+          angle: -Math.PI + 0.1,
+        },
+      ],
+      rankedSlotIds: ["slot-2", "slot-1"],
+      finishedSlotIds: ["slot-2"],
+      rotatingBarAngles: [-Math.PI + 0.2],
+      bumperFlashes: [{ level: 0.5, x: 14, y: 28 }],
+    },
+  ];
+
+  const interpolated = resolveRaceFrame(frames, 0.5)!;
+  assert.equal(interpolated.poses[0].x, 20);
+  assert.equal(interpolated.poses[0].y, 40);
+  assert.ok(Math.abs(Math.abs(interpolated.poses[0].angle) - Math.PI) < 1e-9);
+  assert.ok(
+    Math.abs(
+      Math.abs(interpolated.rotatingBarAngles[0]) - Math.PI,
+    ) < 1e-9,
+  );
+  assert.equal(interpolated.bumperFlashes[0].level, 0.75);
+  assert.deepEqual(interpolated.rankedSlotIds, ["slot-1", "slot-2"]);
+  assert.deepEqual(interpolated.finishedSlotIds, []);
+});
+
+test("fractional interpolation does not preflash a future bumper collision", () => {
+  const frame = {
+    poses: [],
+    rankedSlotIds: ["slot-1"],
+    finishedSlotIds: [],
+    rotatingBarAngles: [],
+    bumperFlashes: [{ level: 0, x: 0, y: 0 }],
+  };
+  const nextFrame = {
+    ...frame,
+    bumperFlashes: [{ level: 1, x: 20, y: 30 }],
+  };
+
+  assert.deepEqual(
+    resolveRaceFrame([frame, nextFrame], 0.75)!.bumperFlashes[0],
+    frame.bumperFlashes[0],
+  );
+});
+
+test("fractional interpolation does not preflash a same-level bumper rehit", () => {
+  const frame = {
+    poses: [],
+    rankedSlotIds: ["slot-1"],
+    finishedSlotIds: [],
+    rotatingBarAngles: [],
+    bumperFlashes: [{ level: 1, x: 10, y: 20 }],
+  };
+  const nextFrame = {
+    ...frame,
+    bumperFlashes: [{ level: 1, x: 80, y: 90 }],
+  };
+
+  assert.deepEqual(
+    resolveRaceFrame([frame, nextFrame], 0.75)!.bumperFlashes[0],
+    frame.bumperFlashes[0],
+  );
+});
+
 test("camera follows the next active contender until all winners arrive", () => {
   const frame = {
     poses: [],
@@ -525,6 +694,84 @@ test("race dynamics contain only shared physical material variation", () => {
   ]);
   assert.ok(dynamics.bumperRestitution > dynamics.spinnerRestitution);
   assert.ok(dynamics.spinnerRestitution > dynamics.obstacleRestitution);
+});
+
+test("static collision bodies retain authored friction and restitution", () => {
+  const body = Matter.Bodies.rectangle(0, 0, 100, 20, {
+    isStatic: true,
+    friction: 0,
+    frictionStatic: 0,
+    restitution: 1.25,
+  });
+  assert.notEqual(body.friction, 0);
+  assert.notEqual(body.restitution, 1.25);
+
+  restoreStaticCollisionMaterial(body, {
+    friction: 0,
+    frictionStatic: 0,
+    restitution: 1.25,
+  });
+  body.parts.forEach((part) => {
+    assert.equal(part.friction, 0);
+    assert.equal(part.frictionStatic, 0);
+    assert.equal(part.restitution, 1.25);
+  });
+});
+
+test("known preview seeds do not rest on fixed guide bars", () => {
+  const simulation = simulateRace(
+    simulationSlots(8),
+    "fixed-bar-stall-7",
+    "fixed-bar-stall-7-layout",
+  );
+  const fixedBars = COURSE_RECTS.filter((shape) => shape.obstacleKind);
+  let longestSlowContact = 0;
+
+  for (const bar of fixedBars) {
+    const angle = bar.angle ?? 0;
+    const cosine = Math.cos(-angle);
+    const sine = Math.sin(-angle);
+    for (const slotId of Object.keys(simulationSlots(8))) {
+      let previous: { x: number; y: number } | null = null;
+      let consecutiveSlowFrames = 0;
+      for (const frame of simulation.frames) {
+        const pose = frame.poses.find(
+          (candidate) => candidate.slotId === slotId,
+        )!;
+        const dx = pose.x - bar.x;
+        const dy = pose.y - bar.y;
+        const localX = dx * cosine - dy * sine;
+        const localY = dx * sine + dy * cosine;
+        const outsideX = Math.max(
+          Math.abs(localX) - bar.width / 2,
+          0,
+        );
+        const outsideY = Math.max(
+          Math.abs(localY) - bar.height / 2,
+          0,
+        );
+        const touching =
+          Math.hypot(outsideX, outsideY) <= MARBLE_RADIUS + 2;
+        const displacement = previous
+          ? Math.hypot(pose.x - previous.x, pose.y - previous.y)
+          : Number.POSITIVE_INFINITY;
+        consecutiveSlowFrames =
+          touching && displacement < 0.5
+            ? consecutiveSlowFrames + 1
+            : 0;
+        longestSlowContact = Math.max(
+          longestSlowContact,
+          consecutiveSlowFrames,
+        );
+        previous = pose;
+      }
+    }
+  }
+
+  assert.ok(
+    longestSlowContact < 30,
+    `a marble rested on a fixed guide for ${longestSlowContact / 30}s`,
+  );
 });
 
 test("physics substeps prevent tunneling without rewriting marble motion", () => {
@@ -582,6 +829,23 @@ test("camera follows vertically with damped acceleration", () => {
   assert.ok(first.positionY > 0 && first.positionY < 500);
   assert.ok(second.positionY > first.positionY);
   assert.ok(second.velocityY > first.velocityY);
+  const halfStep = advanceVerticalCamera(
+    INITIAL_VERTICAL_CAMERA_STATE,
+    500,
+    1_000,
+    false,
+    0.5,
+  );
+  const secondHalfStep = advanceVerticalCamera(
+    halfStep,
+    500,
+    1_000,
+    false,
+    0.5,
+  );
+  assert.ok(halfStep.positionY > 0 && halfStep.positionY < first.positionY);
+  assert.ok(secondHalfStep.positionY > halfStep.positionY);
+  assert.ok(Math.abs(secondHalfStep.positionY - first.positionY) < 3);
 
   const reduced = advanceVerticalCamera(
     INITIAL_VERTICAL_CAMERA_STATE,
@@ -673,7 +937,7 @@ test("race plan maps entrants before the physical finish order is known", () => 
   );
 });
 
-test("race presentation continues until the configured winner count arrives", () => {
+test("race presentation gate waits for at least third place and every winner", () => {
   const simulation = simulateRace(
     simulationSlots(8),
     "multi-winner-race",
@@ -681,15 +945,36 @@ test("race presentation continues until the configured winner count arrives", ()
     4,
   );
   assert.equal(simulation.targetFinishCount, 4);
+  assert.equal(simulation.resultGateCount, 4);
   assert.ok(simulation.visibleFinishedCount >= 4);
   assert.ok(simulation.awardFrameIndex > simulation.firstFinishFrameIndex);
+  assert.equal(
+    simulation.resultGateFrameIndex,
+    simulation.awardFrameIndex,
+  );
   assert.ok(
     simulation.frames.at(-1)!.finishedSlotIds.length >=
       simulation.targetFinishCount,
   );
 });
 
-test("physical-only race can keep running until all ten entrants arrive", () => {
+test("two-person races use the full field instead of waiting for third place", () => {
+  const simulation = simulateRace(
+    simulationSlots(2),
+    "two-person-gate",
+    "two-person-layout",
+    1,
+  );
+  assert.equal(simulation.targetFinishCount, 1);
+  assert.equal(simulation.resultGateCount, 2);
+  assert.ok(simulation.podiumFrameIndex > simulation.awardFrameIndex);
+  assert.equal(
+    simulation.resultGateFrameIndex,
+    simulation.podiumFrameIndex,
+  );
+});
+
+test("race can keep running until all ten entrants arrive", () => {
   const simulation = simulateRace(
     simulationSlots(10),
     "all-finish-10-0",

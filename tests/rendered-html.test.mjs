@@ -33,12 +33,13 @@ test("server-renders the marble game preparation experience", async () => {
   assert.match(html, /Ex Lab/);
   assert.match(html, /경기 준비/);
   assert.match(html, />Race</);
+  assert.match(html, /RACE · VERSION (?:<!-- -->)?1\.2\.1/);
   assert.match(html, /방송 화면 열기/);
   assert.doesNotMatch(html, /codex-preview/i);
   assert.doesNotMatch(html, /react-loading-skeleton/i);
 });
 
-test("exposes grouping, physical-only results, map themes, and obstacle roles", async () => {
+test("exposes grouping, physics-based results, map themes, and obstacle roles", async () => {
   const response = await render();
   const html = await response.text();
   assert.match(html, /전체 (?:<!-- -->)?8(?:<!-- -->)?명/);

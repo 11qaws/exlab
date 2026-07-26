@@ -78,6 +78,7 @@ export function advanceVerticalCamera(
   targetY: number,
   maximumY: number,
   reducedMotion: boolean,
+  frameDelta = 1,
 ): VerticalCameraState {
   const clampedTarget = Math.max(0, Math.min(maximumY, targetY));
   if (reducedMotion) {
@@ -89,19 +90,25 @@ export function advanceVerticalCamera(
     }
     return { positionY: clampedTarget, velocityY: 0 };
   }
+  if (!Number.isFinite(frameDelta) || frameDelta <= 0) {
+    return state;
+  }
 
   const acceleration =
-    (clampedTarget - state.positionY) * CAMERA_SPRING_ACCELERATION;
+    (clampedTarget - state.positionY) *
+    CAMERA_SPRING_ACCELERATION *
+    frameDelta;
   const velocityY = Math.max(
     -CAMERA_MAX_VERTICAL_SPEED,
     Math.min(
       CAMERA_MAX_VERTICAL_SPEED,
-      (state.velocityY + acceleration) * CAMERA_VELOCITY_DAMPING,
+      (state.velocityY + acceleration) *
+        CAMERA_VELOCITY_DAMPING ** frameDelta,
     ),
   );
   const positionY = Math.max(
     0,
-    Math.min(maximumY, state.positionY + velocityY),
+    Math.min(maximumY, state.positionY + velocityY * frameDelta),
   );
   const hitBoundary =
     (positionY === 0 && velocityY < 0) ||
