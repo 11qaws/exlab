@@ -33,7 +33,7 @@ test("server-renders the marble game preparation experience", async () => {
   assert.match(html, /Ex Lab/);
   assert.match(html, /경기 준비/);
   assert.match(html, />Race</);
-  assert.match(html, /RACE · VERSION (?:<!-- -->)?1\.2\.2/);
+  assert.match(html, /RACE · VERSION (?:<!-- -->)?1\.2\.3/);
   assert.match(html, /방송 화면 열기/);
   assert.doesNotMatch(html, /codex-preview/i);
   assert.doesNotMatch(html, /react-loading-skeleton/i);

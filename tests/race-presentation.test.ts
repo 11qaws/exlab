@@ -15,6 +15,7 @@ import {
   resolveCourseProgress,
   resolveFinishFrameIndex,
   resolveFinishRecords,
+  resolveRaceElapsedMs,
 } from "../app/marble/race-presentation";
 import {
   COURSE_SECTIONS,
@@ -355,6 +356,8 @@ test("finish records use each slot's first physical finish frame", () => {
 });
 
 test("finish times use a stable minute-second-hundredth format", () => {
+  assert.equal(resolveRaceElapsedMs(0), 0);
+  assert.equal(resolveRaceElapsedMs(915.9), 30_530);
   assert.equal(formatFinishTime(0), "00:00.00");
   assert.equal(formatFinishTime(30_530), "00:30.53");
   assert.equal(formatFinishTime(90_127), "01:30.13");
@@ -388,6 +391,8 @@ test("invalid thresholds fail explicitly", () => {
     RangeError,
   );
   assert.throws(() => resolveFinishRecords([sample], 0), RangeError);
+  assert.throws(() => resolveRaceElapsedMs(-1), RangeError);
+  assert.throws(() => resolveRaceElapsedMs(1, 0), RangeError);
   assert.throws(() => formatFinishTime(-1), RangeError);
   assert.throws(() => isPhotoFinish([sample], -1), RangeError);
 });

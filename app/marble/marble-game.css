@@ -913,11 +913,38 @@ summary {
   margin-bottom: 10px;
 }
 
-.leaderboard-heading > span {
+.leaderboard-title {
+  align-items: baseline;
+  display: flex;
+  gap: 9px;
+  min-width: 0;
+}
+
+.leaderboard-title > span {
   color: #c89eaa;
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+
+.race-clock {
+  align-items: baseline;
+  color: #fff8ef;
+  display: inline-flex;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  gap: 4px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.race-clock small {
+  color: #98727f;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
 }
 
 .leaderboard .icon-button {
@@ -1225,6 +1252,16 @@ summary {
   width: 68px;
 }
 
+.winner-finish-time {
+  color: var(--participant-primary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 950;
+  letter-spacing: 0.01em;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
 .result-ranking {
   border-top: 1px solid #4e2c38;
   margin: 0 auto;
@@ -1278,6 +1315,22 @@ summary {
 
 .result-ranking li > span {
   color: #f8e9e3;
+}
+
+.result-rank-meta {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  justify-content: flex-end;
+  overflow: visible !important;
+  white-space: nowrap;
+}
+
+.result-finish-time {
+  color: #d9bec6;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
 }
 
 .result-actions {
@@ -1337,6 +1390,14 @@ summary {
 
   .leaderboard {
     padding-left: 12px;
+  }
+
+  .race-clock {
+    font-size: 12px;
+  }
+
+  .race-clock small {
+    display: none;
   }
 
   .leaderboard li {

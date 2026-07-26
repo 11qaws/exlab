@@ -343,6 +343,19 @@ export function resolveFinishFrameIndex(
   return null;
 }
 
+export function resolveRaceElapsedMs(
+  frameIndex: number,
+  frameRate = RACE_FRAME_RATE,
+): number {
+  if (!Number.isFinite(frameIndex) || frameIndex < 0) {
+    throw new RangeError("frameIndex must be a non-negative number.");
+  }
+  if (!Number.isFinite(frameRate) || frameRate <= 0) {
+    throw new RangeError("frameRate must be a positive number.");
+  }
+  return Math.round((frameIndex / frameRate) * 1000);
+}
+
 /**
  * Resolves each marble's first physically captured finish frame. The complete
  * simulation can be indexed once up front, while callers still gate visibility
@@ -365,7 +378,7 @@ export function resolveFinishRecords(
         slotId,
         place: placeIndex + 1,
         frameIndex,
-        elapsedMs: Math.round((frameIndex / frameRate) * 1000),
+        elapsedMs: resolveRaceElapsedMs(frameIndex, frameRate),
       });
     });
   });

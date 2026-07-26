@@ -80,6 +80,36 @@ test("live leaderboard records finish times and swaps ranks in 200ms", () => {
   assert.match(cssSource, /font-variant-numeric:\s*tabular-nums;/);
 });
 
+test("live race clock and result announcement share physical finish time", () => {
+  assert.match(
+    gameSource,
+    /const raceElapsedMs = resolveRaceElapsedMs\(\s*renderFrameIndex,\s*FRAME_RATE,\s*\)/,
+  );
+  assert.match(gameSource, /className="race-clock"/);
+  assert.match(
+    gameSource,
+    /aria-label=\{`현재 경기 시간 \$\{raceElapsedTime\}`\}/,
+  );
+  assert.match(
+    gameSource,
+    /const winnerRows = arrivedRows\.slice\(0, plan\.winnerCount\)/,
+  );
+  assert.match(gameSource, /className="winner-finish-time"/);
+  assert.match(gameSource, /className="result-finish-time"/);
+  assert.match(
+    gameSource,
+    /const finishRecord = finishRecords\.get\(slotId\)/,
+  );
+  assert.match(
+    cssSource,
+    /\.race-clock\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums;/,
+  );
+  assert.match(
+    cssSource,
+    /\.winner-finish-time\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums;/,
+  );
+});
+
 test("semantic canvas obstacles use the theme outline", () => {
   assert.match(canvasSource, /isSemanticObstacle/);
   assert.match(canvasSource, /context\.strokeStyle = theme\.outline;/);

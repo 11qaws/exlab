@@ -54,6 +54,7 @@ import {
   resolveArrivalDelta,
   resolveCourseProgress,
   resolveFinishRecords,
+  resolveRaceElapsedMs,
   type FinishRecord,
 } from "./race-presentation";
 import {
@@ -1286,23 +1287,25 @@ export function MarbleGame() {
       plan.simulation.frames[
         Math.min(frameIndex, plan.simulation.frames.length - 1)
       ];
-    const arrivedRanking = currentFrame.finishedSlotIds
-      .map((slotId) => candidateForSlot(plan, slotId))
-      .filter((candidate): candidate is Candidate => Boolean(candidate));
+    const arrivedRows = currentFrame.finishedSlotIds.flatMap((slotId) => {
+      const candidate = candidateForSlot(plan, slotId);
+      return candidate ? [{ slotId, candidate }] : [];
+    });
     const rankingRows = currentFrame.rankedSlotIds.flatMap((slotId) => {
       const candidate = candidateForSlot(plan, slotId);
       return candidate ? [{ slotId, candidate }] : [];
     });
     const resultRows = Array.from(
       { length: plan.candidates.length },
-      (_, index) => arrivedRanking[index],
+      (_, index) => arrivedRows[index],
     );
-    const winners = plan.winnerIds
-      .map((candidateId) =>
-        plan.candidates.find((candidate) => candidate.id === candidateId),
-      )
-      .filter((candidate): candidate is Candidate => Boolean(candidate));
+    const winnerRows = arrivedRows.slice(0, plan.winnerCount);
     const finishedSlotIds = new Set(currentFrame.finishedSlotIds);
+    const raceElapsedMs = resolveRaceElapsedMs(
+      renderFrameIndex,
+      FRAME_RATE,
+    );
+    const raceElapsedTime = formatFinishTime(raceElapsedMs);
     const confirmedWinnerCount = Math.min(
       currentFrame.finishedSlotIds.length,
       plan.winnerCount,
@@ -1387,13 +1390,13 @@ export function MarbleGame() {
           <header className="result-header">
             <p className="eyebrow">RACE RESULTS</p>
             <span>
-              도착 {arrivedRanking.length}/{plan.candidates.length} ·
+              도착 {arrivedRows.length}/{plan.candidates.length} ·
               미도착 순위는 공란
             </span>
           </header>
           <section
             className={`winner-reveal ${
-              winners.length > 1 ? "is-multiple" : ""
+              winnerRows.length > 1 ? "is-multiple" : ""
             }`}
             aria-labelledby="winner-title"
           >
@@ -1401,19 +1404,37 @@ export function MarbleGame() {
               Race 당첨자 {plan.winnerCount}명
             </p>
             <div className="winner-list">
-              {winners.map((candidate, index) => (
-                <article
-                  className="winner-card"
-                  key={candidate.id}
-                  style={participantStyle(candidate)}
-                >
-                  <div className="winner-marble" aria-hidden="true">
-                    {candidate.number}
-                  </div>
-                  <span>{index + 1}위</span>
-                  <h1>{shortName(candidate.name, 10)}</h1>
-                </article>
-              ))}
+              {winnerRows.map(({ slotId, candidate }, index) => {
+                const finishRecord = finishRecords.get(slotId);
+                const finishTime = finishRecord
+                  ? formatFinishTime(finishRecord.elapsedMs)
+                  : "—";
+                return (
+                  <article
+                    className="winner-card"
+                    key={slotId}
+                    style={participantStyle(candidate)}
+                  >
+                    <div className="winner-marble" aria-hidden="true">
+                      {candidate.number}
+                    </div>
+                    <span>{index + 1}위</span>
+                    <h1>{shortName(candidate.name, 10)}</h1>
+                    <time
+                      className="winner-finish-time"
+                      dateTime={
+                        finishRecord
+                          ? `PT${(
+                              finishRecord.elapsedMs / 1000
+                            ).toFixed(3)}S`
+                          : undefined
+                      }
+                    >
+                      골인 {finishTime}
+                    </time>
+                  </article>
+                );
+              })}
             </div>
             <span>
               {plan.candidates.length}명 중 {plan.winnerCount}명 당첨
@@ -1426,38 +1447,67 @@ export function MarbleGame() {
                 <h2 id="ranking-title">실시간 도착 순위</h2>
               </div>
               <span aria-live="polite">
-                {arrivedRanking.length === plan.candidates.length
+                {arrivedRows.length === plan.candidates.length
                   ? "전원 도착"
-                  : `${plan.candidates.length - arrivedRanking.length}명 경기 중`}
+                  : `${plan.candidates.length - arrivedRows.length}명 경기 중`}
               </span>
             </div>
             <ol>
-              {resultRows.map((candidate, index) => (
-                <li
-                  key={candidate?.id ?? `pending-${index}`}
-                  className={[
-                    candidate && index < plan.winnerCount
-                      ? "is-winner"
-                      : "",
-                    candidate ? "" : "is-pending",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  style={candidate ? participantStyle(candidate) : undefined}
-                  aria-label={
-                    candidate
-                      ? `${index + 1}위 ${candidate.name}`
-                      : `${index + 1}위 도착 대기`
-                  }
-                >
-                  <strong>{index + 1}</strong>
-                  <i />
-                  <span title={candidate?.name} aria-hidden={!candidate}>
-                    {candidate ? shortName(candidate.name) : "\u00a0"}
-                  </span>
-                  {candidate && index < plan.winnerCount && <em>당첨</em>}
-                </li>
-              ))}
+              {resultRows.map((row, index) => {
+                const finishRecord = row
+                  ? finishRecords.get(row.slotId)
+                  : undefined;
+                const finishTime = finishRecord
+                  ? formatFinishTime(finishRecord.elapsedMs)
+                  : "";
+                return (
+                  <li
+                    key={row?.slotId ?? `pending-${index}`}
+                    className={[
+                      row && index < plan.winnerCount ? "is-winner" : "",
+                      row ? "" : "is-pending",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    style={
+                      row ? participantStyle(row.candidate) : undefined
+                    }
+                    aria-label={
+                      row
+                        ? `${index + 1}위 ${row.candidate.name}, 골인 ${finishTime}${
+                            index < plan.winnerCount ? ", 당첨" : ""
+                          }`
+                        : `${index + 1}위 도착 대기`
+                    }
+                  >
+                    <strong aria-hidden="true">{index + 1}</strong>
+                    <i aria-hidden="true" />
+                    <span
+                      title={row?.candidate.name}
+                      aria-hidden="true"
+                    >
+                      {row
+                        ? shortName(row.candidate.name)
+                        : "\u00a0"}
+                    </span>
+                    <span className="result-rank-meta" aria-hidden="true">
+                      {row && index < plan.winnerCount && <em>당첨</em>}
+                      <time
+                        className="result-finish-time"
+                        dateTime={
+                          finishRecord
+                            ? `PT${(
+                                finishRecord.elapsedMs / 1000
+                              ).toFixed(3)}S`
+                            : undefined
+                        }
+                      >
+                        {row ? finishTime : "\u00a0"}
+                      </time>
+                    </span>
+                  </li>
+                );
+              })}
             </ol>
           </section>
           <div className="result-actions">
@@ -1501,7 +1551,7 @@ export function MarbleGame() {
               <div>
                 <dt>물리 완주</dt>
                 <dd>
-                  {arrivedRanking.length}/{plan.candidates.length}
+                  {arrivedRows.length}/{plan.candidates.length}
                   {frameIndex >= plan.simulation.frames.length - 1 &&
                   plan.simulation.timedOut
                     ? " · 미도착 순위 공란 유지"
@@ -1641,7 +1691,17 @@ export function MarbleGame() {
           </section>
           <aside className="leaderboard" aria-label="실시간 전체 순위">
             <div className="leaderboard-heading">
-              <span>LIVE ORDER</span>
+              <div className="leaderboard-title">
+                <span>LIVE ORDER</span>
+                <time
+                  className="race-clock"
+                  dateTime={`PT${(raceElapsedMs / 1000).toFixed(3)}S`}
+                  aria-label={`현재 경기 시간 ${raceElapsedTime}`}
+                >
+                  <small aria-hidden="true">TIME</small>
+                  <span aria-hidden="true">{raceElapsedTime}</span>
+                </time>
+              </div>
               <button
                 className="icon-button"
                 onClick={() => setSoundEnabled((value) => !value)}
@@ -1687,7 +1747,7 @@ export function MarbleGame() {
         </a>
         <div className="product-header-actions">
           <MapThemeToggle mode={mapMode} onChange={setMapMode} />
-          <span className="prototype-badge">RACE · VERSION 1.2.2</span>
+          <span className="prototype-badge">RACE · VERSION 1.2.3</span>
         </div>
       </header>
 
