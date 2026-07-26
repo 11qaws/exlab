@@ -1,5 +1,3 @@
-export type ResultMode = "preselected" | "physical";
-
 export type ParticipantTheme = {
   key: string;
   primary: string;
@@ -60,38 +58,19 @@ export type SpinnerDynamics = {
   angularSpeed: number;
 };
 
-export type WindPulse = {
-  startStep: number;
-  endStep: number;
-  gravityX: number;
-};
-
-export type ForceZone = {
-  startY: number;
-  endY: number;
-  forceX: number;
-  forceY: number;
-};
-
-export type CatchUpDynamics = {
-  startGap: number;
-  maxGap: number;
-  maxForceY: number;
-};
-
 export type RaceDynamics = {
   fingerprint: string;
   gravityScale: number;
   marbleRestitution: number;
   obstacleRestitution: number;
   pinRestitution: number;
+  bumperRestitution: number;
+  spinnerRestitution: number;
   rotatingBars: SpinnerDynamics[];
-  windPulses: WindPulse[];
-  forceZones: ForceZone[];
-  catchUp: CatchUpDynamics;
 };
 
 export type RaceSimulation = {
+  slotToCandidateId: Record<string, string>;
   frames: RaceFrame[];
   fullFinishOrder: string[];
   firstFinishFrameIndex: number;
@@ -109,9 +88,7 @@ export type RaceSimulation = {
 export type RacePlan = {
   runId: string;
   title: string;
-  resultMode: ResultMode;
   raceSeed: string;
-  resultSeed: string;
   layoutSeed: string;
   createdAt: string;
   candidates: Candidate[];
@@ -125,7 +102,6 @@ export type RacePlan = {
 export type StoredRaceResult = {
   runId: string;
   title: string;
-  resultMode: ResultMode;
   raceSeed: string;
   layoutSeed: string;
   createdAt: string;

@@ -22,6 +22,7 @@ export type StraightZone = {
   leftX: number;
   rightX: number;
   requiresBilateralWallObstacles: boolean;
+  elasticWallSides?: BoundarySide[];
 };
 
 export type CourseRect = {
@@ -36,6 +37,7 @@ export type CourseRect = {
   zoneId?: string;
   obstacleKind?: "wall-bumper" | "shelf";
   attachment?: BoundarySide;
+  material?: "standard" | "elastic";
 };
 
 export type CoursePin = {
@@ -52,10 +54,7 @@ export type CourseBumper = {
   height: number;
   angle: number;
   zoneId: string;
-  kind: "field" | "finish-launch";
-  kickSpeed: number;
-  attachment?: BoundarySide;
-  connectedGroupIds?: string[];
+  placement?: "final-risk";
 };
 
 export type CourseCurve = {
@@ -130,6 +129,7 @@ const BASE_STRAIGHT_ZONES: StraightZone[] = [
     leftX: 477,
     rightX: 843,
     requiresBilateralWallObstacles: true,
+    elasticWallSides: ["right"],
   },
   {
     id: "left-drift",
@@ -138,6 +138,7 @@ const BASE_STRAIGHT_ZONES: StraightZone[] = [
     leftX: 23,
     rightX: 557,
     requiresBilateralWallObstacles: true,
+    elasticWallSides: ["left"],
   },
   {
     id: "wide-mix",
@@ -146,6 +147,7 @@ const BASE_STRAIGHT_ZONES: StraightZone[] = [
     leftX: 87,
     rightX: 813,
     requiresBilateralWallObstacles: true,
+    elasticWallSides: ["left", "right"],
   },
   {
     id: "left-sprint",
@@ -154,18 +156,19 @@ const BASE_STRAIGHT_ZONES: StraightZone[] = [
     leftX: 43,
     rightX: 457,
     requiresBilateralWallObstacles: true,
+    elasticWallSides: ["right"],
   },
   {
     id: "final-gate",
     startY: 8150,
-    endY: 8650,
+    endY: 8550,
     leftX: 231,
     rightX: 669,
     requiresBilateralWallObstacles: true,
   },
   {
     id: "finish-corridor",
-    startY: 8820,
+    startY: 8830,
     endY: BASE_WORLD_HEIGHT,
     leftX: 408,
     rightX: 492,
@@ -313,6 +316,9 @@ function straightBoundary(
     role: "wall",
     groupId: boundaryGroup(side),
     zoneId: zone.id,
+    material: zone.elasticWallSides?.includes(side)
+      ? "elastic"
+      : "standard",
   };
 }
 
@@ -418,9 +424,9 @@ const COURSE_OBSTACLE_RECTS: CourseRect[] = [
   wallBumper("left-sprint", "left", 7650, 170, 0.25),
   wallBumper("left-sprint", "right", 7900, 180, 0.25),
 
-  // Final gate: force both wall lines into the rotating entrance obstacle.
+  // Final gate: stagger both wall lanes, but keep the centre permanently open.
   wallBumper("final-gate", "left", 8200, 120, 0.2),
-  wallBumper("final-gate", "right", 8600, 120, 0.2),
+  wallBumper("final-gate", "right", 8380, 120, 0.2),
 ];
 
 const BOTTOM_CAP: CourseRect = {
@@ -502,8 +508,6 @@ const BASE_COURSE_BUMPERS: CourseBumper[] = [
     height: 30,
     angle: 0.2,
     zoneId: "left-chute",
-    kind: "field",
-    kickSpeed: 4.2,
   },
   {
     x: 380,
@@ -512,8 +516,6 @@ const BASE_COURSE_BUMPERS: CourseBumper[] = [
     height: 30,
     angle: -0.2,
     zoneId: "central-release",
-    kind: "field",
-    kickSpeed: 4,
   },
   {
     x: 540,
@@ -522,8 +524,6 @@ const BASE_COURSE_BUMPERS: CourseBumper[] = [
     height: 30,
     angle: 0.2,
     zoneId: "central-release",
-    kind: "field",
-    kickSpeed: 4,
   },
 
   // 50% Squeeze Gates: fewer, larger bumpers sit between attached rails.
@@ -534,8 +534,6 @@ const BASE_COURSE_BUMPERS: CourseBumper[] = [
     height: 30,
     angle: -0.18,
     zoneId: "right-squeeze",
-    kind: "field",
-    kickSpeed: 4.2,
   },
   {
     x: 300,
@@ -544,8 +542,6 @@ const BASE_COURSE_BUMPERS: CourseBumper[] = [
     height: 30,
     angle: 0.2,
     zoneId: "left-drift",
-    kind: "field",
-    kickSpeed: 4,
   },
 
   // 75% Final Mix: one last active rebound follows the dense pin field.
@@ -556,35 +552,18 @@ const BASE_COURSE_BUMPERS: CourseBumper[] = [
     height: 30,
     angle: -0.2,
     zoneId: "left-sprint",
-    kind: "field",
-    kickSpeed: 4.2,
   },
 
-  // The final pair is embedded in both narrowing walls. Any contact kicks
-  // the marble back upward before it can enter the 60px finish corridor.
+  // A single optional-contact bumper creates a late reversal chance without
+  // closing the centre/right bypass for the rest of the field.
   {
-    x: 370.5,
-    y: 8760,
-    width: 81,
-    height: 27,
-    angle: 0,
-    zoneId: "finish-corridor",
-    kind: "finish-launch",
-    kickSpeed: 7.2,
-    attachment: "left",
-    connectedGroupIds: [LEFT_BOUNDARY_GROUP],
-  },
-  {
-    x: 529.5,
-    y: 8760,
-    width: 81,
-    height: 27,
-    angle: 0,
-    zoneId: "finish-corridor",
-    kind: "finish-launch",
-    kickSpeed: 7.2,
-    attachment: "right",
-    connectedGroupIds: [RIGHT_BOUNDARY_GROUP],
+    x: 365,
+    y: 8435,
+    width: 105,
+    height: 30,
+    angle: 0.18,
+    zoneId: "final-gate",
+    placement: "final-risk",
   },
 ];
 
@@ -602,7 +581,7 @@ const BASE_ROTATING_BARS: RotatingBar[] = [
     width: 380,
     height: 24,
     baseAngle: -0.08,
-    angularSpeed: 0.014,
+    angularSpeed: 0.018,
     zoneId: "start-deck",
   },
   {
@@ -611,7 +590,7 @@ const BASE_ROTATING_BARS: RotatingBar[] = [
     width: 340,
     height: 24,
     baseAngle: 0.1,
-    angularSpeed: -0.012,
+    angularSpeed: -0.016,
     zoneId: "central-release",
   },
   {
@@ -620,16 +599,18 @@ const BASE_ROTATING_BARS: RotatingBar[] = [
     width: 360,
     height: 22,
     baseAngle: -0.12,
-    angularSpeed: 0.016,
+    angularSpeed: 0.021,
     zoneId: "wide-mix",
   },
   {
-    x: 350,
-    y: 8609,
-    width: 120,
-    height: 22,
+    // A one-sided risk lane: the rotating sweep can delay one marble while
+    // leaving a five-marble-plus central bypass open at every angle.
+    x: 360,
+    y: 8515,
+    width: 244,
+    height: 20,
     baseAngle: 0.12,
-    angularSpeed: -0.02,
+    angularSpeed: -0.023,
     zoneId: "final-gate",
     placement: "finish-entrance",
     wallSide: "left",

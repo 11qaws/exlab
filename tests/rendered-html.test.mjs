@@ -38,7 +38,7 @@ test("server-renders the marble game preparation experience", async () => {
   assert.doesNotMatch(html, /react-loading-skeleton/i);
 });
 
-test("exposes grouping, duplicate policy, winner count, and both result modes", async () => {
+test("exposes grouping, physical-only results, map themes, and obstacle roles", async () => {
   const response = await render();
   const html = await response.text();
   assert.match(html, /전체 (?:<!-- -->)?8(?:<!-- -->)?명/);
@@ -46,7 +46,12 @@ test("exposes grouping, duplicate policy, winner count, and both result modes", 
   assert.match(html, /동일 이름/);
   assert.match(html, /미허용/);
   assert.match(html, /당첨 인원/);
-  assert.match(html, /결과 선확정/);
-  assert.match(html, /물리 결과형/);
+  assert.doesNotMatch(html, /결과 선확정/);
+  assert.doesNotMatch(html, /물리 결과형/);
+  assert.match(html, /라이트/);
+  assert.match(html, /다크/);
+  assert.match(html, /고탄성 범퍼/);
+  assert.match(html, /탄성 벽/);
+  assert.match(html, /회전막대/);
   assert.match(html, /자동 배치 다시 만들기/);
 });

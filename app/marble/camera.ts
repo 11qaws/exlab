@@ -6,6 +6,7 @@ export const LEADER_FOCUS_DELAY_FRAMES =
 const CAMERA_SPRING_ACCELERATION = 0.035;
 const CAMERA_VELOCITY_DAMPING = 0.78;
 const CAMERA_MAX_VERTICAL_SPEED = 64;
+export const REDUCED_MOTION_CAMERA_SNAP_DISTANCE = 450;
 
 export type LeaderFocusState = {
   focusedSlotId: string | null;
@@ -80,6 +81,12 @@ export function advanceVerticalCamera(
 ): VerticalCameraState {
   const clampedTarget = Math.max(0, Math.min(maximumY, targetY));
   if (reducedMotion) {
+    if (
+      Math.abs(clampedTarget - state.positionY) <
+      REDUCED_MOTION_CAMERA_SNAP_DISTANCE
+    ) {
+      return { positionY: state.positionY, velocityY: 0 };
+    }
     return { positionY: clampedTarget, velocityY: 0 };
   }
 

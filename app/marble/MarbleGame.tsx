@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   buildRacePlan,
+  createRaceSlotAssignment,
   createSeed,
   maximumGroupCount,
   MAX_GROUP_SIZE,
@@ -40,10 +41,30 @@ import {
   RESULT_REVEAL_DELAY_FRAMES,
   simulateRace,
 } from "./simulation";
+import {
+  findStableLeadChanges,
+  isCloseRace,
+  isFinalApproach,
+  isPhotoFinish,
+  resolveArrivalDelta,
+  resolveCourseProgress,
+} from "./race-presentation";
+import {
+  DEFAULT_RACE_MAP_MODE,
+  obstacleColor,
+  obstacleRoleColor,
+  raceMapTheme,
+  RACE_OBSTACLE_ROLE_COLORS,
+  type RaceMapMode,
+} from "./race-theme";
+import {
+  shouldPersistRaceHistoryCheckpoint,
+  upsertRaceHistory,
+  type RaceHistoryCheckpoint,
+} from "./race-history";
 import type {
   Candidate,
   RacePlan,
-  ResultMode,
   StoredRaceResult,
 } from "./types";
 import { RaceCanvas } from "./RaceCanvas";
@@ -110,13 +131,65 @@ function useReducedMotion() {
   return reduced;
 }
 
+function MapThemeToggle({
+  mode,
+  onChange,
+  compact = false,
+}: {
+  mode: RaceMapMode;
+  onChange: (mode: RaceMapMode) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`map-theme-toggle ${compact ? "is-compact" : ""}`}
+      role="group"
+      aria-label="맵 색상 테마"
+    >
+      {(["light", "dark"] as const).map((option) => (
+        <button
+          type="button"
+          key={option}
+          aria-pressed={mode === option}
+          onClick={() => onChange(option)}
+        >
+          {option === "light" ? "라이트" : "다크"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CourseLegend() {
+  const labels: Record<keyof typeof RACE_OBSTACLE_ROLE_COLORS, string> = {
+    bumper: "고탄성 범퍼",
+    pin: "핀",
+    guide: "유도 레일",
+    "elastic-wall": "탄성 벽",
+    spinner: "회전막대",
+  };
+  return (
+    <ul className="course-legend" aria-label="장애물 색상 범례">
+      {Object.entries(RACE_OBSTACLE_ROLE_COLORS).map(([role, color]) => (
+        <li key={role}>
+          <i style={{ background: color.value }} aria-hidden="true" />
+          {labels[role as keyof typeof labels]}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function StartPreview({
   candidates,
   layoutSeed,
+  mapMode,
 }: {
   candidates: Candidate[];
   layoutSeed: string;
+  mapMode: RaceMapMode;
 }) {
+  const theme = raceMapTheme(mapMode);
   const shift = ((layoutSeed.length * 17) % 17) - 8;
   const previewScaleY = 468 / WORLD_HEIGHT;
   const previewY = (worldY: number) => 42 + worldY * previewScaleY;
@@ -124,7 +197,11 @@ function StartPreview({
   const marbleSpan = Math.min(650, Math.max(220, (activeCount - 1) * 72));
   const marbleStart = 450 - marbleSpan / 2 + shift * 2;
   return (
-    <div className="map-preview" aria-label="Race 경기장 미리보기">
+    <div
+      className="map-preview"
+      data-map-mode={mapMode}
+      aria-label="Race 경기장 미리보기"
+    >
       <svg
         className="preview-course"
         viewBox="0 0 900 540"
@@ -138,8 +215,8 @@ function StartPreview({
             height="12"
             patternUnits="userSpaceOnUse"
           >
-            <rect width="12" height="12" fill="#fff8ef" />
-            <rect x="12" width="12" height="12" fill="#e84f83" />
+            <rect width="12" height="12" fill={theme.finishAlternate} />
+            <rect x="12" width="12" height="12" fill={theme.finish} />
           </pattern>
         </defs>
         {COURSE_SECTIONS.map((section, index) => (
@@ -149,14 +226,7 @@ function StartPreview({
             y={previewY(section.startY)}
             width="760"
             height={(section.endY - section.startY) * previewScaleY}
-            fill={
-              [
-                "rgba(255, 111, 159, 0.04)",
-                "rgba(255, 173, 74, 0.05)",
-                "rgba(89, 201, 179, 0.045)",
-                "rgba(165, 119, 255, 0.045)",
-              ][index]
-            }
+              fill={`${obstacleColor(index)}16`}
           />
         ))}
         {COURSE_SECTIONS.slice(1).map((section, index) => {
@@ -168,7 +238,8 @@ function StartPreview({
                 x2="814"
                 y1={y}
                 y2={y}
-                stroke="rgba(255, 248, 239, 0.46)"
+                stroke={theme.mutedText}
+                opacity="0.46"
                 strokeWidth="2"
                 strokeDasharray="8 8"
               />
@@ -176,7 +247,8 @@ function StartPreview({
                 x="96"
                 y={y - 5}
                 textAnchor="start"
-                fill="rgba(255, 248, 239, 0.8)"
+                fill={theme.text}
+                opacity="0.8"
               >
                 {(index + 1) * 25}% · {section.label}
               </text>
@@ -205,11 +277,11 @@ function StartPreview({
               height={previewHeight}
               rx="4"
               fill={
-                shape.role === "wall"
-                  ? "#4f2c39"
-                  : shape.role === "gate"
-                    ? "#754557"
-                    : "#684050"
+                shape.material === "elastic"
+                  ? obstacleRoleColor("elastic-wall")
+                  : shape.obstacleKind
+                    ? obstacleRoleColor("guide")
+                    : theme.wall
               }
               transform={`rotate(${visualAngle} ${shape.x} ${y})`}
             />
@@ -223,7 +295,7 @@ function StartPreview({
               .map((point) => `${point.x},${previewY(point.y)}`)
               .join(" ")}
             fill="none"
-            stroke="#4f2c39"
+            stroke={theme.wall}
             strokeWidth="8"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -235,7 +307,7 @@ function StartPreview({
             cx={pin.x}
             cy={previewY(pin.y)}
             r={pin.radius > 25 ? 8 : 5}
-            fill="#845165"
+            fill={obstacleRoleColor("pin")}
           />
         ))}
         {COURSE_BUMPERS.map((bumper, index) => (
@@ -246,10 +318,8 @@ function StartPreview({
               width={bumper.width}
               height="10"
               rx="5"
-              fill={
-                bumper.kind === "finish-launch" ? "#ffad4a" : "#e84f83"
-              }
-              stroke="#fff8ef"
+              fill={obstacleRoleColor("bumper")}
+              stroke={theme.outline}
               strokeWidth="2"
               transform={`rotate(${(bumper.angle * 180 * 0.5) / Math.PI} ${
                 bumper.x
@@ -261,9 +331,7 @@ function StartPreview({
               width={bumper.width - 24}
               height="3"
               rx="1.5"
-              fill={
-                bumper.kind === "finish-launch" ? "#fff0c7" : "#ffd0df"
-              }
+              fill={theme.finishAlternate}
               transform={`rotate(${(bumper.angle * 180 * 0.5) / Math.PI} ${
                 bumper.x
               } ${previewY(bumper.y)})`}
@@ -280,7 +348,7 @@ function StartPreview({
               width={bar.width}
               height="10"
               rx="5"
-              fill="#f1b3c6"
+              fill={obstacleRoleColor("spinner")}
               transform={`rotate(${index % 2 === 0 ? -7 : 8} ${bar.x} ${y})`}
             />
           );
@@ -301,7 +369,7 @@ function StartPreview({
               candidates[index]?.theme.primary ??
               PARTICIPANT_THEMES[index].primary
             }
-            stroke="#fff8ef"
+            stroke={theme.outline}
             strokeWidth="2"
           />
         ))}
@@ -328,10 +396,12 @@ function LiveRacePreview({
   candidates,
   layoutSeed,
   reducedMotion,
+  mapMode,
 }: {
   candidates: Candidate[];
   layoutSeed: string;
   reducedMotion: boolean;
+  mapMode: RaceMapMode;
 }) {
   const [previewCycle, setPreviewCycle] = useState(0);
   const [previewPlan, setPreviewPlan] = useState<RacePlan | null>(null);
@@ -355,10 +425,13 @@ function LiveRacePreview({
       const previewLayoutSeed = createSeed(
         `${layoutSeed}-preview-layout-${previewCycle + 1}`,
       );
-      const resultSeed = createSeed(`preview-result-${previewCycle + 1}`);
       try {
+        const slotToCandidateId = createRaceSlotAssignment(
+          previewCandidates,
+          raceSeed,
+        );
         const simulation = simulateRace(
-          previewCandidates.length,
+          slotToCandidateId,
           raceSeed,
           previewLayoutSeed,
           1,
@@ -367,11 +440,9 @@ function LiveRacePreview({
           buildRacePlan(
             "10초 경기 미리보기",
             previewCandidates,
-            "physical",
             simulation,
             {
               raceSeed,
-              resultSeed,
               layoutSeed: previewLayoutSeed,
             },
             1,
@@ -410,16 +481,25 @@ function LiveRacePreview({
 
   if (!previewPlan) {
     return (
-      <StartPreview candidates={candidates} layoutSeed={layoutSeed} />
+      <StartPreview
+        candidates={candidates}
+        layoutSeed={layoutSeed}
+        mapMode={mapMode}
+      />
     );
   }
 
   return (
-    <div className="map-preview live-preview" aria-label="10초 Race 경기 미리보기">
+    <div
+      className="map-preview live-preview"
+      data-map-mode={mapMode}
+      aria-label="10초 Race 경기 미리보기"
+    >
       <RaceCanvas
         plan={previewPlan}
         frameIndex={previewFrameIndex}
         reducedMotion={reducedMotion}
+        mapMode={mapMode}
       />
       <div className="preview-hud">
         <div>
@@ -455,8 +535,9 @@ export function MarbleGame() {
   const [title, setTitle] = useState("오늘의 Race");
   const [rosterText, setRosterText] = useState(DEFAULT_ROSTER);
   const [isEditingRoster, setIsEditingRoster] = useState(false);
-  const [resultMode, setResultMode] =
-    useState<ResultMode>("preselected");
+  const [mapMode, setMapMode] = useState<RaceMapMode>(
+    DEFAULT_RACE_MAP_MODE,
+  );
   const [allowDuplicateNames, setAllowDuplicateNames] = useState(false);
   const [groupCount, setGroupCount] = useState(1);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
@@ -471,11 +552,28 @@ export function MarbleGame() {
   const [toast, setToast] = useState("");
   const [history, setHistory] = useState<StoredRaceResult[]>([]);
   const [isReplay, setIsReplay] = useState(false);
+  const [playbackEpoch, setPlaybackEpoch] = useState(0);
   const generationKey = useRef(0);
   const audioContext = useRef<AudioContext | null>(null);
-  const resultSavedFor = useRef<string | null>(null);
+  const historyRef = useRef<StoredRaceResult[]>([]);
+  const resultHistoryCheckpoint = useRef<RaceHistoryCheckpoint | null>(
+    null,
+  );
   const raceStartedAt = useRef<number | null>(null);
   const reducedMotion = useReducedMotion();
+  const stableLeadChanges = useMemo(
+    () =>
+      plan
+        ? findStableLeadChanges(plan.simulation.frames, {
+            targetFinishCount: plan.simulation.targetFinishCount,
+          })
+        : [],
+    [plan],
+  );
+  const photoFinish = useMemo(
+    () => (plan ? isPhotoFinish(plan.simulation.frames) : false),
+    [plan],
+  );
   const validation = useMemo(
     () => parseRoster(rosterText, { allowDuplicateNames }),
     [allowDuplicateNames, rosterText],
@@ -511,7 +609,11 @@ export function MarbleGame() {
         const storedRoster = localStorage.getItem(ROSTER_KEY);
         const storedHistory = localStorage.getItem(HISTORY_KEY);
         if (storedRoster) setRosterText(storedRoster);
-        if (storedHistory) setHistory(JSON.parse(storedHistory));
+        if (storedHistory) {
+          const parsedHistory = JSON.parse(storedHistory);
+          historyRef.current = parsedHistory;
+          setHistory(parsedHistory);
+        }
       } catch {
         setToast("저장된 명단을 불러오지 못해 기본 명단을 사용합니다.");
       }
@@ -618,34 +720,47 @@ export function MarbleGame() {
 
   useEffect(() => {
     if (phase !== "result" || !plan || isReplay) return;
-    if (frameIndex < plan.simulation.frames.length - 1) return;
-    if (resultSavedFor.current === plan.runId) return;
-    resultSavedFor.current = plan.runId;
+    const currentFrame =
+      plan.simulation.frames[
+        Math.min(frameIndex, plan.simulation.frames.length - 1)
+      ];
+    const arrivedCount = currentFrame.finishedSlotIds.length;
+    if (
+      !shouldPersistRaceHistoryCheckpoint(
+        resultHistoryCheckpoint.current,
+        plan.runId,
+        arrivedCount,
+      )
+    ) {
+      return;
+    }
+    resultHistoryCheckpoint.current = {
+      runId: plan.runId,
+      arrivedCount,
+    };
     const winnerNames = plan.winnerIds.map(
       (candidateId) =>
         plan.candidates.find((candidate) => candidate.id === candidateId)
           ?.name ?? "알 수 없음",
     );
-    const rankedNames = plan.simulation.frames
-      .at(-1)!
-      .finishedSlotIds.map(
-        (slotId) =>
-          plan.candidates.find(
-            (candidate) =>
-              candidate.id === plan.slotToCandidateId[slotId],
-          )?.name ?? "알 수 없음",
-      );
+    const rankedNames = currentFrame.finishedSlotIds.map(
+      (slotId) =>
+        plan.candidates.find(
+          (candidate) =>
+            candidate.id === plan.slotToCandidateId[slotId],
+        )?.name ?? "알 수 없음",
+    );
     const stored: StoredRaceResult = {
       runId: plan.runId,
       title: plan.title,
-      resultMode: plan.resultMode,
       raceSeed: plan.raceSeed,
       layoutSeed: plan.layoutSeed,
       createdAt: plan.createdAt,
       winnerNames,
       rankedNames,
     };
-    const nextHistory = [stored, ...history].slice(0, 20);
+    const nextHistory = upsertRaceHistory(historyRef.current, stored);
+    historyRef.current = nextHistory;
     setHistory(nextHistory);
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
@@ -656,9 +771,7 @@ export function MarbleGame() {
         0,
       );
     }
-    // History is intentionally snapshotted at result time.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, plan, isReplay, frameIndex]);
+  }, [phase, plan, isReplay, frameIndex, rosterText]);
 
   const handleOpenBroadcast = () => {
     if (
@@ -677,9 +790,12 @@ export function MarbleGame() {
     window.setTimeout(() => {
       try {
         const raceSeed = createSeed("race");
-        const resultSeed = createSeed("result");
+        const slotToCandidateId = createRaceSlotAssignment(
+          activeCandidates,
+          raceSeed,
+        );
         const simulation = simulateRace(
-          activeCandidates.length,
+          slotToCandidateId,
           raceSeed,
           layoutSeed,
           effectiveWinnerCount,
@@ -688,9 +804,8 @@ export function MarbleGame() {
         const nextPlan = buildRacePlan(
           title,
           activeCandidates,
-          resultMode,
           simulation,
-          { raceSeed, resultSeed, layoutSeed },
+          { raceSeed, layoutSeed },
           effectiveWinnerCount,
         );
         setPlan(nextPlan);
@@ -712,6 +827,7 @@ export function MarbleGame() {
     await audioContext.current?.resume();
     setCountdown(3);
     setFrameIndex(0);
+    setPlaybackEpoch((value) => value + 1);
     setPhase("countdown");
   };
 
@@ -724,6 +840,7 @@ export function MarbleGame() {
     if (!plan) return;
     setIsReplay(true);
     setFrameIndex(0);
+    setPlaybackEpoch((value) => value + 1);
     setCountdown(3);
     setPhase("countdown");
   };
@@ -776,6 +893,56 @@ export function MarbleGame() {
     const isFinishing =
       phase === "running" &&
       frameIndex >= plan.simulation.firstFinishFrameIndex;
+    const activeRankedSlotIds = currentFrame.rankedSlotIds.filter(
+      (slotId) => !currentFrame.finishedSlotIds.includes(slotId),
+    );
+    const activeLeaderCandidateId = activeRankedSlotIds[0]
+      ? plan.slotToCandidateId[activeRankedSlotIds[0]]
+      : undefined;
+    const presentationFrame =
+      confirmedWinnerCount < plan.winnerCount &&
+      activeRankedSlotIds.length > 0
+        ? {
+            ...currentFrame,
+            rankedSlotIds: activeRankedSlotIds,
+            finishedSlotIds: [],
+          }
+        : currentFrame;
+    const courseProgress = resolveCourseProgress(presentationFrame);
+    const closeRace = isCloseRace(presentationFrame);
+    const finalApproach = isFinalApproach(presentationFrame);
+    const latestLeadChange = stableLeadChanges
+      .filter((change) => change.frameIndex <= frameIndex)
+      .at(-1);
+    const leadChangeActive =
+      latestLeadChange !== undefined &&
+      frameIndex <= latestLeadChange.frameIndex + FRAME_RATE;
+    const leadChangeCandidate = leadChangeActive
+      ? candidateForSlot(plan, latestLeadChange.toSlotId)
+      : undefined;
+    const leaderPose = currentFrame.poses.find(
+      (pose) => pose.slotId === presentationFrame.rankedSlotIds[0],
+    );
+    const runnerUpPose = currentFrame.poses.find(
+      (pose) => pose.slotId === presentationFrame.rankedSlotIds[1],
+    );
+    const leaderGap =
+      leaderPose && runnerUpPose
+        ? Math.max(0, Math.round(leaderPose.y - runnerUpPose.y))
+        : null;
+    const arrivalDelta =
+      currentFrame.finishedSlotIds.length >= 2
+        ? resolveArrivalDelta(
+            plan.simulation.frames.slice(0, frameIndex + 1),
+          )
+        : null;
+    const physicalMoment = finalApproach
+      ? "FINAL APPROACH"
+      : leadChangeCandidate
+        ? `${shortName(leadChangeCandidate.name, 7)} 선두 교체`
+        : closeRace
+          ? "초접전"
+          : courseProgress?.section.label ?? "경기 진행 중";
 
     if (phase === "result") {
       return (
@@ -903,23 +1070,32 @@ export function MarbleGame() {
             <p className="eyebrow">EX LAB · RACE</p>
             <h1>{plan.title}</h1>
           </div>
-          <div className="race-status" aria-live="polite">
-            <span>
-              {phase === "waiting"
-                ? "방송 대기"
-                : phase === "countdown"
-                  ? "출발 준비"
-                  : confirmedWinnerCount >= plan.winnerCount
-                    ? "당첨 인원 도착 완료"
-                    : confirmedWinnerCount > 0
-                      ? "다음 당첨자 대기"
-                      : "경기 진행 중"}
-            </span>
-            <strong>
-              {phase === "waiting"
-                ? `${plan.candidates.length}명 · ${plan.winnerCount}명 당첨`
-                : `${confirmedWinnerCount} / ${plan.winnerCount} 당첨 확정`}
-            </strong>
+          <div className="race-header-actions">
+            <MapThemeToggle
+              mode={mapMode}
+              onChange={setMapMode}
+              compact
+            />
+            <div className="race-status" aria-label="경기 진행 상태">
+              <span>
+                {phase === "waiting"
+                  ? "방송 대기"
+                  : phase === "countdown"
+                    ? "출발 준비"
+                    : confirmedWinnerCount >= plan.winnerCount
+                      ? "당첨 인원 도착 완료"
+                      : physicalMoment}
+              </span>
+              <strong>
+                {phase === "waiting"
+                  ? `${plan.candidates.length}명 · ${plan.winnerCount}명 당첨`
+                  : confirmedWinnerCount > 0
+                    ? `${confirmedWinnerCount} / ${plan.winnerCount} 당첨 확정`
+                    : `${Math.round((courseProgress?.overall ?? 0) * 100)}% · 선두 간격 ${
+                        leaderGap ?? "—"
+                      }px`}
+              </strong>
+            </div>
           </div>
         </header>
         <div className="race-layout">
@@ -928,11 +1104,19 @@ export function MarbleGame() {
               plan={plan}
               frameIndex={frameIndex}
               reducedMotion={reducedMotion}
+              mapMode={mapMode}
+              playbackEpoch={playbackEpoch}
             />
             {phase === "waiting" && (
-              <div className="broadcast-waiting" role="dialog" aria-modal="true">
+              <div
+                className="broadcast-waiting"
+                role="dialog"
+                aria-labelledby="broadcast-waiting-title"
+              >
                 <p className="eyebrow">BROADCAST READY</p>
-                <h2>방송 화면이 준비됐습니다.</h2>
+                <h2 id="broadcast-waiting-title">
+                  방송 화면이 준비됐습니다.
+                </h2>
                 <span>
                   시작 버튼을 누르기 전에는 카운트다운과 경기가 진행되지
                   않습니다.
@@ -947,6 +1131,7 @@ export function MarbleGame() {
                   <button
                     className="primary-button"
                     onClick={handleRaceStart}
+                    autoFocus
                   >
                     경기 시작
                   </button>
@@ -965,7 +1150,9 @@ export function MarbleGame() {
             )}
             {isFinishing && (
               <div className="finish-banner" aria-live="assertive">
-                {confirmedWinnerCount >= plan.winnerCount
+                {photoFinish && arrivalDelta
+                  ? `PHOTO FINISH · ${arrivalDelta.deltaSeconds.toFixed(2)}초 차`
+                  : confirmedWinnerCount >= plan.winnerCount
                   ? `${plan.winnerCount}명 당첨 확정!`
                   : `${confirmedWinnerCount}번째 당첨 확정 · ${
                       plan.winnerCount - confirmedWinnerCount
@@ -993,6 +1180,9 @@ export function MarbleGame() {
                     finishedCandidateIds.has(candidate.id)
                       ? "is-qualified"
                       : "",
+                    candidate.id === activeLeaderCandidateId
+                      ? "is-active-contender"
+                      : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
@@ -1008,9 +1198,15 @@ export function MarbleGame() {
               ))}
             </ol>
             <p className="camera-note">
-              {reducedMotion
-                ? "선두 추적 · 이동 모션 축소"
-                : "관성 카메라 · 선두 변경 0.5초"}
+              {courseProgress?.section.label ?? "START"} ·{" "}
+              {closeRace
+                ? "선두권 초접전"
+                : `선두 간격 ${leaderGap ?? "—"}px`}
+            </p>
+            <p className="visually-hidden" aria-live="polite">
+              {leadChangeCandidate
+                ? `${leadChangeCandidate.name} 선두 교체`
+                : ""}
             </p>
           </aside>
         </div>
@@ -1025,7 +1221,10 @@ export function MarbleGame() {
           <span aria-hidden="true">●</span>
           Ex Lab
         </a>
-        <span className="prototype-badge">RACE · VERSION 1.1.4</span>
+        <div className="product-header-actions">
+          <MapThemeToggle mode={mapMode} onChange={setMapMode} />
+          <span className="prototype-badge">RACE · VERSION 1.2.0</span>
+        </div>
       </header>
 
       <section className="intro">
@@ -1219,37 +1418,6 @@ export function MarbleGame() {
                 </select>
               </label>
             </div>
-            <fieldset>
-              <legend>결과 방식</legend>
-              <label>
-                <input
-                  type="radio"
-                  name="result-mode"
-                  value="preselected"
-                  checked={resultMode === "preselected"}
-                  onChange={() => setResultMode("preselected")}
-                />
-                <span>
-                  <strong>결과 선확정</strong>
-                  <small>
-                    결과를 먼저 잠그고 익명 물리 경기의 완주 슬롯에 배정
-                  </small>
-                </span>
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="result-mode"
-                  value="physical"
-                  checked={resultMode === "physical"}
-                  onChange={() => setResultMode("physical")}
-                />
-                <span>
-                  <strong>물리 결과형</strong>
-                  <small>실제 마블의 도착 순서로 당첨 인원을 결정</small>
-                </span>
-              </label>
-            </fieldset>
             <div className="setting-row">
               <span>
                 <strong>효과음</strong>
@@ -1272,13 +1440,15 @@ export function MarbleGame() {
             <h2 id="venue-title">Race</h2>
             <p>
               좌·우 사이클로이드와 수축·확장 구간, 네 가지 구간 패턴,
-              능동 범퍼와 결승 회전 관문을 통과하는 약 30초 코스
+              고탄성 범퍼와 한쪽 위험 레인을 통과하는 약 30초 물리 코스
             </p>
+            <CourseLegend />
           </div>
           <LiveRacePreview
             candidates={activeCandidates}
             layoutSeed={layoutSeed}
             reducedMotion={reducedMotion}
+            mapMode={mapMode}
           />
           <div className="venue-meta">
             <div>

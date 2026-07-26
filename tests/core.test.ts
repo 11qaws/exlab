@@ -9,7 +9,6 @@ import {
   COURSE_PINS,
   COURSE_RECTS,
   COURSE_SECTIONS,
-  FINISH_LINE_X,
   FINISH_LINE_WIDTH,
   FINISH_Y,
   MARBLE_RADIUS,
@@ -27,10 +26,13 @@ import {
   INITIAL_VERTICAL_CAMERA_STATE,
   LEADER_FOCUS_DELAY_FRAMES,
   LEADER_FOCUS_DELAY_SECONDS,
+  REDUCED_MOTION_CAMERA_SNAP_DISTANCE,
   resolveLeaderFocus,
 } from "../app/marble/camera";
 import {
   inspectCourseClearance,
+  FINAL_BYPASS_MIN_CLEARANCE,
+  FINAL_RISK_LANE_MAX_SHARE,
   MARBLE_DIAMETER,
   MIN_COURSE_CLEARANCE,
   ROTATING_BAR_CLEARANCE_MODEL,
@@ -39,6 +41,7 @@ import {
 import {
   buildRacePlan,
   contrastRatio,
+  createRaceSlotAssignment,
   minimumGroupCount,
   parseRoster,
   PARTICIPANT_THEMES,
@@ -52,10 +55,22 @@ import {
 } from "../app/marble/countdown";
 import { createRaceDynamics } from "../app/marble/dynamics";
 import {
-  catchUpIntensity,
+  PHYSICS_SUBSTEPS,
+  sharedGravityMultiplier,
   simulateRace,
 } from "../app/marble/simulation";
-import { resolveRaceFrame } from "../app/marble/RaceCanvas";
+import {
+  resolveRaceFocusSlotId,
+  resolveRaceFrame,
+} from "../app/marble/RaceCanvas";
+
+const simulationSlots = (participantCount: number) =>
+  Object.fromEntries(
+    Array.from({ length: participantCount }, (_, index) => [
+      `slot-${index + 1}`,
+      `simulation-candidate-${index + 1}`,
+    ]),
+  );
 
 test("roster accepts two through ten participants", () => {
   assert.equal(parseRoster("가\n나").isValid, true);
@@ -114,6 +129,13 @@ test("participant themes meet the common contrast rules", () => {
   }
 });
 
+test("shared interface tokens meet small-text contrast targets", () => {
+  assert.ok(contrastRatio("#6b5356", "#fff8f3") >= 6.5);
+  assert.ok(contrastRatio("#ffffff", "#ad204f") >= 6.5);
+  assert.ok(contrastRatio("#075c43", "#e4f5ee") >= 6.5);
+  assert.ok(contrastRatio("#7b4300", "#fff0da") >= 6.5);
+});
+
 test("seeded shuffle is deterministic", () => {
   const source = ["a", "b", "c", "d", "e"];
   assert.deepEqual(shuffleSeeded(source, "same"), shuffleSeeded(source, "same"));
@@ -124,8 +146,9 @@ test("seeded shuffle is deterministic", () => {
 });
 
 test("physics simulation produces a stable winner for the same seeds", () => {
-  const first = simulateRace(5, "race-fixed", "layout-fixed");
-  const second = simulateRace(5, "race-fixed", "layout-fixed");
+  const slots = simulationSlots(5);
+  const first = simulateRace(slots, "race-fixed", "layout-fixed");
+  const second = simulateRace(slots, "race-fixed", "layout-fixed");
   assert.equal(first.fullFinishOrder.length, 5);
   assert.deepEqual(first.fullFinishOrder, second.fullFinishOrder);
   assert.deepEqual(first.dynamics, second.dynamics);
@@ -154,8 +177,12 @@ test("seeded dynamics vary races without breaking the final spinner rule", () =>
     Math.sign(first.rotatingBars.at(-1)!.angularSpeed),
     Math.sign(ROTATING_BARS.at(-1)!.angularSpeed),
   );
-  assert.ok(first.windPulses.length >= 3);
-  assert.ok(first.forceZones.length >= 2);
+  assert.ok(first.bumperRestitution >= 1.22);
+  assert.ok(first.bumperRestitution <= 1.32);
+  assert.ok(first.spinnerRestitution > first.obstacleRestitution);
+  assert.equal("catchUp" in first, false);
+  assert.equal("windPulses" in first, false);
+  assert.equal("forceZones" in first, false);
 });
 
 test("the extended asymmetric course targets a roughly thirty-second first finish", () => {
@@ -210,7 +237,7 @@ test("the extended asymmetric course targets a roughly thirty-second first finis
   for (const participantCount of [5, 10]) {
     const firstFinishSeconds = Array.from({ length: 12 }, (_, index) => {
       const simulation = simulateRace(
-        participantCount,
+        simulationSlots(participantCount),
         `duration-${participantCount}-${index}`,
         `layout-duration-${index}`,
       );
@@ -264,9 +291,7 @@ test("obstacles stay on straight zones and wall bumpers feed inward", () => {
     assert.ok(pin.y + pin.radius <= zone.endY);
   }
 
-  for (const bumper of COURSE_BUMPERS.filter(
-    (candidate) => candidate.kind === "field",
-  )) {
+  for (const bumper of COURSE_BUMPERS) {
     const zone = zones.get(bumper.zoneId);
     assert.ok(zone);
     const halfVerticalExtent =
@@ -282,7 +307,12 @@ test("obstacles stay on straight zones and wall bumpers feed inward", () => {
     assert.ok(zone);
     const sweepRadius = Math.hypot(bar.width / 2, bar.height / 2);
     assert.ok(bar.y - sweepRadius >= zone.startY);
-    assert.ok(bar.y + sweepRadius <= zone.endY);
+    if (bar.placement === "finish-entrance") {
+      assert.ok(bar.y <= zone.endY);
+      assert.ok(bar.y + sweepRadius >= zone.endY);
+    } else {
+      assert.ok(bar.y + sweepRadius <= zone.endY);
+    }
   }
 
   assert.ok(
@@ -314,6 +344,26 @@ test("obstacles stay on straight zones and wall bumpers feed inward", () => {
     STRAIGHT_ZONES.find((zone) => zone.id === "finish-corridor")
       ?.requiresBilateralWallObstacles,
     false,
+  );
+});
+
+test("selected asymmetric wall segments use bumper-level elasticity", () => {
+  const elasticWalls = COURSE_RECTS.filter(
+    (rect) => rect.role === "wall" && rect.material === "elastic",
+  );
+  assert.ok(elasticWalls.length >= 5);
+  assert.equal(
+    elasticWalls.filter((wall) => wall.zoneId === "wide-mix").length,
+    2,
+  );
+  assert.ok(
+    new Set(elasticWalls.map((wall) => wall.zoneId)).size >= 3,
+  );
+  assert.ok(
+    elasticWalls.every((wall) => wall.zoneId !== "final-gate"),
+  );
+  assert.ok(
+    elasticWalls.every((wall) => wall.zoneId !== "finish-corridor"),
   );
 });
 
@@ -351,49 +401,57 @@ test("quarter markers introduce four distinct obstacle patterns", () => {
   assert.ok(signatures[3][2] >= 2);
 });
 
-test("finish entrance has paired launch bumpers beside the narrow lane", () => {
+test("finish entrance delays one risk lane while leaving a permanent bypass", () => {
   const finalGate = STRAIGHT_ZONES.find(
     (zone) => zone.id === "final-gate",
   )!;
   const finishCorridor = STRAIGHT_ZONES.find(
     (zone) => zone.id === "finish-corridor",
   )!;
-  const launchBumpers = COURSE_BUMPERS.filter(
-    (bumper) => bumper.kind === "finish-launch",
-  );
+  const spinner = ROTATING_BARS.find(
+    (bar) => bar.placement === "finish-entrance",
+  )!;
+  const sweepRadius = Math.hypot(spinner.width / 2, spinner.height / 2);
+  const innerLeft = finalGate.leftX + COURSE_BOUNDARY_THICKNESS / 2;
+  const innerRight = finalGate.rightX - COURSE_BOUNDARY_THICKNESS / 2;
+  const innerWidth = innerRight - innerLeft;
+  const bypass =
+    innerRight - (spinner.x + sweepRadius + MARBLE_RADIUS);
+  const riskShare =
+    (spinner.x + sweepRadius - innerLeft) / innerWidth;
+  const riskBumper = COURSE_BUMPERS.find(
+    (bumper) => bumper.placement === "final-risk",
+  )!;
+  const bumperHalfSpan =
+    (Math.abs(Math.cos(riskBumper.angle)) * riskBumper.width +
+      Math.abs(Math.sin(riskBumper.angle)) * riskBumper.height) /
+    2;
+  const bumperBypass =
+    innerRight -
+    (riskBumper.x + bumperHalfSpan + MARBLE_RADIUS);
 
-  assert.equal(launchBumpers.length, 2);
-  assert.deepEqual(
-    launchBumpers.map((bumper) => bumper.attachment).sort(),
-    ["left", "right"],
-  );
-  for (const bumper of launchBumpers) {
-    assert.ok(bumper.y > finalGate.endY);
-    assert.ok(bumper.y < finishCorridor.startY);
-    assert.ok(bumper.kickSpeed >= 6);
-  }
-  const [left, right] = launchBumpers;
-  const leftInnerEdge = left.x + left.width / 2;
-  const rightInnerEdge = right.x - right.width / 2;
-  const clearance = rightInnerEdge - leftInnerEdge;
-  assert.ok(clearance >= MIN_COURSE_CLEARANCE);
-  assert.equal(left.width, 81);
-  assert.equal(right.width, 81);
-  assert.equal(left.height, 27);
-  assert.equal(right.height, 27);
-  assert.ok(leftInnerEdge <= FINISH_LINE_X);
-  assert.ok(rightInnerEdge >= FINISH_LINE_X + FINISH_LINE_WIDTH);
-  assert.equal(clearance, 78);
-
-  const bounds = courseBoundsAtY(left.y);
-  const wallHalfWidth = COURSE_BOUNDARY_THICKNESS / 2;
+  assert.equal(spinner.wallSide, "left");
+  assert.ok(riskBumper);
+  assert.ok(riskBumper.y < spinner.y);
+  assert.ok(bumperBypass >= FINAL_BYPASS_MIN_CLEARANCE);
+  assert.ok(bypass >= FINAL_BYPASS_MIN_CLEARANCE);
+  assert.ok(riskShare <= FINAL_RISK_LANE_MAX_SHARE);
   assert.ok(
-    left.x - left.width / 2 <=
-      bounds.leftX - wallHalfWidth - MARBLE_RADIUS,
+    spinner.x - sweepRadius <= innerLeft + MARBLE_RADIUS,
   );
   assert.ok(
-    right.x + right.width / 2 >=
-      bounds.rightX + wallHalfWidth + MARBLE_RADIUS,
+    COURSE_BUMPERS.every((bumper) => bumper.y < finalGate.endY),
+  );
+  assert.ok(
+    ROTATING_BARS.every(
+      (bar) =>
+        bar.placement === "finish-entrance" ||
+        bar.y < finalGate.endY,
+    ),
+  );
+  assert.ok(
+    finishCorridor.startY - finalGate.endY >=
+      MARBLE_DIAMETER * 8,
   );
 });
 
@@ -406,7 +464,11 @@ test("active bumpers are pill-shaped bars", () => {
 });
 
 test("race frames expose bounded bumper collision flashes", () => {
-  const result = simulateRace(5, "flash-test", "flash-layout");
+  const result = simulateRace(
+    simulationSlots(5),
+    "flash-test",
+    "flash-layout",
+  );
   const flashes = result.frames.flatMap((frame) => frame.bumperFlashes);
 
   assert.ok(
@@ -437,18 +499,48 @@ test("race frame selection survives preview plan transitions", () => {
   assert.equal(resolveRaceFrame([], 0), null);
 });
 
-test("catch-up force starts only after a meaningful leader gap", () => {
-  const dynamics = createRaceDynamics("catch-up-test").catchUp;
-  assert.equal(catchUpIntensity(dynamics.startGap, dynamics), 0);
-  assert.equal(
-    catchUpIntensity(
-      (dynamics.startGap + dynamics.maxGap) / 2,
-      dynamics,
-    ),
-    0.5,
+test("camera follows the next active contender until all winners arrive", () => {
+  const frame = {
+    poses: [],
+    rankedSlotIds: ["slot-1", "slot-2", "slot-3"],
+    finishedSlotIds: ["slot-1"],
+    rotatingBarAngles: [],
+    bumperFlashes: [],
+  };
+  assert.equal(resolveRaceFocusSlotId(frame, 2), "slot-2");
+  assert.equal(resolveRaceFocusSlotId(frame, 1), "slot-1");
+});
+
+test("race dynamics contain only shared physical material variation", () => {
+  const dynamics = createRaceDynamics("physical-only-test");
+  assert.deepEqual(Object.keys(dynamics).sort(), [
+    "bumperRestitution",
+    "fingerprint",
+    "gravityScale",
+    "marbleRestitution",
+    "obstacleRestitution",
+    "pinRestitution",
+    "rotatingBars",
+    "spinnerRestitution",
+  ]);
+  assert.ok(dynamics.bumperRestitution > dynamics.spinnerRestitution);
+  assert.ok(dynamics.spinnerRestitution > dynamics.obstacleRestitution);
+});
+
+test("physics substeps prevent tunneling without rewriting marble motion", () => {
+  assert.equal(PHYSICS_SUBSTEPS, 2);
+});
+
+test("late-race gravity is shared and leaves the thirty-second race untouched", () => {
+  assert.equal(sharedGravityMultiplier(0), 1);
+  assert.equal(sharedGravityMultiplier(30), 1);
+  assert.equal(sharedGravityMultiplier(40), 1);
+  assert.ok(sharedGravityMultiplier(55) > 2);
+  assert.ok(
+    sharedGravityMultiplier(75) >
+      sharedGravityMultiplier(55),
   );
-  assert.equal(catchUpIntensity(dynamics.maxGap, dynamics), 1);
-  assert.equal(catchUpIntensity(dynamics.maxGap * 2, dynamics), 1);
+  assert.equal(sharedGravityMultiplier(120), 6);
 });
 
 test("rotating bars keep turning through complete revolutions", () => {
@@ -498,6 +590,15 @@ test("camera follows vertically with damped acceleration", () => {
     true,
   );
   assert.deepEqual(reduced, { positionY: 500, velocityY: 0 });
+  assert.deepEqual(
+    advanceVerticalCamera(
+      reduced,
+      500 + REDUCED_MOTION_CAMERA_SNAP_DISTANCE - 1,
+      1_000,
+      true,
+    ),
+    reduced,
+  );
 });
 
 test("rotating bar clearance reserves one marble at each pivot", () => {
@@ -527,21 +628,28 @@ test("every independent course object leaves more than one marble diameter", () 
   );
   assert.deepEqual(report.wallCoverageViolations, []);
   assert.deepEqual(report.finalEntranceSpinnerViolations, []);
-  assert.deepEqual(report.finalLaunchBumperViolations, []);
+  assert.deepEqual(report.finalRunoutViolations, []);
   assert.ok(report.minimumClearance >= MIN_COURSE_CLEARANCE);
 });
 
-test("preselected mode maps the locked result onto physical finish slots", () => {
+test("race plan maps entrants before the physical finish order is known", () => {
   const candidates = parseRoster("가\n나\n다\n라").candidates;
-  const simulation = simulateRace(4, "race-plan", "layout-plan", 2);
+  const slotToCandidateId = createRaceSlotAssignment(
+    candidates,
+    "race-plan",
+  );
+  const simulation = simulateRace(
+    slotToCandidateId,
+    "race-plan",
+    "layout-plan",
+    2,
+  );
   const plan = buildRacePlan(
     "테스트",
     candidates,
-    "preselected",
     simulation,
     {
       raceSeed: "race-plan",
-      resultSeed: "result-plan",
       layoutSeed: "layout-plan",
     },
     2,
@@ -550,11 +658,24 @@ test("preselected mode maps the locked result onto physical finish slots", () =>
   assert.equal(new Set(plan.rankedCandidateIds).size, 4);
   assert.deepEqual(plan.winnerIds, plan.rankedCandidateIds.slice(0, 2));
   assert.equal(plan.winnerCount, 2);
+  const expectedStartOrder = shuffleSeeded(candidates, "race-plan:slots");
+  expectedStartOrder.forEach((candidate, index) => {
+    assert.equal(
+      plan.slotToCandidateId[`slot-${index + 1}`],
+      candidate.id,
+    );
+  });
+  assert.deepEqual(
+    plan.rankedCandidateIds,
+    simulation.frames.at(-1)!.rankedSlotIds.map(
+      (slotId) => plan.slotToCandidateId[slotId],
+    ),
+  );
 });
 
 test("race presentation continues until the configured winner count arrives", () => {
   const simulation = simulateRace(
-    8,
+    simulationSlots(8),
     "multi-winner-race",
     "multi-winner-layout",
     4,
@@ -568,9 +689,22 @@ test("race presentation continues until the configured winner count arrives", ()
   );
 });
 
+test("physical-only race can keep running until all ten entrants arrive", () => {
+  const simulation = simulateRace(
+    simulationSlots(10),
+    "all-finish-10-0",
+    "all-layout-10-0",
+    10,
+  );
+  assert.equal(simulation.targetFinishCount, 10);
+  assert.equal(simulation.timedOut, false);
+  assert.equal(simulation.physicallyFinishedCount, 10);
+  assert.equal(simulation.frames.at(-1)!.finishedSlotIds.length, 10);
+});
+
 test("result frames continue after the winner reveal and keep unfinished rows open", () => {
   const simulation = simulateRace(
-    6,
+    simulationSlots(6),
     "live-arrival-race",
     "live-arrival-layout",
     1,
@@ -591,18 +725,42 @@ test("result frames continue after the winner reveal and keep unfinished rows op
 });
 
 test("marbles remain inside the moving course after high-energy collisions", () => {
-  const simulation = simulateRace(
-    5,
-    "duration-5-6",
-    "layout-duration-6",
-  );
-  for (const frame of simulation.frames) {
-    for (const pose of frame.poses) {
-      const bounds = courseBoundsAtY(pose.y);
-      const innerMargin =
-        COURSE_BOUNDARY_THICKNESS / 2 + MARBLE_RADIUS;
-      assert.ok(pose.x >= bounds.leftX + innerMargin - 0.01);
-      assert.ok(pose.x <= bounds.rightX - innerMargin + 0.01);
+  let maximumBoundaryPenetration = 0;
+  let worstBoundaryContact = "";
+
+  for (const [participantCount, raceSeed, layoutSeed] of [
+    [5, "duration-5-6", "layout-duration-6"],
+    [2, "audit-2-9", "audit-layout-2-9"],
+    [10, "audit-10-8", "audit-layout-10-8"],
+  ] as const) {
+    const simulation = simulateRace(
+      simulationSlots(participantCount),
+      raceSeed,
+      layoutSeed,
+    );
+    for (const [frameIndex, frame] of simulation.frames.entries()) {
+      const finished = new Set(frame.finishedSlotIds);
+      for (const pose of frame.poses) {
+        if (finished.has(pose.slotId)) continue;
+        const bounds = courseBoundsAtY(pose.y);
+        const innerMargin =
+          COURSE_BOUNDARY_THICKNESS / 2 + MARBLE_RADIUS;
+        const penetration = Math.max(
+          0,
+          bounds.leftX + innerMargin - pose.x,
+          pose.x - (bounds.rightX - innerMargin),
+        );
+        if (penetration > maximumBoundaryPenetration) {
+          maximumBoundaryPenetration = penetration;
+          worstBoundaryContact =
+            `${raceSeed}/${pose.slotId} at frame ${frameIndex} (${penetration.toFixed(2)}px)`;
+        }
+      }
     }
   }
+
+  assert.ok(
+    maximumBoundaryPenetration <= 6,
+    `physical wall penetration exceeded 6px: ${worstBoundaryContact}`,
+  );
 });

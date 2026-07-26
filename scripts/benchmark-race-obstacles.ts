@@ -3,6 +3,7 @@ import {
   COURSE_SECTIONS,
   MARBLE_RADIUS,
   ROTATING_BARS,
+  STRAIGHT_ZONES,
 } from "../app/marble/course";
 import { LEADER_FOCUS_DELAY_FRAMES } from "../app/marble/camera";
 import { simulateRace } from "../app/marble/simulation";
@@ -63,6 +64,28 @@ function emptySectionCounts(): Record<string, number> {
   );
 }
 
+function spearmanRankCorrelation(
+  firstOrder: string[],
+  secondOrder: string[],
+): number {
+  const count = Math.min(firstOrder.length, secondOrder.length);
+  if (count < 2) return 1;
+  const secondRanks = new Map(
+    secondOrder.map((slotId, index) => [slotId, index]),
+  );
+  const squaredDistance = firstOrder
+    .slice(0, count)
+    .reduce((sum, slotId, index) => {
+      const secondRank = secondRanks.get(slotId) ?? count - 1;
+      return sum + (index - secondRank) ** 2;
+    }, 0);
+  return (
+    1 -
+    (6 * squaredDistance) /
+      (count * (count ** 2 - 1))
+  );
+}
+
 function leaderChanges(frames: RaceFrame[]): {
   raw: number;
   confirmed: number;
@@ -108,8 +131,14 @@ function leaderChanges(frames: RaceFrame[]): {
 }
 
 function measureRace(participantCount: number, seedIndex: number) {
+  const slotToCandidateId = Object.fromEntries(
+    Array.from({ length: participantCount }, (_, index) => [
+      `slot-${index + 1}`,
+      `benchmark-candidate-${index + 1}`,
+    ]),
+  );
   const simulation = simulateRace(
-    participantCount,
+    slotToCandidateId,
     `obstacle-benchmark-${participantCount}-${seedIndex}`,
     `obstacle-layout-${participantCount}-${seedIndex}`,
   );
@@ -117,8 +146,18 @@ function measureRace(participantCount: number, seedIndex: number) {
   const activeContacts = new Set<string>();
   const touchedAny = new Set<string>();
   const touchedBumper = new Set<string>();
+  const touchedFinalRiskBumper = new Set<string>();
   const touchedSpinner = new Set<string>();
+  const touchedFinalSpinner = new Set<string>();
   let contactEpisodes = 0;
+  let finalRiskBumperContactEpisodes = 0;
+  let finalSpinnerContactEpisodes = 0;
+  const finalSpinnerIndex = ROTATING_BARS.findIndex(
+    (bar) => bar.placement === "finish-entrance",
+  );
+  const finalRiskBumperIndex = COURSE_BUMPERS.findIndex(
+    (bumper) => bumper.placement === "final-risk",
+  );
 
   simulation.frames
     .slice(0, lastMeasuredFrame + 1)
@@ -134,7 +173,13 @@ function measureRace(participantCount: number, seedIndex: number) {
             nextContacts.add(key);
             touchedAny.add(pose.slotId);
             touchedBumper.add(pose.slotId);
-            if (!activeContacts.has(key)) contactEpisodes += 1;
+            if (!activeContacts.has(key)) {
+              contactEpisodes += 1;
+              if (index === finalRiskBumperIndex) {
+                touchedFinalRiskBumper.add(pose.slotId);
+                finalRiskBumperContactEpisodes += 1;
+              }
+            }
           }
         });
         ROTATING_BARS.forEach((bar, index) => {
@@ -150,7 +195,13 @@ function measureRace(participantCount: number, seedIndex: number) {
             nextContacts.add(key);
             touchedAny.add(pose.slotId);
             touchedSpinner.add(pose.slotId);
-            if (!activeContacts.has(key)) contactEpisodes += 1;
+            if (!activeContacts.has(key)) {
+              contactEpisodes += 1;
+              if (index === finalSpinnerIndex) {
+                touchedFinalSpinner.add(pose.slotId);
+                finalSpinnerContactEpisodes += 1;
+              }
+            }
           }
         });
       });
@@ -161,19 +212,73 @@ function measureRace(participantCount: number, seedIndex: number) {
   const changes = leaderChanges(
     simulation.frames.slice(0, lastMeasuredFrame + 1),
   );
+  const finalGate = STRAIGHT_ZONES.find(
+    (zone) => zone.id === "final-gate",
+  )!;
+  const finalEntryFrameIndex = simulation.frames.findIndex((frame) =>
+    frame.poses.some((pose) => pose.y >= finalGate.startY),
+  );
+  const safeFinalEntryFrameIndex = Math.max(0, finalEntryFrameIndex);
+  const finalEntryFrame =
+    simulation.frames[safeFinalEntryFrameIndex];
+  const entryOrder = finalEntryFrame.rankedSlotIds;
+  const finishOrder = simulation.fullFinishOrder;
+  const entryLeaderWon = entryOrder[0] === finishOrder[0];
+  const winnerEntryRank = entryOrder.indexOf(finishOrder[0]) + 1;
+  const topCount = Math.min(3, participantCount);
+  const entryTop = new Set(entryOrder.slice(0, topCount));
+  const topThreeRetention =
+    finishOrder
+      .slice(0, topCount)
+      .filter((slotId) => entryTop.has(slotId)).length / topCount;
+  let maximumWinnerBacktrack = 0;
+  let runningMaximumY =
+    finalEntryFrame.poses.find(
+      (pose) => pose.slotId === finishOrder[0],
+    )?.y ?? 0;
+  simulation.frames
+    .slice(
+      safeFinalEntryFrameIndex,
+      simulation.firstFinishFrameIndex + 1,
+    )
+    .forEach((frame) => {
+      const pose = frame.poses.find(
+        (candidate) => candidate.slotId === finishOrder[0],
+      );
+      if (!pose) return;
+      runningMaximumY = Math.max(runningMaximumY, pose.y);
+      maximumWinnerBacktrack = Math.max(
+        maximumWinnerBacktrack,
+        runningMaximumY - pose.y,
+      );
+    });
   return {
     participantCount,
     entrants: participantCount,
     touchedAny: touchedAny.size,
     touchedBumper: touchedBumper.size,
+    touchedFinalRiskBumper: touchedFinalRiskBumper.size,
     touchedSpinner: touchedSpinner.size,
+    touchedFinalSpinner: touchedFinalSpinner.size,
     contactEpisodes,
+    finalRiskBumperContactEpisodes,
+    finalSpinnerContactEpisodes,
     rawLeaderChanges: changes.raw,
     confirmedLeaderChanges: changes.confirmed,
     rawLeaderChangesBySection: changes.rawBySection,
     confirmedLeaderChangesBySection: changes.confirmedBySection,
     firstFinishSeconds:
       simulation.firstFinishFrameIndex / 30,
+    finalEntryLeaderWon: entryLeaderWon ? 1 : 0,
+    winnerEntryRank,
+    topThreeRetention,
+    finalEntryRankCorrelation: spearmanRankCorrelation(
+      entryOrder,
+      finishOrder,
+    ),
+    finalEntryToFinishSeconds:
+      (simulation.firstFinishFrameIndex - safeFinalEntryFrameIndex) / 30,
+    maximumWinnerBacktrack,
   };
 }
 
@@ -197,9 +302,25 @@ function summarize(
       selected.reduce((sum, item) => sum + item.touchedAny, 0) / entrants,
     bumperContactParticipantRate:
       selected.reduce((sum, item) => sum + item.touchedBumper, 0) / entrants,
+    finalRiskBumperContactParticipantRate:
+      selected.reduce(
+        (sum, item) => sum + item.touchedFinalRiskBumper,
+        0,
+      ) / entrants,
     spinnerContactParticipantRate:
       selected.reduce((sum, item) => sum + item.touchedSpinner, 0) / entrants,
+    finalSpinnerContactParticipantRate:
+      selected.reduce(
+        (sum, item) => sum + item.touchedFinalSpinner,
+        0,
+      ) / entrants,
     contactEpisodesPerRace: average("contactEpisodes"),
+    finalRiskBumperContactEpisodesPerRace: average(
+      "finalRiskBumperContactEpisodes",
+    ),
+    finalSpinnerContactEpisodesPerRace: average(
+      "finalSpinnerContactEpisodes",
+    ),
     rawLeaderChangesPerRace: average("rawLeaderChanges"),
     confirmedLeaderChangesPerRace: average("confirmedLeaderChanges"),
     rawLeaderChangesPerRaceBySection: Object.fromEntries(
@@ -223,6 +344,12 @@ function summarize(
       ]),
     ),
     firstFinishSeconds: average("firstFinishSeconds"),
+    finalEntryLeaderWinRate: average("finalEntryLeaderWon"),
+    winnerEntryRank: average("winnerEntryRank"),
+    topThreeRetention: average("topThreeRetention"),
+    finalEntryRankCorrelation: average("finalEntryRankCorrelation"),
+    finalEntryToFinishSeconds: average("finalEntryToFinishSeconds"),
+    maximumWinnerBacktrack: average("maximumWinnerBacktrack"),
   };
 }
 

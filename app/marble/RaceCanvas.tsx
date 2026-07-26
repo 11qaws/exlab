@@ -26,12 +26,26 @@ import {
   WORLD_WIDTH,
 } from "./course";
 import type { CourseBumper, CourseRect } from "./course";
+import {
+  findStableLeadChanges,
+  isCloseRace,
+  isFinalApproach,
+} from "./race-presentation";
+import {
+  obstacleColor,
+  obstacleRoleColor,
+  raceMapTheme,
+  type RaceMapMode,
+  type RaceMapTheme,
+} from "./race-theme";
 import type { RaceFrame, RacePlan } from "./types";
 
 type RaceCanvasProps = {
   plan: RacePlan;
   frameIndex: number;
   reducedMotion: boolean;
+  mapMode: RaceMapMode;
+  playbackEpoch?: number;
 };
 
 export function resolveRaceFrame(
@@ -47,6 +61,20 @@ export function resolveRaceFrame(
   return frames[safeIndex] ?? frames[0] ?? null;
 }
 
+export function resolveRaceFocusSlotId(
+  frame: RaceFrame,
+  targetFinishCount: number,
+): string | undefined {
+  if (frame.finishedSlotIds.length < targetFinishCount) {
+    const finished = new Set(frame.finishedSlotIds);
+    return (
+      frame.rankedSlotIds.find((slotId) => !finished.has(slotId)) ??
+      frame.rankedSlotIds[0]
+    );
+  }
+  return frame.rankedSlotIds[0];
+}
+
 function roundedRect(
   context: CanvasRenderingContext2D,
   shape: CourseRect,
@@ -55,6 +83,7 @@ function roundedRect(
   offsetY: number,
   cameraY: number,
   radius = 8,
+  stroke = false,
 ) {
   const x = offsetX + shape.x * scale;
   const y = offsetY + (shape.y - cameraY) * scale;
@@ -70,7 +99,17 @@ function roundedRect(
     radius * scale,
   );
   context.fill();
+  if (stroke) context.stroke();
   context.restore();
+}
+
+function colorWithAlpha(color: string, alpha: number): string {
+  const value = color.replace("#", "");
+  if (value.length !== 6) return color;
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
 function drawBumper(
@@ -80,20 +119,18 @@ function drawBumper(
   offsetX: number,
   offsetY: number,
   cameraY: number,
+  color: string,
+  theme: RaceMapTheme,
 ) {
   const x = offsetX + bumper.x * scale;
   const y = offsetY + (bumper.y - cameraY) * scale;
   context.save();
   context.translate(x, y);
   context.rotate(bumper.angle);
-  context.shadowColor =
-    bumper.kind === "finish-launch"
-      ? "rgba(255, 173, 74, 0.72)"
-      : "rgba(232, 79, 131, 0.68)";
+  context.shadowColor = colorWithAlpha(color, 0.68);
   context.shadowBlur = 14 * scale;
-  context.fillStyle =
-    bumper.kind === "finish-launch" ? "#ffad4a" : "#e84f83";
-  context.strokeStyle = "#fff8ef";
+  context.fillStyle = color;
+  context.strokeStyle = theme.outline;
   context.lineWidth = Math.max(2, 3 * scale);
   context.beginPath();
   context.roundRect(
@@ -106,8 +143,7 @@ function drawBumper(
   context.fill();
   context.stroke();
   context.shadowBlur = 0;
-  context.fillStyle =
-    bumper.kind === "finish-launch" ? "#fff0c7" : "#ffd0df";
+  context.fillStyle = theme.finishAlternate;
   context.beginPath();
   context.roundRect(
     (-bumper.width * scale) / 2 + 12 * scale,
@@ -128,6 +164,8 @@ function drawBumperFlash(
   scale: number,
   reducedMotion: boolean,
   rayOffset: number,
+  color: string,
+  theme: RaceMapTheme,
 ) {
   if (level <= 0) return;
   const progress = 1 - level;
@@ -136,15 +174,15 @@ function drawBumperFlash(
   context.translate(x, y);
   context.globalAlpha = Math.min(1, level * 1.35);
   const glow = context.createRadialGradient(0, 0, 0, 0, 0, radius);
-  glow.addColorStop(0, "rgba(255, 255, 255, 0.95)");
-  glow.addColorStop(0.28, "rgba(255, 226, 133, 0.72)");
-  glow.addColorStop(1, "rgba(255, 173, 74, 0)");
+  glow.addColorStop(0, colorWithAlpha(theme.finishAlternate, 0.96));
+  glow.addColorStop(0.28, colorWithAlpha(color, 0.76));
+  glow.addColorStop(1, colorWithAlpha(color, 0));
   context.fillStyle = glow;
   context.beginPath();
   context.arc(0, 0, radius, 0, Math.PI * 2);
   context.fill();
 
-  context.strokeStyle = "#fff8ef";
+  context.strokeStyle = theme.outline;
   context.lineWidth = Math.max(1.5, 2.5 * scale);
   context.beginPath();
   context.arc(0, 0, radius * 0.58, 0, Math.PI * 2);
@@ -170,6 +208,8 @@ export function RaceCanvas({
   plan,
   frameIndex,
   reducedMotion,
+  mapMode,
+  playbackEpoch = 0,
 }: RaceCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const leaderFocusRef = useRef<LeaderFocusState>({
@@ -179,12 +219,74 @@ export function RaceCanvas({
     ...INITIAL_VERTICAL_CAMERA_STATE,
   });
   const frame = resolveRaceFrame(plan.simulation.frames, frameIndex);
+  const previousFrame = resolveRaceFrame(
+    plan.simulation.frames,
+    frameIndex - 1,
+  );
+  const activeRankedSlotIds = useMemo(() => {
+    const finishedSlots = new Set(frame?.finishedSlotIds ?? []);
+
+    return (
+      frame?.rankedSlotIds.filter(
+        (slotId) => !finishedSlots.has(slotId),
+      ) ?? []
+    );
+  }, [frame]);
+  const focusLeaderSlotId = frame
+    ? resolveRaceFocusSlotId(
+        frame,
+        plan.simulation.targetFinishCount,
+      )
+    : undefined;
+  const focusLeaderPose = frame?.poses.find(
+    (pose) => pose.slotId === focusLeaderSlotId,
+  );
+  const activeRunnerUpPose = frame?.poses.find(
+    (pose) => pose.slotId === activeRankedSlotIds[1],
+  );
+  const theme = raceMapTheme(mapMode);
+  const stableLeadChanges = useMemo(
+    () =>
+      findStableLeadChanges(plan.simulation.frames, {
+        targetFinishCount: plan.simulation.targetFinishCount,
+      }),
+    [
+      plan.simulation.frames,
+      plan.simulation.targetFinishCount,
+    ],
+  );
+  const activeLeadChange = [...stableLeadChanges]
+    .reverse()
+    .find(
+      (change) =>
+        frameIndex >= change.frameIndex &&
+        frameIndex <= change.frameIndex + 30,
+    );
+  const closeRace =
+    frame && frame.finishedSlotIds.length === 0
+      ? isCloseRace(frame)
+      : Boolean(
+          focusLeaderPose &&
+            activeRunnerUpPose &&
+            focusLeaderPose.y - activeRunnerUpPose.y <=
+              MARBLE_RADIUS * 2,
+        );
+  const finalApproach =
+    frame && frame.finishedSlotIds.length === 0
+      ? isFinalApproach(frame)
+      : Boolean(
+          focusLeaderPose &&
+            frame &&
+            frame.finishedSlotIds.length <
+              plan.simulation.targetFinishCount &&
+            focusLeaderPose.y / FINISH_Y >= 0.88,
+        );
   const candidateById = useMemo(
     () => new Map(plan.candidates.map((candidate) => [candidate.id, candidate])),
     [plan.candidates],
   );
 
-  const leaderSlotId = frame?.rankedSlotIds[0];
+  const leaderSlotId = focusLeaderSlotId;
   const leaderCandidate = leaderSlotId
     ? candidateById.get(plan.slotToCandidateId[leaderSlotId])
     : undefined;
@@ -192,7 +294,7 @@ export function RaceCanvas({
   useEffect(() => {
     leaderFocusRef.current = { ...INITIAL_LEADER_FOCUS_STATE };
     verticalCameraRef.current = { ...INITIAL_VERTICAL_CAMERA_STATE };
-  }, [plan.runId]);
+  }, [plan.runId, playbackEpoch]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -222,7 +324,7 @@ export function RaceCanvas({
     const offsetY = (logicalHeight - viewHeight * scale) / 2;
     leaderFocusRef.current = resolveLeaderFocus(
       leaderFocusRef.current,
-      frame.rankedSlotIds[0],
+      focusLeaderSlotId,
       frameIndex,
     );
     const focusedPose = frame.poses.find(
@@ -230,7 +332,7 @@ export function RaceCanvas({
         pose.slotId === leaderFocusRef.current.focusedSlotId,
     );
     const currentLeaderPose = frame.poses.find(
-      (pose) => pose.slotId === frame.rankedSlotIds[0],
+      (pose) => pose.slotId === focusLeaderSlotId,
     );
     const focusY = focusedPose?.y ?? currentLeaderPose?.y ?? 0;
     const targetCameraY = Math.max(
@@ -254,17 +356,17 @@ export function RaceCanvas({
       0,
       logicalHeight,
     );
-    background.addColorStop(0, "#2a1420");
-    background.addColorStop(1, "#160d14");
+    background.addColorStop(0, theme.track);
+    background.addColorStop(1, theme.background);
     context.fillStyle = background;
     context.fillRect(0, 0, logicalWidth, logicalHeight);
 
-    const sectionTints = [
-      "rgba(255, 111, 159, 0.035)",
-      "rgba(255, 173, 74, 0.045)",
-      "rgba(89, 201, 179, 0.04)",
-      "rgba(165, 119, 255, 0.04)",
-    ];
+    const sectionTints = COURSE_SECTIONS.map((_, index) =>
+      colorWithAlpha(
+        obstacleColor(index),
+        mapMode === "light" ? 0.09 : 0.055,
+      ),
+    );
     COURSE_SECTIONS.forEach((section, index) => {
       const top = offsetY + (section.startY - cameraY) * scale;
       const bottom = offsetY + (section.endY - cameraY) * scale;
@@ -281,14 +383,14 @@ export function RaceCanvas({
       }
       if (index === 0 || top < -18 || top > logicalHeight + 18) return;
       context.save();
-      context.strokeStyle = "rgba(255, 248, 239, 0.38)";
+      context.strokeStyle = colorWithAlpha(theme.text, 0.38);
       context.setLineDash([9 * scale, 8 * scale]);
       context.beginPath();
       context.moveTo(offsetX + 86 * scale, top);
       context.lineTo(offsetX + (WORLD_WIDTH - 86) * scale, top);
       context.stroke();
       context.setLineDash([]);
-      context.fillStyle = "rgba(255, 248, 239, 0.8)";
+      context.fillStyle = colorWithAlpha(theme.text, 0.82);
       context.font = `800 ${Math.max(10, 13 * scale)}px Pretendard, system-ui`;
       context.textAlign = "left";
       context.textBaseline = "bottom";
@@ -302,7 +404,7 @@ export function RaceCanvas({
 
     context.save();
     context.globalAlpha = 0.22;
-    context.strokeStyle = "#7d5361";
+    context.strokeStyle = theme.grid;
     context.lineWidth = 1;
     for (let y = 0; y <= WORLD_HEIGHT; y += 100) {
       const screenY = offsetY + (y - cameraY) * scale;
@@ -314,13 +416,33 @@ export function RaceCanvas({
     }
     context.restore();
 
-    context.fillStyle = "#5d3342";
     COURSE_RECTS.forEach((shape) => {
-      roundedRect(context, shape, scale, offsetX, offsetY, cameraY);
+      const isSemanticObstacle =
+        shape.material === "elastic" || Boolean(shape.obstacleKind);
+      context.fillStyle =
+        shape.material === "elastic"
+          ? obstacleRoleColor("elastic-wall")
+          : shape.obstacleKind
+            ? obstacleRoleColor("guide")
+            : theme.wall;
+      if (isSemanticObstacle) {
+        context.strokeStyle = theme.outline;
+        context.lineWidth = Math.max(1.5, 2.5 * scale);
+      }
+      roundedRect(
+        context,
+        shape,
+        scale,
+        offsetX,
+        offsetY,
+        cameraY,
+        8,
+        isSemanticObstacle,
+      );
     });
 
     context.save();
-    context.strokeStyle = "#6f4051";
+    context.strokeStyle = theme.wall;
     context.lineCap = "round";
     context.lineJoin = "round";
     COURSE_CURVES.forEach((curve) => {
@@ -336,7 +458,9 @@ export function RaceCanvas({
     });
     context.restore();
 
-    context.fillStyle = "#825163";
+    context.fillStyle = obstacleRoleColor("pin");
+    context.strokeStyle = theme.outline;
+    context.lineWidth = Math.max(1.5, 2.5 * scale);
     COURSE_PINS.forEach(({ x, y, radius }) => {
       context.beginPath();
       context.arc(
@@ -347,6 +471,7 @@ export function RaceCanvas({
         Math.PI * 2,
       );
       context.fill();
+      context.stroke();
     });
 
     COURSE_BUMPERS.forEach((bumper, index) => {
@@ -365,12 +490,25 @@ export function RaceCanvas({
           scale,
           reducedMotion,
           index * 0.37 + frameIndex * 0.08,
+          obstacleRoleColor("bumper"),
+          theme,
         );
       }
-      drawBumper(context, bumper, scale, offsetX, offsetY, cameraY);
+      drawBumper(
+        context,
+        bumper,
+        scale,
+        offsetX,
+        offsetY,
+        cameraY,
+        obstacleRoleColor("bumper"),
+        theme,
+      );
     });
 
-    context.fillStyle = "#f1b3c6";
+    context.fillStyle = obstacleRoleColor("spinner");
+    context.strokeStyle = theme.outline;
+    context.lineWidth = Math.max(1.5, 2.5 * scale);
     ROTATING_BARS.forEach((bar, index) => {
       roundedRect(
         context,
@@ -386,6 +524,7 @@ export function RaceCanvas({
         offsetY,
         cameraY,
         12,
+        true,
       );
     });
 
@@ -398,7 +537,9 @@ export function RaceCanvas({
       for (let row = 0; row < 2; row += 1) {
         for (let column = 0; column < columnCount; column += 1) {
           context.fillStyle =
-            (row + column) % 2 === 0 ? "#fff8ef" : "#ff6f9f";
+            (row + column) % 2 === 0
+              ? theme.finishAlternate
+              : theme.finish;
           context.fillRect(
             startX + column * cell,
             finishScreenY + row * cell,
@@ -407,7 +548,7 @@ export function RaceCanvas({
           );
         }
       }
-      context.fillStyle = "#fff8ef";
+      context.fillStyle = theme.text;
       context.font = `800 ${Math.max(11, 17 * scale)}px system-ui`;
       context.fillText(
         "FINISH",
@@ -417,7 +558,52 @@ export function RaceCanvas({
       context.restore();
     }
 
-    const topSlots = new Set(frame.rankedSlotIds.slice(0, 3));
+    const previousPoseBySlot = new Map(
+      previousFrame?.poses.map((pose) => [pose.slotId, pose]) ?? [],
+    );
+    if (!reducedMotion) {
+      frame.poses.forEach((pose) => {
+        const previousPose = previousPoseBySlot.get(pose.slotId);
+        const candidate = candidateById.get(
+          plan.slotToCandidateId[pose.slotId],
+        );
+        if (!previousPose || !candidate) return;
+        const deltaX = pose.x - previousPose.x;
+        const deltaY = pose.y - previousPose.y;
+        const speed = Math.hypot(deltaX, deltaY);
+        if (speed < 5) return;
+        const lengthScale = Math.min(2.8, 34 / Math.max(1, speed * scale));
+        const x = offsetX + pose.x * scale;
+        const y = offsetY + (pose.y - cameraY) * scale;
+        context.save();
+        context.strokeStyle = colorWithAlpha(candidate.theme.primary, 0.34);
+        context.lineCap = "round";
+        context.lineWidth = Math.max(2, MARBLE_RADIUS * scale * 0.48);
+        context.beginPath();
+        context.moveTo(x, y);
+        context.lineTo(
+          x - deltaX * scale * lengthScale,
+          y - deltaY * scale * lengthScale,
+        );
+        context.stroke();
+        context.restore();
+      });
+    }
+
+    const topSlots = new Set(
+      (activeRankedSlotIds.length > 0
+        ? activeRankedSlotIds
+        : frame.rankedSlotIds
+      ).slice(0, 3),
+    );
+    const closeRaceSlots = new Set(
+      closeRace
+        ? (activeRankedSlotIds.length > 0
+            ? activeRankedSlotIds
+            : frame.rankedSlotIds
+          ).slice(0, 2)
+        : [],
+    );
     frame.poses.forEach((pose) => {
       const candidateId = plan.slotToCandidateId[pose.slotId];
       const candidate = candidateById.get(candidateId);
@@ -429,15 +615,20 @@ export function RaceCanvas({
       context.save();
       context.translate(x, y);
       context.rotate(pose.angle);
-      context.shadowColor = "rgba(0, 0, 0, 0.35)";
+      context.shadowColor = theme.shadow;
       context.shadowBlur = 9 * scale;
       context.fillStyle = candidate.theme.primary;
       context.beginPath();
       context.arc(0, 0, MARBLE_RADIUS * scale, 0, Math.PI * 2);
       context.fill();
       context.shadowBlur = 0;
-      context.strokeStyle = "#fff8ef";
-      context.lineWidth = Math.max(1.5, 2.5 * scale);
+      context.strokeStyle = closeRaceSlots.has(pose.slotId)
+        ? theme.highlight
+        : theme.outline;
+      context.lineWidth = Math.max(
+        1.5,
+        (closeRaceSlots.has(pose.slotId) ? 4 : 2.5) * scale,
+      );
       context.stroke();
       context.fillStyle = candidate.theme.onPrimary;
       context.font = `900 ${Math.max(9, 12 * scale)}px Pretendard, system-ui`;
@@ -450,7 +641,7 @@ export function RaceCanvas({
         const label = shortName(candidate.name, 7);
         context.font = `700 ${Math.max(11, 13 * scale)}px Pretendard, system-ui`;
         const width = context.measureText(label).width + 16;
-        context.fillStyle = "rgba(31, 17, 24, 0.88)";
+        context.fillStyle = theme.label;
         context.beginPath();
         context.roundRect(
           x - width / 2,
@@ -460,24 +651,59 @@ export function RaceCanvas({
           7,
         );
         context.fill();
-        context.fillStyle = "#fff8ef";
+        context.fillStyle = theme.labelText;
         context.textAlign = "center";
         context.textBaseline = "middle";
         context.fillText(label, x, y - MARBLE_RADIUS * scale - 18);
       }
+
+      if (
+        activeLeadChange?.toSlotId === pose.slotId &&
+        !reducedMotion &&
+        scale > 0.5
+      ) {
+        context.save();
+        context.fillStyle = theme.highlight;
+        context.font = `900 ${Math.max(12, 15 * scale)}px Pretendard, system-ui`;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText("↑", x, y + MARBLE_RADIUS * scale + 18);
+        context.restore();
+      }
     });
+
+    if (finalApproach) {
+      context.save();
+      context.strokeStyle = colorWithAlpha(theme.highlight, 0.72);
+      context.lineWidth = Math.max(2, 4 * scale);
+      context.strokeRect(
+        offsetX + 2 * scale,
+        2 * scale,
+        WORLD_WIDTH * scale - 4 * scale,
+        logicalHeight - 4 * scale,
+      );
+      context.restore();
+    }
   }, [
+    activeLeadChange,
+    activeRankedSlotIds,
     candidateById,
+    closeRace,
+    finalApproach,
     frame,
     frameIndex,
+    focusLeaderSlotId,
+    mapMode,
     plan.slotToCandidateId,
+    previousFrame,
     reducedMotion,
+    theme,
   ]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="race-canvas"
+      className={`race-canvas ${finalApproach ? "is-final-approach" : ""}`}
       role="img"
       aria-label={`Race 경기장. 현재 선두는 ${leaderCandidate?.name ?? "확인 중"}입니다.`}
     />

@@ -6,8 +6,6 @@ import { createRaceDynamics } from "./dynamics";
 import {
   COURSE_CURVE_RECTS,
   COURSE_BUMPERS,
-  COURSE_BOUNDARY_THICKNESS,
-  COURSE_LENGTH_SCALE,
   COURSE_PINS,
   COURSE_RECTS,
   FINISH_Y,
@@ -16,7 +14,6 @@ import {
   ROTATING_BARS,
   scaleCourseY,
   WORLD_WIDTH,
-  courseBoundsAtY,
 } from "./course";
 import type {
   BumperFlash,
@@ -29,12 +26,9 @@ import type {
 const { Bodies, Body, Composite, Engine, Events } = Matter;
 
 export const FRAME_RATE = 30;
+export const PHYSICS_SUBSTEPS = 2;
 export const RESULT_REVEAL_DELAY_FRAMES = Math.round(FRAME_RATE * 1.2);
 export const BUMPER_FLASH_DECAY = 0.68;
-const MAX_MARBLE_HORIZONTAL_SPEED = 18;
-const scaledCourseStep = (baseStep: number) =>
-  Math.round(baseStep * COURSE_LENGTH_SCALE);
-
 const obstacleOptions = (
   restitution: number,
 ): IChamferableBodyDefinition => ({
@@ -56,6 +50,24 @@ const INITIAL_GRAVITY_BY_PARTICIPANT_COUNT: Record<number, number> = {
   10: 0.72,
 };
 
+export function sharedGravityMultiplier(
+  elapsedSeconds: number,
+): number {
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 40) {
+    return 1;
+  }
+  if (elapsedSeconds <= 55) {
+    return 1 + ((elapsedSeconds - 40) / 15) * 1.4;
+  }
+  if (elapsedSeconds <= 75) {
+    return 2.4 + ((elapsedSeconds - 55) / 20) * 1.6;
+  }
+  if (elapsedSeconds <= 95) {
+    return 4 + ((elapsedSeconds - 75) / 20) * 2;
+  }
+  return 6;
+}
+
 function addCourse(
   engine: Matter.Engine,
   dynamics: RaceDynamics,
@@ -67,7 +79,11 @@ function addCourse(
   const staticBodies = [
     ...[...COURSE_RECTS, ...COURSE_CURVE_RECTS].map((shape) =>
       Bodies.rectangle(shape.x, shape.y, shape.width, shape.height, {
-        ...obstacleOptions(dynamics.obstacleRestitution),
+        ...obstacleOptions(
+          shape.material === "elastic"
+            ? dynamics.bumperRestitution
+            : dynamics.obstacleRestitution,
+        ),
         angle: shape.angle ?? 0,
         chamfer: {
           radius: Math.min(
@@ -89,14 +105,14 @@ function addCourse(
   ];
   const rotatingBodies = ROTATING_BARS.map((bar, index) =>
     Bodies.rectangle(bar.x, bar.y, bar.width, bar.height, {
-      ...obstacleOptions(dynamics.obstacleRestitution),
+      ...obstacleOptions(dynamics.spinnerRestitution),
       chamfer: { radius: 12 },
       label: `rotating-bar-${index + 1}`,
     }),
   );
   const bumperBodies = COURSE_BUMPERS.map((bumper, index) =>
     Bodies.rectangle(bumper.x, bumper.y, bumper.width, bumper.height, {
-      ...obstacleOptions(0.98),
+      ...obstacleOptions(dynamics.bumperRestitution),
       angle: bumper.angle,
       chamfer: { radius: bumper.height / 2 },
       label: `active-bumper-${index}`,
@@ -110,7 +126,7 @@ function addCourse(
   return { rotatingBodies, bumperBodies };
 }
 
-function registerBumperKicks(
+function registerBumperContacts(
   engine: Matter.Engine,
   bumperBodies: Matter.Body[],
   onBumperHit: (bumperIndex: number, x: number, y: number) => void,
@@ -134,55 +150,13 @@ function registerBumperKicks(
       if (!bumperBody || !marble?.label.startsWith("slot-")) return;
 
       const bumperIndex = bumperIndexById.get(bumperBody.id)!;
-      const definition = COURSE_BUMPERS[bumperIndex];
       const contact = pair.collision.supports[0] ?? marble.position;
       onBumperHit(bumperIndex, contact.x, contact.y);
-      const dx = marble.position.x - bumperBody.position.x;
-      const dy = marble.position.y - bumperBody.position.y;
-      const distance = Math.max(0.001, Math.hypot(dx, dy));
-
-      if (definition.kind === "finish-launch") {
-        const inwardDirection = definition.attachment === "left" ? 1 : -1;
-        Body.setVelocity(marble, {
-          x:
-            marble.velocity.x * 0.35 +
-            inwardDirection * definition.kickSpeed * 0.42,
-          y: -definition.kickSpeed,
-        });
-        return;
-      }
-
-      const normalX = dx / distance;
-      const normalY = Math.min(dy / distance, -0.35);
-      const mixedNormalX =
-        normalX * 0.5 + Math.sin(definition.angle) * 1.8;
-      const mixedNormalY =
-        normalY * 0.5 - Math.cos(definition.angle) * 0.75;
-      const normalLength = Math.hypot(mixedNormalX, mixedNormalY);
-      Body.setVelocity(marble, {
-        x:
-          marble.velocity.x * 0.4 +
-          (mixedNormalX / normalLength) * definition.kickSpeed,
-        y: Math.min(
-          marble.velocity.y * 0.25 +
-            (mixedNormalY / normalLength) * definition.kickSpeed,
-          -definition.kickSpeed * 0.45,
-        ),
-      });
+      // Matter's collision normal and the seeded restitution are the complete
+      // response. We record the contact for presentation, but never rewrite a
+      // marble's velocity or inject a rank-dependent impulse.
     });
   });
-}
-
-export function catchUpIntensity(
-  gap: number,
-  dynamics: RaceDynamics["catchUp"],
-): number {
-  if (gap <= dynamics.startGap) return 0;
-  return Math.min(
-    1,
-    (gap - dynamics.startGap) /
-      Math.max(1, dynamics.maxGap - dynamics.startGap),
-  );
 }
 
 function addMarbles(
@@ -265,13 +239,26 @@ function captureFrame(
 }
 
 export function simulateRace(
-  participantCount: number,
+  slotToCandidateId: Readonly<Record<string, string>>,
   raceSeed: string,
   layoutSeed: string,
   targetFinishCount = 1,
 ): RaceSimulation {
+  const participantCount = Object.keys(slotToCandidateId).length;
   if (participantCount < 2 || participantCount > 10) {
     throw new Error("물리 경기는 2명 이상 10명 이하만 실행할 수 있습니다.");
+  }
+  const assignedCandidateIds = Object.values(slotToCandidateId);
+  const hasExactSlots = Array.from(
+    { length: participantCount },
+    (_, index) => `slot-${index + 1}`,
+  ).every((slotId) => Boolean(slotToCandidateId[slotId]));
+  if (
+    !hasExactSlots ||
+    assignedCandidateIds.some((candidateId) => !candidateId) ||
+    new Set(assignedCandidateIds).size !== participantCount
+  ) {
+    throw new Error("물리 경기 시작 슬롯이 유효하지 않습니다.");
   }
   if (
     !Number.isInteger(targetFinishCount) ||
@@ -305,7 +292,7 @@ export function simulateRace(
     x: bumper.x,
     y: bumper.y,
   }));
-  registerBumperKicks(engine, bumperBodies, (bumperIndex, x, y) => {
+  registerBumperContacts(engine, bumperBodies, (bumperIndex, x, y) => {
     bumperFlashes[bumperIndex] = { level: 1, x, y };
   });
   const { marbles, layoutShift } = addMarbles(
@@ -325,121 +312,42 @@ export function simulateRace(
   const frames: RaceFrame[] = [];
   const finishedSlotIds: string[] = [];
   const finished = new Set<string>();
-  const stepMs = 1000 / 60;
+  const substepMs = 1000 / 60 / PHYSICS_SUBSTEPS;
   const maxSteps = 60 * MAX_SIMULATION_SECONDS;
   let firstFinishFrameIndex = -1;
   let awardFrameIndex = -1;
   let step = 0;
 
   for (; step < maxSteps; step += 1) {
-    const rotatingBarAngles = rotatingBars.map((body, index) => {
-      const definition = dynamics.rotatingBars[index];
-      const angle =
-        definition.baseAngle + step * definition.angularSpeed;
-      Body.setAngle(body, angle);
-      Body.setAngularVelocity(
-        body,
-        definition.angularSpeed,
-      );
-      return angle;
-    });
+    let rotatingBarAngles: number[] = [];
+    for (let substep = 0; substep < PHYSICS_SUBSTEPS; substep += 1) {
+      const physicsStep = step + substep / PHYSICS_SUBSTEPS;
+      engine.gravity.y =
+        baseGravityY *
+        dynamics.gravityScale *
+        sharedGravityMultiplier(physicsStep / 60);
+      rotatingBarAngles = rotatingBars.map((body, index) => {
+        const definition = dynamics.rotatingBars[index];
+        const angle =
+          definition.baseAngle +
+          physicsStep * definition.angularSpeed;
+        Body.setAngle(body, angle);
+        Body.setAngularVelocity(body, definition.angularSpeed);
+        return angle;
+      });
 
-    const windPulse = dynamics.windPulses.find(
-      (pulse) => step >= pulse.startStep && step < pulse.endStep,
-    );
-    engine.gravity.x =
-      windPulse?.gravityX ??
-      (step >= 4500 ? Math.sin(step * 0.045) * 1.35 : 0);
-    if (step === scaledCourseStep(1500)) {
-      engine.gravity.y = 1.85;
-    }
-    if (step === scaledCourseStep(2700)) {
-      engine.gravity.y = 2.2;
-    }
-    if (step === scaledCourseStep(3900)) {
-      engine.gravity.y = 4.5;
-    }
-    if (step === scaledCourseStep(4500)) {
-      engine.gravity.y = 7;
-    }
-    if (step === scaledCourseStep(5400)) {
-      engine.gravity.y = 10;
-    }
+      Engine.update(engine, substepMs);
 
-    for (const marble of marbles) {
-      const forceZone = dynamics.forceZones.find(
-        (zone) =>
-          marble.position.y >= zone.startY &&
-          marble.position.y < zone.endY,
-      );
-      if (forceZone) {
-        Body.applyForce(marble, marble.position, {
-          x: forceZone.forceX,
-          y: forceZone.forceY,
-        });
-      }
+      marbles.forEach((marble) => {
+        if (
+          !finished.has(marble.label) &&
+          marble.position.y >= FINISH_Y
+        ) {
+          finished.add(marble.label);
+          finishedSlotIds.push(marble.label);
+        }
+      });
     }
-
-    const activeMarbles = marbles.filter(
-      (marble) => !finished.has(marble.label),
-    );
-    const leaderY = activeMarbles.reduce(
-      (maximum, marble) => Math.max(maximum, marble.position.y),
-      Number.NEGATIVE_INFINITY,
-    );
-    for (const marble of activeMarbles) {
-      const intensity = catchUpIntensity(
-        leaderY - marble.position.y,
-        dynamics.catchUp,
-      );
-      if (intensity > 0) {
-        Body.applyForce(marble, marble.position, {
-          x: 0,
-          y: dynamics.catchUp.maxForceY * intensity,
-        });
-      }
-    }
-
-    Engine.update(engine, stepMs);
-
-    marbles.forEach((marble) => {
-      const bounds = courseBoundsAtY(marble.position.y);
-      const innerMargin =
-        COURSE_BOUNDARY_THICKNESS / 2 + MARBLE_RADIUS;
-      const minimumX = bounds.leftX + innerMargin;
-      const maximumX = bounds.rightX - innerMargin;
-      if (marble.position.x < minimumX) {
-        Body.setPosition(marble, {
-          x: minimumX,
-          y: marble.position.y,
-        });
-        Body.setVelocity(marble, {
-          x: Math.abs(marble.velocity.x) * 0.45,
-          y: marble.velocity.y,
-        });
-      } else if (marble.position.x > maximumX) {
-        Body.setPosition(marble, {
-          x: maximumX,
-          y: marble.position.y,
-        });
-        Body.setVelocity(marble, {
-          x: -Math.abs(marble.velocity.x) * 0.45,
-          y: marble.velocity.y,
-        });
-      }
-      if (Math.abs(marble.velocity.x) > MAX_MARBLE_HORIZONTAL_SPEED) {
-        Body.setVelocity(marble, {
-          x:
-            Math.sign(marble.velocity.x) *
-            MAX_MARBLE_HORIZONTAL_SPEED,
-          y: marble.velocity.y,
-        });
-      }
-      if (!finished.has(marble.label) && marble.position.y >= FINISH_Y) {
-        finished.add(marble.label);
-        finishedSlotIds.push(marble.label);
-      }
-    });
 
     if (step % 2 === 0) {
       frames.push(
@@ -487,6 +395,7 @@ export function simulateRace(
     frames.at(-1)?.finishedSlotIds.length ?? 0;
 
   return {
+    slotToCandidateId: { ...slotToCandidateId },
     frames,
     fullFinishOrder,
     firstFinishFrameIndex: safeFirstFinishFrame,

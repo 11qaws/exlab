@@ -4,6 +4,7 @@ import {
   COURSE_CURVE_RECTS,
   COURSE_PINS,
   COURSE_RECTS,
+  FINISH_LINE_WIDTH,
   MARBLE_RADIUS,
   ROTATING_BARS,
   STRAIGHT_ZONES,
@@ -19,6 +20,8 @@ export const MIN_COURSE_CLEARANCE =
   MARBLE_DIAMETER + COURSE_CLEARANCE_MARGIN;
 export const ROTATING_BAR_CLEARANCE_MODEL = "pivot-marble" as const;
 export const ROTATING_BAR_CLEARANCE_RADIUS = MARBLE_RADIUS;
+export const FINAL_RISK_LANE_MAX_SHARE = 0.6;
+export const FINAL_BYPASS_MIN_CLEARANCE = MARBLE_DIAMETER * 3;
 
 type Point = { x: number; y: number };
 
@@ -61,8 +64,7 @@ export type CourseFinalEntranceSpinnerViolation = {
   reason: string;
 };
 
-export type CourseFinalLaunchBumperViolation = {
-  side: BoundarySide | null;
+export type CourseFinalRunoutViolation = {
   reason: string;
 };
 
@@ -73,7 +75,7 @@ export type CourseClearanceReport = {
   violations: CourseClearanceViolation[];
   wallCoverageViolations: CourseWallCoverageViolation[];
   finalEntranceSpinnerViolations: CourseFinalEntranceSpinnerViolation[];
-  finalLaunchBumperViolations: CourseFinalLaunchBumperViolation[];
+  finalRunoutViolations: CourseFinalRunoutViolation[];
 };
 
 function rectPoints(rect: CourseRect): Point[] {
@@ -294,7 +296,6 @@ function courseShapes(): CourseShape[] {
       angle: bumper.angle,
     }),
     isBoundary: false,
-    connectedGroupIds: bumper.connectedGroupIds,
   }));
   const rotatingPivots: CircleShape[] = ROTATING_BARS.map((bar, index) => ({
     id: `rotating-pivot-${index + 1}`,
@@ -341,6 +342,11 @@ function inspectFinalEntranceSpinner(): CourseFinalEntranceSpinnerViolation[] {
   }
 
   const centreX = (finalGate.leftX + finalGate.rightX) / 2;
+  const innerLeft =
+    finalGate.leftX + COURSE_BOUNDARY_THICKNESS / 2;
+  const innerRight =
+    finalGate.rightX - COURSE_BOUNDARY_THICKNESS / 2;
+  const innerWidth = innerRight - innerLeft;
   return entranceSpinners.flatMap(({ bar, index }) => {
     const reasons: string[] = [];
     const sweepRadius = Math.hypot(bar.width / 2, bar.height / 2);
@@ -360,11 +366,34 @@ function inspectFinalEntranceSpinner(): CourseFinalEntranceSpinnerViolation[] {
     if (!rotatingBarTurnsTowardWall(bar)) {
       reasons.push("spinner does not rotate toward its wall");
     }
+    const bypassClearance =
+      bar.wallSide === "left"
+        ? innerRight - (bar.x + sweepRadius + MARBLE_RADIUS)
+        : bar.x - sweepRadius - MARBLE_RADIUS - innerLeft;
+    if (bypassClearance < FINAL_BYPASS_MIN_CLEARANCE) {
+      reasons.push(
+        `spinner bypass is ${bypassClearance.toFixed(1)}px, below ${FINAL_BYPASS_MIN_CLEARANCE}px`,
+      );
+    }
+    const riskLaneWidth =
+      bar.wallSide === "left"
+        ? bar.x + sweepRadius - innerLeft
+        : innerRight - (bar.x - sweepRadius);
+    if (riskLaneWidth / innerWidth > FINAL_RISK_LANE_MAX_SHARE) {
+      reasons.push("spinner sweeps too much of the final gate");
+    }
+    const reachesWallLane =
+      bar.wallSide === "left"
+        ? bar.x - sweepRadius <= innerLeft + MARBLE_RADIUS
+        : bar.x + sweepRadius >= innerRight - MARBLE_RADIUS;
+    if (!reachesWallLane) {
+      reasons.push("spinner does not intercept its wall-side risk lane");
+    }
     return reasons.map((reason) => ({ barIndex: index, reason }));
   });
 }
 
-function inspectFinalLaunchBumpers(): CourseFinalLaunchBumperViolation[] {
+function inspectFinalRunout(): CourseFinalRunoutViolation[] {
   const finalGate = STRAIGHT_ZONES.find(
     (zone) => zone.id === "final-gate",
   );
@@ -372,97 +401,104 @@ function inspectFinalLaunchBumpers(): CourseFinalLaunchBumperViolation[] {
     (zone) => zone.id === "finish-corridor",
   );
   if (!finalGate || !finishCorridor) {
-    return [{ side: null, reason: "missing final approach zones" }];
+    return [{ reason: "missing final approach zones" }];
   }
 
-  const launchBumpers = COURSE_BUMPERS.filter(
-    (bumper) => bumper.kind === "finish-launch",
+  const violations: CourseFinalRunoutViolation[] = [];
+  const riskBumpers = COURSE_BUMPERS.filter(
+    (bumper) => bumper.placement === "final-risk",
   );
-  const violations: CourseFinalLaunchBumperViolation[] = [];
-  const resolvedBySide = new Map<
-    BoundarySide,
-    (typeof launchBumpers)[number]
-  >();
-  for (const side of ["left", "right"] as const) {
-    const matches = launchBumpers.filter(
-      (bumper) => bumper.attachment === side,
-    );
-    if (matches.length !== 1) {
-      violations.push({
-        side,
-        reason: `expected one ${side} launch bumper, found ${matches.length}`,
-      });
-      continue;
-    }
-    const bumper = matches[0];
-    resolvedBySide.set(side, bumper);
-    if (
-      bumper.y <= finalGate.endY ||
-      bumper.y >= finishCorridor.startY
-    ) {
-      violations.push({
-        side,
-        reason: "launch bumper is outside the narrowing entrance",
-      });
-    }
-    if (bumper.kickSpeed < 6) {
-      violations.push({
-        side,
-        reason: "launch bumper kick is too weak",
-      });
-    }
-    const bounds = courseBoundsAtY(bumper.y);
+  if (riskBumpers.length !== 1) {
+    violations.push({
+      reason: `expected one final risk bumper, found ${riskBumpers.length}`,
+    });
+  } else {
+    const bumper = riskBumpers[0];
+    const innerRight =
+      finalGate.rightX - COURSE_BOUNDARY_THICKNESS / 2;
     const halfHorizontalSpan =
       (Math.abs(Math.cos(bumper.angle)) * bumper.width +
         Math.abs(Math.sin(bumper.angle)) * bumper.height) /
       2;
-    const outerEdge =
-      side === "left"
-        ? bumper.x - halfHorizontalSpan
-        : bumper.x + halfHorizontalSpan;
-    const outerWallFace =
-      side === "left"
-        ? bounds.leftX - COURSE_BOUNDARY_THICKNESS / 2
-        : bounds.rightX + COURSE_BOUNDARY_THICKNESS / 2;
-    const sealsOuterPocket =
-      side === "left"
-        ? outerEdge <= outerWallFace - MARBLE_RADIUS
-        : outerEdge >= outerWallFace + MARBLE_RADIUS;
-    if (!sealsOuterPocket) {
-      violations.push({
-        side,
-        reason: "launch bumper does not bridge the outer wall face",
-      });
-    }
+    const rightEdge = bumper.x + halfHorizontalSpan;
+    const bypass =
+      innerRight - (rightEdge + MARBLE_RADIUS);
     if (
-      !bumper.connectedGroupIds?.some((groupId) =>
-        groupId.includes(`${side}-course-boundary`),
-      )
+      bumper.zoneId !== finalGate.id ||
+      bumper.y >= finalGate.endY
     ) {
       violations.push({
-        side,
-        reason: "launch bumper is not connected to its boundary group",
+        reason: "final risk bumper is outside final-gate",
+      });
+    }
+    if (bypass < FINAL_BYPASS_MIN_CLEARANCE) {
+      violations.push({
+        reason: `final risk bumper bypass is ${bypass.toFixed(1)}px`,
+      });
+    }
+    const spinner = ROTATING_BARS.find(
+      (bar) => bar.placement === "finish-entrance",
+    );
+    if (spinner && bumper.y >= spinner.y) {
+      violations.push({
+        reason: "final risk bumper must precede the rotating risk lane",
       });
     }
   }
-
-  if (launchBumpers.length !== 2) {
+  const lateBumpers = COURSE_BUMPERS.filter(
+    (bumper) => bumper.y > finalGate.endY,
+  );
+  const lateSpinners = ROTATING_BARS.filter(
+    (bar) => bar.y > finalGate.endY,
+  );
+  const lateObstacles = COURSE_RECTS.filter(
+    (rect) =>
+      rect.obstacleKind !== undefined && rect.y > finalGate.endY,
+  );
+  if (lateBumpers.length > 0 || lateSpinners.length > 0) {
     violations.push({
-      side: null,
-      reason: `expected two finish launch bumpers, found ${launchBumpers.length}`,
+      reason: "active obstacles must not enter the final runout",
     });
   }
-  const left = resolvedBySide.get("left");
-  const right = resolvedBySide.get("right");
-  if (left && right) {
-    const leftInnerEdge = left.x + left.width / 2;
-    const rightInnerEdge = right.x - right.width / 2;
-    if (rightInnerEdge - leftInnerEdge < MIN_COURSE_CLEARANCE) {
+  if (lateObstacles.length > 0) {
+    violations.push({
+      reason: "fixed obstacles must not enter the final runout",
+    });
+  }
+
+  const funnelLength = finishCorridor.startY - finalGate.endY;
+  if (funnelLength < MARBLE_DIAMETER * 8) {
+    violations.push({
+      reason: `final funnel is only ${funnelLength.toFixed(1)}px long`,
+    });
+  }
+
+  let previousWidth =
+    courseBoundsAtY(finalGate.endY).rightX -
+    courseBoundsAtY(finalGate.endY).leftX;
+  for (let index = 1; index <= 24; index += 1) {
+    const y =
+      finalGate.endY +
+      (funnelLength * index) / 24;
+    const bounds = courseBoundsAtY(y);
+    const width = bounds.rightX - bounds.leftX;
+    if (width > previousWidth + 0.01) {
       violations.push({
-        side: null,
-        reason: "finish launch bars leave less than one marble passage",
+        reason: "final funnel widens after it begins narrowing",
       });
+      break;
     }
+    previousWidth = width;
+  }
+
+  const finishWidth =
+    finishCorridor.rightX -
+    finishCorridor.leftX -
+    COURSE_BOUNDARY_THICKNESS;
+  if (finishWidth !== FINISH_LINE_WIDTH) {
+    violations.push({
+      reason: "finish corridor and line widths do not match",
+    });
   }
   return violations;
 }
@@ -508,7 +544,7 @@ export function inspectCourseClearance(): CourseClearanceReport {
     ),
     wallCoverageViolations: inspectWallCoverage(),
     finalEntranceSpinnerViolations: inspectFinalEntranceSpinner(),
-    finalLaunchBumperViolations: inspectFinalLaunchBumpers(),
+    finalRunoutViolations: inspectFinalRunout(),
   };
 }
 
@@ -518,7 +554,7 @@ export function assertCourseClearance(): void {
     report.violations.length === 0 &&
     report.wallCoverageViolations.length === 0 &&
     report.finalEntranceSpinnerViolations.length === 0 &&
-    report.finalLaunchBumperViolations.length === 0
+    report.finalRunoutViolations.length === 0
   ) {
     return;
   }
@@ -555,12 +591,12 @@ export function assertCourseClearance(): void {
       `결승 입구 회전 막대 규칙 위반 ${report.finalEntranceSpinnerViolations.length}건 (${details})`,
     );
   }
-  if (report.finalLaunchBumperViolations.length > 0) {
-    const details = report.finalLaunchBumperViolations
-      .map(({ side, reason }) => `${side ?? "none"}: ${reason}`)
+  if (report.finalRunoutViolations.length > 0) {
+    const details = report.finalRunoutViolations
+      .map(({ reason }) => reason)
       .join(", ");
     messages.push(
-      `결승 진입 범퍼 규칙 위반 ${report.finalLaunchBumperViolations.length}건 (${details})`,
+      `결승 자유 주행 구간 규칙 위반 ${report.finalRunoutViolations.length}건 (${details})`,
     );
   }
   throw new Error(`코스 검사 실패: ${messages.join("; ")}`);

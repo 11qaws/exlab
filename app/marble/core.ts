@@ -4,7 +4,6 @@ import type {
   ParticipantTheme,
   RacePlan,
   RaceSimulation,
-  ResultMode,
   RosterOptions,
   RosterValidation,
 } from "./types";
@@ -284,12 +283,29 @@ export function shortName(name: string, max = 8): string {
     : `${characters.slice(0, Math.max(1, max - 1)).join("")}…`;
 }
 
+export function createRaceSlotAssignment(
+  candidates: readonly Candidate[],
+  raceSeed: string,
+): Record<string, string> {
+  if (
+    candidates.length < MIN_PARTICIPANTS ||
+    candidates.length > MAX_PARTICIPANTS
+  ) {
+    throw new Error("참가자 수는 2명 이상 10명 이하여야 합니다.");
+  }
+
+  return Object.fromEntries(
+    shuffleSeeded(candidates, `${raceSeed}:slots`).map(
+      (candidate, index) => [`slot-${index + 1}`, candidate.id],
+    ),
+  );
+}
+
 export function buildRacePlan(
   title: string,
   candidates: Candidate[],
-  resultMode: ResultMode,
   simulation: RaceSimulation,
-  seeds: { raceSeed: string; resultSeed: string; layoutSeed: string },
+  seeds: { raceSeed: string; layoutSeed: string },
   winnerCount = 1,
 ): RacePlan {
   if (
@@ -309,19 +325,22 @@ export function buildRacePlan(
     throw new Error("물리 경기와 결과 계획의 당첨 인원이 일치하지 않습니다.");
   }
 
-  const startSlotIds = simulation.fullFinishOrder;
-  const slotToCandidateId: Record<string, string> = {};
-
-  if (resultMode === "preselected") {
-    const resultOrder = shuffleSeeded(candidates, seeds.resultSeed);
-    startSlotIds.forEach((slotId, index) => {
-      slotToCandidateId[slotId] = resultOrder[index].id;
-    });
-  } else {
-    const startOrder = shuffleSeeded(candidates, `${seeds.raceSeed}:slots`);
-    startOrder.forEach((candidate, index) => {
-      slotToCandidateId[`slot-${index + 1}`] = candidate.id;
-    });
+  const slotToCandidateId = { ...simulation.slotToCandidateId };
+  const candidateIds = new Set(candidates.map((candidate) => candidate.id));
+  const assignedCandidateIds = Object.values(slotToCandidateId);
+  const hasExactSlots = candidates.every(
+    (_, index) => slotToCandidateId[`slot-${index + 1}`],
+  );
+  if (
+    Object.keys(slotToCandidateId).length !== candidates.length ||
+    assignedCandidateIds.length !== candidates.length ||
+    new Set(assignedCandidateIds).size !== candidates.length ||
+    !assignedCandidateIds.every((candidateId) =>
+      candidateIds.has(candidateId)
+    ) ||
+    !hasExactSlots
+  ) {
+    throw new Error("물리 경기 전에 확정한 참가자 슬롯이 유효하지 않습니다.");
   }
 
   const visibleOrder =
@@ -337,9 +356,7 @@ export function buildRacePlan(
   return {
     runId: createSeed("run"),
     title: title.trim() || "오늘의 Race",
-    resultMode,
     raceSeed: seeds.raceSeed,
-    resultSeed: seeds.resultSeed,
     layoutSeed: seeds.layoutSeed,
     createdAt: new Date().toISOString(),
     candidates,
