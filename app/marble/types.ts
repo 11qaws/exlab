@@ -66,6 +66,12 @@ export type ForceZone = {
   forceY: number;
 };
 
+export type CatchUpDynamics = {
+  startGap: number;
+  maxGap: number;
+  maxForceY: number;
+};
+
 export type RaceDynamics = {
   fingerprint: string;
   gravityScale: number;
@@ -75,6 +81,7 @@ export type RaceDynamics = {
   rotatingBars: SpinnerDynamics[];
   windPulses: WindPulse[];
   forceZones: ForceZone[];
+  catchUp: CatchUpDynamics;
 };
 
 export type RaceSimulation = {

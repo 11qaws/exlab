@@ -24,16 +24,22 @@ import {
   type CountdownStep,
 } from "./countdown";
 import {
+  COURSE_BUMPERS,
   COURSE_CURVES,
   COURSE_PINS,
   COURSE_RECTS,
+  COURSE_SECTIONS,
   FINISH_LINE_WIDTH,
   FINISH_LINE_X,
   FINISH_Y,
   ROTATING_BARS,
   WORLD_HEIGHT,
 } from "./course";
-import { FRAME_RATE, simulateRace } from "./simulation";
+import {
+  FRAME_RATE,
+  RESULT_REVEAL_DELAY_FRAMES,
+  simulateRace,
+} from "./simulation";
 import type {
   Candidate,
   RacePlan,
@@ -135,6 +141,47 @@ function StartPreview({
             <rect x="12" width="12" height="12" fill="#e84f83" />
           </pattern>
         </defs>
+        {COURSE_SECTIONS.map((section, index) => (
+          <rect
+            key={`section-band-${section.id}`}
+            x="70"
+            y={previewY(section.startY)}
+            width="760"
+            height={(section.endY - section.startY) * previewScaleY}
+            fill={
+              [
+                "rgba(255, 111, 159, 0.04)",
+                "rgba(255, 173, 74, 0.05)",
+                "rgba(89, 201, 179, 0.045)",
+                "rgba(165, 119, 255, 0.045)",
+              ][index]
+            }
+          />
+        ))}
+        {COURSE_SECTIONS.slice(1).map((section, index) => {
+          const y = previewY(section.startY);
+          return (
+            <g key={`section-marker-${section.id}`}>
+              <line
+                x1="86"
+                x2="814"
+                y1={y}
+                y2={y}
+                stroke="rgba(255, 248, 239, 0.46)"
+                strokeWidth="2"
+                strokeDasharray="8 8"
+              />
+              <text
+                x="96"
+                y={y - 5}
+                textAnchor="start"
+                fill="rgba(255, 248, 239, 0.8)"
+              >
+                {(index + 1) * 25}% · {section.label}
+              </text>
+            </g>
+          );
+        })}
         {COURSE_RECTS.filter((shape) => shape.y < WORLD_HEIGHT).map(
           (shape, index) => {
           const y = previewY(shape.y);
@@ -189,6 +236,28 @@ function StartPreview({
             r={pin.radius > 25 ? 8 : 5}
             fill="#845165"
           />
+        ))}
+        {COURSE_BUMPERS.map((bumper, index) => (
+          <g key={`bumper-${index}`}>
+            <circle
+              cx={bumper.x}
+              cy={previewY(bumper.y)}
+              r={bumper.kind === "finish-launch" ? 10 : 8}
+              fill={
+                bumper.kind === "finish-launch" ? "#ffad4a" : "#e84f83"
+              }
+              stroke="#fff8ef"
+              strokeWidth="2"
+            />
+            <circle
+              cx={bumper.x}
+              cy={previewY(bumper.y)}
+              r={bumper.kind === "finish-launch" ? 3.5 : 3}
+              fill={
+                bumper.kind === "finish-launch" ? "#fff0c7" : "#ffd0df"
+              }
+            />
+          </g>
         ))}
         {ROTATING_BARS.map((bar, index) => {
           const y = previewY(bar.y);
@@ -267,6 +336,7 @@ export function MarbleGame() {
   const generationKey = useRef(0);
   const audioContext = useRef<AudioContext | null>(null);
   const resultSavedFor = useRef<string | null>(null);
+  const raceStartedAt = useRef<number | null>(null);
   const reducedMotion = useReducedMotion();
   const validation = useMemo(
     () => parseRoster(rosterText, { allowDuplicateNames }),
@@ -357,6 +427,7 @@ export function MarbleGame() {
         const next = nextCountdownStep(countdown);
         if (next === null) {
           setFrameIndex(0);
+          raceStartedAt.current = performance.now();
           setPhase("running");
           return;
         }
@@ -370,21 +441,34 @@ export function MarbleGame() {
   }, [countdown, phase, reducedMotion]);
 
   useEffect(() => {
-    if (phase !== "running" || !plan) return;
-    const startedAt = performance.now();
+    if (
+      (phase !== "running" && phase !== "result") ||
+      !plan ||
+      raceStartedAt.current === null
+    ) {
+      return;
+    }
     let animationFrame = 0;
+    const lastFrameIndex = plan.simulation.frames.length - 1;
+    const resultRevealFrame = Math.min(
+      lastFrameIndex,
+      plan.simulation.awardFrameIndex + RESULT_REVEAL_DELAY_FRAMES,
+    );
 
     const animate = (now: number) => {
       const nextFrame = Math.min(
-        plan.simulation.frames.length - 1,
-        Math.floor(((now - startedAt) / 1000) * FRAME_RATE),
+        lastFrameIndex,
+        Math.floor(
+          ((now - raceStartedAt.current!) / 1000) * FRAME_RATE,
+        ),
       );
       setFrameIndex(nextFrame);
-      if (nextFrame >= plan.simulation.frames.length - 1) {
+      if (phase === "running" && nextFrame >= resultRevealFrame) {
         playTone(880, 0.42);
         setPhase("result");
         return;
       }
+      if (nextFrame >= lastFrameIndex) return;
       animationFrame = requestAnimationFrame(animate);
     };
 
@@ -396,6 +480,7 @@ export function MarbleGame() {
 
   useEffect(() => {
     if (phase !== "result" || !plan || isReplay) return;
+    if (frameIndex < plan.simulation.frames.length - 1) return;
     if (resultSavedFor.current === plan.runId) return;
     resultSavedFor.current = plan.runId;
     const winnerNames = plan.winnerIds.map(
@@ -403,11 +488,15 @@ export function MarbleGame() {
         plan.candidates.find((candidate) => candidate.id === candidateId)
           ?.name ?? "알 수 없음",
     );
-    const rankedNames = plan.rankedCandidateIds.map(
-      (candidateId) =>
-        plan.candidates.find((candidate) => candidate.id === candidateId)
-          ?.name ?? "알 수 없음",
-    );
+    const rankedNames = plan.simulation.frames
+      .at(-1)!
+      .finishedSlotIds.map(
+        (slotId) =>
+          plan.candidates.find(
+            (candidate) =>
+              candidate.id === plan.slotToCandidateId[slotId],
+          )?.name ?? "알 수 없음",
+      );
     const stored: StoredRaceResult = {
       runId: plan.runId,
       title: plan.title,
@@ -431,7 +520,7 @@ export function MarbleGame() {
     }
     // History is intentionally snapshotted at result time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, plan, isReplay]);
+  }, [phase, plan, isReplay, frameIndex]);
 
   const handleOpenBroadcast = () => {
     if (
@@ -446,6 +535,7 @@ export function MarbleGame() {
     setPhase("generating");
     setErrorMessage("");
     setIsReplay(false);
+    raceStartedAt.current = null;
     window.setTimeout(() => {
       try {
         const raceSeed = createSeed("race");
@@ -506,6 +596,7 @@ export function MarbleGame() {
     setFrameIndex(0);
     setPhase("ready");
     setIsReplay(false);
+    raceStartedAt.current = null;
     setLayoutSeed(createSeed("layout"));
   };
 
@@ -520,18 +611,16 @@ export function MarbleGame() {
       plan.simulation.frames[
         Math.min(frameIndex, plan.simulation.frames.length - 1)
       ];
-    const ranking =
-      phase === "result"
-        ? plan.rankedCandidateIds
-            .map((candidateId) =>
-              plan.candidates.find(
-                (candidate) => candidate.id === candidateId,
-              ),
-            )
-            .filter((candidate): candidate is Candidate => Boolean(candidate))
-        : currentFrame.rankedSlotIds
-            .map((slotId) => candidateForSlot(plan, slotId))
-            .filter((candidate): candidate is Candidate => Boolean(candidate));
+    const arrivedRanking = currentFrame.finishedSlotIds
+      .map((slotId) => candidateForSlot(plan, slotId))
+      .filter((candidate): candidate is Candidate => Boolean(candidate));
+    const ranking = currentFrame.rankedSlotIds
+      .map((slotId) => candidateForSlot(plan, slotId))
+      .filter((candidate): candidate is Candidate => Boolean(candidate));
+    const resultRows = Array.from(
+      { length: plan.candidates.length },
+      (_, index) => arrivedRanking[index],
+    );
     const winners = plan.winnerIds
       .map((candidateId) =>
         plan.candidates.find((candidate) => candidate.id === candidateId),
@@ -555,11 +644,10 @@ export function MarbleGame() {
         <main className="result-screen">
           <div className="result-glow" aria-hidden="true" />
           <header className="result-header">
-            <p className="eyebrow">RACE COMPLETE</p>
+            <p className="eyebrow">RACE RESULTS</p>
             <span>
-              {plan.resultMode === "preselected"
-                ? "결과 선확정 · 물리 연출"
-                : "물리 결과형"}
+              도착 {arrivedRanking.length}/{plan.candidates.length} ·
+              미도착 순위는 공란
             </span>
           </header>
           <section
@@ -593,24 +681,40 @@ export function MarbleGame() {
           <section className="result-ranking" aria-labelledby="ranking-title">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">FINAL ORDER</p>
-                <h2 id="ranking-title">전체 순위</h2>
+                <p className="eyebrow">ARRIVAL ORDER</p>
+                <h2 id="ranking-title">실시간 도착 순위</h2>
               </div>
-              <span>보정 없는 물리 궤적</span>
+              <span aria-live="polite">
+                {arrivedRanking.length === plan.candidates.length
+                  ? "전원 도착"
+                  : `${plan.candidates.length - arrivedRanking.length}명 경기 중`}
+              </span>
             </div>
             <ol>
-              {ranking.map((candidate, index) => (
+              {resultRows.map((candidate, index) => (
                 <li
-                  key={candidate.id}
-                  className={index < plan.winnerCount ? "is-winner" : ""}
-                  style={participantStyle(candidate)}
+                  key={candidate?.id ?? `pending-${index}`}
+                  className={[
+                    candidate && index < plan.winnerCount
+                      ? "is-winner"
+                      : "",
+                    candidate ? "" : "is-pending",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  style={candidate ? participantStyle(candidate) : undefined}
+                  aria-label={
+                    candidate
+                      ? `${index + 1}위 ${candidate.name}`
+                      : `${index + 1}위 도착 대기`
+                  }
                 >
                   <strong>{index + 1}</strong>
                   <i />
-                  <span title={candidate.name}>
-                    {shortName(candidate.name)}
+                  <span title={candidate?.name} aria-hidden={!candidate}>
+                    {candidate ? shortName(candidate.name) : "\u00a0"}
                   </span>
-                  {index < plan.winnerCount && <em>당첨</em>}
+                  {candidate && index < plan.winnerCount && <em>당첨</em>}
                 </li>
               ))}
             </ol>
@@ -641,9 +745,11 @@ export function MarbleGame() {
               <div>
                 <dt>물리 완주</dt>
                 <dd>
-                  {plan.simulation.physicallyFinishedCount}/
-                  {plan.candidates.length}
-                  {plan.simulation.timedOut ? " · 제한 시간 순위 적용" : ""}
+                  {arrivedRanking.length}/{plan.candidates.length}
+                  {frameIndex >= plan.simulation.frames.length - 1 &&
+                  plan.simulation.timedOut
+                    ? " · 미도착 순위 공란 유지"
+                    : ""}
                 </dd>
               </div>
             </dl>
@@ -781,7 +887,7 @@ export function MarbleGame() {
           <span aria-hidden="true">●</span>
           Ex Lab
         </a>
-        <span className="prototype-badge">RACE · VERSION 1.1.0</span>
+        <span className="prototype-badge">RACE · VERSION 1.1.1</span>
       </header>
 
       <section className="intro">
@@ -1027,8 +1133,8 @@ export function MarbleGame() {
             <p className="eyebrow">COURSE 01</p>
             <h2 id="venue-title">Race</h2>
             <p>
-              좌·우 사이클로이드와 수축·확장 구간, 결승 회전 관문을
-              포함한 4개의 360° 회전 바를 통과하는 약 20초 코스
+              좌·우 사이클로이드와 수축·확장 구간, 네 가지 구간 패턴,
+              능동 범퍼와 결승 회전 관문을 통과하는 약 30초 코스
             </p>
           </div>
           <StartPreview

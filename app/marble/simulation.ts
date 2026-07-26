@@ -5,13 +5,18 @@ import { assertCourseClearance } from "./course-clearance";
 import { createRaceDynamics } from "./dynamics";
 import {
   COURSE_CURVE_RECTS,
+  COURSE_BUMPERS,
+  COURSE_BOUNDARY_THICKNESS,
+  COURSE_LENGTH_SCALE,
   COURSE_PINS,
   COURSE_RECTS,
   FINISH_Y,
   MARBLE_RADIUS,
   MAX_SIMULATION_SECONDS,
   ROTATING_BARS,
+  scaleCourseY,
   WORLD_WIDTH,
+  courseBoundsAtY,
 } from "./course";
 import type {
   MarblePose,
@@ -20,9 +25,13 @@ import type {
   RaceSimulation,
 } from "./types";
 
-const { Bodies, Body, Composite, Engine } = Matter;
+const { Bodies, Body, Composite, Engine, Events } = Matter;
 
 export const FRAME_RATE = 30;
+export const RESULT_REVEAL_DELAY_FRAMES = Math.round(FRAME_RATE * 1.2);
+const MAX_MARBLE_HORIZONTAL_SPEED = 18;
+const scaledCourseStep = (baseStep: number) =>
+  Math.round(baseStep * COURSE_LENGTH_SCALE);
 
 const obstacleOptions = (
   restitution: number,
@@ -48,7 +57,10 @@ const INITIAL_GRAVITY_BY_PARTICIPANT_COUNT: Record<number, number> = {
 function addCourse(
   engine: Matter.Engine,
   dynamics: RaceDynamics,
-): Matter.Body[] {
+): {
+  rotatingBodies: Matter.Body[];
+  bumperBodies: Matter.Body[];
+} {
   assertCourseClearance();
   const staticBodies = [
     ...[...COURSE_RECTS, ...COURSE_CURVE_RECTS].map((shape) =>
@@ -80,8 +92,85 @@ function addCourse(
       label: `rotating-bar-${index + 1}`,
     }),
   );
-  Composite.add(engine.world, [...staticBodies, ...rotatingBodies]);
-  return rotatingBodies;
+  const bumperBodies = COURSE_BUMPERS.map((bumper, index) =>
+    Bodies.circle(bumper.x, bumper.y, bumper.radius, {
+      ...obstacleOptions(0.98),
+      label: `active-bumper-${index}`,
+    }),
+  );
+  Composite.add(engine.world, [
+    ...staticBodies,
+    ...bumperBodies,
+    ...rotatingBodies,
+  ]);
+  return { rotatingBodies, bumperBodies };
+}
+
+function registerBumperKicks(
+  engine: Matter.Engine,
+  bumperBodies: Matter.Body[],
+) {
+  const bumperIndexById = new Map(
+    bumperBodies.map((body, index) => [body.id, index]),
+  );
+  Events.on(engine, "collisionStart", (event) => {
+    event.pairs.forEach((pair) => {
+      const bumperBody = bumperIndexById.has(pair.bodyA.id)
+        ? pair.bodyA
+        : bumperIndexById.has(pair.bodyB.id)
+          ? pair.bodyB
+          : null;
+      const marble =
+        bumperBody === pair.bodyA
+          ? pair.bodyB
+          : bumperBody === pair.bodyB
+            ? pair.bodyA
+            : null;
+      if (!bumperBody || !marble?.label.startsWith("slot-")) return;
+
+      const definition = COURSE_BUMPERS[bumperIndexById.get(bumperBody.id)!];
+      const dx = marble.position.x - bumperBody.position.x;
+      const dy = marble.position.y - bumperBody.position.y;
+      const distance = Math.max(0.001, Math.hypot(dx, dy));
+
+      if (definition.kind === "finish-launch") {
+        const inwardDirection = definition.attachment === "left" ? 1 : -1;
+        Body.setVelocity(marble, {
+          x:
+            marble.velocity.x * 0.35 +
+            inwardDirection * definition.kickSpeed * 0.42,
+          y: -definition.kickSpeed,
+        });
+        return;
+      }
+
+      const normalX = dx / distance;
+      const normalY = Math.min(dy / distance, -0.35);
+      const normalLength = Math.hypot(normalX, normalY);
+      Body.setVelocity(marble, {
+        x:
+          marble.velocity.x * 0.4 +
+          (normalX / normalLength) * definition.kickSpeed,
+        y: Math.min(
+          marble.velocity.y * 0.25 +
+            (normalY / normalLength) * definition.kickSpeed,
+          -definition.kickSpeed * 0.45,
+        ),
+      });
+    });
+  });
+}
+
+export function catchUpIntensity(
+  gap: number,
+  dynamics: RaceDynamics["catchUp"],
+): number {
+  if (gap <= dynamics.startGap) return 0;
+  return Math.min(
+    1,
+    (gap - dynamics.startGap) /
+      Math.max(1, dynamics.maxGap - dynamics.startGap),
+  );
 }
 
 function addMarbles(
@@ -99,7 +188,7 @@ function addMarbles(
 
   const marbles = Array.from({ length: count }, (_, index) => {
     const x = startX + index * spacing;
-    const marble = Bodies.circle(x, 145, MARBLE_RADIUS, {
+    const marble = Bodies.circle(x, scaleCourseY(145), MARBLE_RADIUS, {
       friction: 0.012,
       frictionAir: 0.0015,
       frictionStatic: 0,
@@ -193,7 +282,11 @@ export function simulateRace(
   engine.velocityIterations = 6;
   engine.constraintIterations = 2;
 
-  const rotatingBars = addCourse(engine, dynamics);
+  const { rotatingBodies: rotatingBars, bumperBodies } = addCourse(
+    engine,
+    dynamics,
+  );
+  registerBumperKicks(engine, bumperBodies);
   const { marbles, layoutShift } = addMarbles(
     engine,
     participantCount,
@@ -236,19 +329,19 @@ export function simulateRace(
     engine.gravity.x =
       windPulse?.gravityX ??
       (step >= 4500 ? Math.sin(step * 0.045) * 1.35 : 0);
-    if (step === 1500) {
+    if (step === scaledCourseStep(1500)) {
       engine.gravity.y = 1.85;
     }
-    if (step === 2700) {
+    if (step === scaledCourseStep(2700)) {
       engine.gravity.y = 2.2;
     }
-    if (step === 3900) {
+    if (step === scaledCourseStep(3900)) {
       engine.gravity.y = 4.5;
     }
-    if (step === 4500) {
+    if (step === scaledCourseStep(4500)) {
       engine.gravity.y = 7;
     }
-    if (step === 5400) {
+    if (step === scaledCourseStep(5400)) {
       engine.gravity.y = 10;
     }
 
@@ -266,9 +359,61 @@ export function simulateRace(
       }
     }
 
+    const activeMarbles = marbles.filter(
+      (marble) => !finished.has(marble.label),
+    );
+    const leaderY = activeMarbles.reduce(
+      (maximum, marble) => Math.max(maximum, marble.position.y),
+      Number.NEGATIVE_INFINITY,
+    );
+    for (const marble of activeMarbles) {
+      const intensity = catchUpIntensity(
+        leaderY - marble.position.y,
+        dynamics.catchUp,
+      );
+      if (intensity > 0) {
+        Body.applyForce(marble, marble.position, {
+          x: 0,
+          y: dynamics.catchUp.maxForceY * intensity,
+        });
+      }
+    }
+
     Engine.update(engine, stepMs);
 
     marbles.forEach((marble) => {
+      const bounds = courseBoundsAtY(marble.position.y);
+      const innerMargin =
+        COURSE_BOUNDARY_THICKNESS / 2 + MARBLE_RADIUS;
+      const minimumX = bounds.leftX + innerMargin;
+      const maximumX = bounds.rightX - innerMargin;
+      if (marble.position.x < minimumX) {
+        Body.setPosition(marble, {
+          x: minimumX,
+          y: marble.position.y,
+        });
+        Body.setVelocity(marble, {
+          x: Math.abs(marble.velocity.x) * 0.45,
+          y: marble.velocity.y,
+        });
+      } else if (marble.position.x > maximumX) {
+        Body.setPosition(marble, {
+          x: maximumX,
+          y: marble.position.y,
+        });
+        Body.setVelocity(marble, {
+          x: -Math.abs(marble.velocity.x) * 0.45,
+          y: marble.velocity.y,
+        });
+      }
+      if (Math.abs(marble.velocity.x) > MAX_MARBLE_HORIZONTAL_SPEED) {
+        Body.setVelocity(marble, {
+          x:
+            Math.sign(marble.velocity.x) *
+            MAX_MARBLE_HORIZONTAL_SPEED,
+          y: marble.velocity.y,
+        });
+      }
       if (!finished.has(marble.label) && marble.position.y >= FINISH_Y) {
         finished.add(marble.label);
         finishedSlotIds.push(marble.label);
@@ -299,7 +444,6 @@ export function simulateRace(
   }
 
   const fullFinishOrder = rankMarbles(marbles, finishedSlotIds);
-  const visibleTailFrames = Math.round(FRAME_RATE * 1.2);
   if (awardFrameIndex < 0) {
     throw new Error(
       `${targetFinishCount}명의 결승 통과를 확인하지 못했습니다. 새 코스로 다시 시도해 주세요.`,
@@ -307,21 +451,17 @@ export function simulateRace(
   }
   const safeFirstFinishFrame =
     firstFinishFrameIndex >= 0 ? firstFinishFrameIndex : awardFrameIndex;
-  const visibleFrames = frames.slice(
-    0,
-    Math.min(frames.length, awardFrameIndex + visibleTailFrames + 1),
-  );
   const visibleFinishedCount =
-    visibleFrames.at(-1)?.finishedSlotIds.length ?? 0;
+    frames.at(-1)?.finishedSlotIds.length ?? 0;
 
   return {
-    frames: visibleFrames,
+    frames,
     fullFinishOrder,
     firstFinishFrameIndex: safeFirstFinishFrame,
     awardFrameIndex,
     targetFinishCount,
     visibleFinishedCount,
-    durationMs: Math.round((visibleFrames.length / FRAME_RATE) * 1000),
+    durationMs: Math.round((frames.length / FRAME_RATE) * 1000),
     layoutShift,
     simulationSteps: step + 1,
     physicallyFinishedCount: finishedSlotIds.length,

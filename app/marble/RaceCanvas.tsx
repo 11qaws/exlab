@@ -11,9 +11,11 @@ import {
 } from "./camera";
 import { shortName } from "./core";
 import {
+  COURSE_BUMPERS,
   COURSE_CURVES,
   COURSE_PINS,
   COURSE_RECTS,
+  COURSE_SECTIONS,
   FINISH_LINE_WIDTH,
   FINISH_LINE_X,
   FINISH_Y,
@@ -153,6 +155,47 @@ export function RaceCanvas({
     context.fillStyle = background;
     context.fillRect(0, 0, logicalWidth, logicalHeight);
 
+    const sectionTints = [
+      "rgba(255, 111, 159, 0.035)",
+      "rgba(255, 173, 74, 0.045)",
+      "rgba(89, 201, 179, 0.04)",
+      "rgba(165, 119, 255, 0.04)",
+    ];
+    COURSE_SECTIONS.forEach((section, index) => {
+      const top = offsetY + (section.startY - cameraY) * scale;
+      const bottom = offsetY + (section.endY - cameraY) * scale;
+      const visibleTop = Math.max(0, top);
+      const visibleBottom = Math.min(logicalHeight, bottom);
+      if (visibleBottom > visibleTop) {
+        context.fillStyle = sectionTints[index];
+        context.fillRect(
+          offsetX,
+          visibleTop,
+          WORLD_WIDTH * scale,
+          visibleBottom - visibleTop,
+        );
+      }
+      if (index === 0 || top < -18 || top > logicalHeight + 18) return;
+      context.save();
+      context.strokeStyle = "rgba(255, 248, 239, 0.38)";
+      context.setLineDash([9 * scale, 8 * scale]);
+      context.beginPath();
+      context.moveTo(offsetX + 86 * scale, top);
+      context.lineTo(offsetX + (WORLD_WIDTH - 86) * scale, top);
+      context.stroke();
+      context.setLineDash([]);
+      context.fillStyle = "rgba(255, 248, 239, 0.8)";
+      context.font = `800 ${Math.max(10, 13 * scale)}px Pretendard, system-ui`;
+      context.textAlign = "left";
+      context.textBaseline = "bottom";
+      context.fillText(
+        `${index * 25}% · ${section.label}`,
+        offsetX + 92 * scale,
+        top - 7,
+      );
+      context.restore();
+    });
+
     context.save();
     context.globalAlpha = 0.22;
     context.strokeStyle = "#7d5361";
@@ -200,6 +243,35 @@ export function RaceCanvas({
         Math.PI * 2,
       );
       context.fill();
+    });
+
+    COURSE_BUMPERS.forEach((bumper) => {
+      const x = offsetX + bumper.x * scale;
+      const y = offsetY + (bumper.y - cameraY) * scale;
+      if (y < -bumper.radius * scale || y > logicalHeight + bumper.radius * scale) {
+        return;
+      }
+      context.save();
+      context.shadowColor =
+        bumper.kind === "finish-launch"
+          ? "rgba(255, 173, 74, 0.7)"
+          : "rgba(232, 79, 131, 0.65)";
+      context.shadowBlur = 14 * scale;
+      context.fillStyle =
+        bumper.kind === "finish-launch" ? "#ffad4a" : "#e84f83";
+      context.strokeStyle = "#fff8ef";
+      context.lineWidth = Math.max(2, 4 * scale);
+      context.beginPath();
+      context.arc(x, y, bumper.radius * scale, 0, Math.PI * 2);
+      context.fill();
+      context.stroke();
+      context.shadowBlur = 0;
+      context.fillStyle =
+        bumper.kind === "finish-launch" ? "#fff0c7" : "#ffd0df";
+      context.beginPath();
+      context.arc(x, y, bumper.radius * scale * 0.38, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
     });
 
     context.fillStyle = "#f1b3c6";
@@ -280,7 +352,7 @@ export function RaceCanvas({
 
       if (topSlots.has(pose.slotId) && scale > 0.55) {
         const label = shortName(candidate.name, 7);
-        context.font = `700 ${Math.max(11, 13 * scale)}px system-ui`;
+        context.font = `700 ${Math.max(11, 13 * scale)}px Pretendard, system-ui`;
         const width = context.measureText(label).width + 16;
         context.fillStyle = "rgba(31, 17, 24, 0.88)";
         context.beginPath();

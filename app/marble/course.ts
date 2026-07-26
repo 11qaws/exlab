@@ -1,11 +1,15 @@
 export const WORLD_WIDTH = 900;
-export const WORLD_HEIGHT = 9000;
-export const FINISH_Y = 8860;
+export const BASE_WORLD_HEIGHT = 9000;
+export const COURSE_LENGTH_SCALE = 1.5;
+export const WORLD_HEIGHT = BASE_WORLD_HEIGHT * COURSE_LENGTH_SCALE;
+export const scaleCourseY = (value: number) =>
+  value * COURSE_LENGTH_SCALE;
+export const FINISH_Y = scaleCourseY(8860);
 export const FINISH_LINE_X = 420;
 export const FINISH_LINE_WIDTH = 60;
 export const MARBLE_RADIUS = 15;
 export const VIEW_HEIGHT = 1040;
-export const TARGET_FIRST_FINISH_SECONDS = 20;
+export const TARGET_FIRST_FINISH_SECONDS = 30;
 export const MAX_SIMULATION_SECONDS = 110;
 export const COURSE_BOUNDARY_THICKNESS = 24;
 
@@ -41,6 +45,17 @@ export type CoursePin = {
   zoneId: string;
 };
 
+export type CourseBumper = {
+  x: number;
+  y: number;
+  radius: number;
+  zoneId: string;
+  kind: "field" | "finish-launch";
+  kickSpeed: number;
+  attachment?: BoundarySide;
+  connectedGroupIds?: string[];
+};
+
 export type CourseCurve = {
   id: string;
   points: { x: number; y: number }[];
@@ -61,92 +76,178 @@ export type RotatingBar = {
   wallSide?: BoundarySide;
 };
 
+export type CourseSection = {
+  id: string;
+  label: string;
+  pattern: "pins" | "bumpers" | "gates" | "final-mix";
+  startY: number;
+  endY: number;
+};
+
 const BOUNDARY_THICKNESS = COURSE_BOUNDARY_THICKNESS;
 const LEFT_BOUNDARY_GROUP = "left-course-boundary";
 const RIGHT_BOUNDARY_GROUP = "right-course-boundary";
 
-export const STRAIGHT_ZONES: StraightZone[] = [
+const BASE_STRAIGHT_ZONES: StraightZone[] = [
   {
     id: "start-deck",
     startY: 0,
     endY: 1050,
-    leftX: 80,
-    rightX: 820,
+    leftX: 63,
+    rightX: 837,
     requiresBilateralWallObstacles: true,
   },
   {
     id: "right-chute",
     startY: 1200,
     endY: 1900,
-    leftX: 300,
-    rightX: 820,
+    leftX: 355,
+    rightX: 865,
     requiresBilateralWallObstacles: true,
   },
   {
     id: "left-chute",
     startY: 2200,
     endY: 2900,
-    leftX: 80,
-    rightX: 580,
+    leftX: 27,
+    rightX: 513,
     requiresBilateralWallObstacles: true,
   },
   {
     id: "central-release",
     startY: 3250,
     endY: 4100,
-    leftX: 120,
-    rightX: 800,
+    leftX: 109,
+    rightX: 811,
     requiresBilateralWallObstacles: true,
   },
   {
     id: "right-squeeze",
     startY: 4450,
     endY: 5150,
-    leftX: 420,
-    rightX: 820,
+    leftX: 477,
+    rightX: 843,
     requiresBilateralWallObstacles: true,
   },
   {
     id: "left-drift",
     startY: 5500,
     endY: 6300,
-    leftX: 80,
-    rightX: 620,
+    leftX: 23,
+    rightX: 557,
     requiresBilateralWallObstacles: true,
   },
   {
     id: "wide-mix",
     startY: 6650,
     endY: 7350,
-    leftX: 100,
-    rightX: 800,
+    leftX: 87,
+    rightX: 813,
     requiresBilateralWallObstacles: true,
   },
   {
     id: "left-sprint",
     startY: 7500,
     endY: 8000,
-    leftX: 80,
-    rightX: 520,
+    leftX: 43,
+    rightX: 457,
     requiresBilateralWallObstacles: true,
   },
   {
     id: "final-gate",
     startY: 8150,
     endY: 8650,
-    leftX: 220,
-    rightX: 680,
+    leftX: 231,
+    rightX: 669,
     requiresBilateralWallObstacles: true,
   },
   {
     id: "finish-corridor",
     startY: 8820,
-    endY: WORLD_HEIGHT,
+    endY: BASE_WORLD_HEIGHT,
     leftX: 408,
     rightX: 492,
     requiresBilateralWallObstacles: false,
   },
 ];
+
+export const STRAIGHT_ZONES: StraightZone[] = BASE_STRAIGHT_ZONES.map(
+  (zone) => ({
+    ...zone,
+    startY: scaleCourseY(zone.startY),
+    endY: scaleCourseY(zone.endY),
+  }),
+);
+
+export const COURSE_SECTIONS: CourseSection[] = [
+  {
+    id: "pin-drop",
+    label: "PIN DROP",
+    pattern: "pins",
+    startY: 0,
+    endY: WORLD_HEIGHT * 0.25,
+  },
+  {
+    id: "bumper-run",
+    label: "BUMPER RUN",
+    pattern: "bumpers",
+    startY: WORLD_HEIGHT * 0.25,
+    endY: WORLD_HEIGHT * 0.5,
+  },
+  {
+    id: "squeeze-gates",
+    label: "SQUEEZE GATES",
+    pattern: "gates",
+    startY: WORLD_HEIGHT * 0.5,
+    endY: WORLD_HEIGHT * 0.75,
+  },
+  {
+    id: "final-mix",
+    label: "FINAL MIX",
+    pattern: "final-mix",
+    startY: WORLD_HEIGHT * 0.75,
+    endY: WORLD_HEIGHT,
+  },
+];
+
+export function courseBoundsAtY(y: number): {
+  leftX: number;
+  rightX: number;
+} {
+  const first = STRAIGHT_ZONES[0];
+  if (y <= first.endY) {
+    return { leftX: first.leftX, rightX: first.rightX };
+  }
+
+  for (let index = 1; index < STRAIGHT_ZONES.length; index += 1) {
+    const previous = STRAIGHT_ZONES[index - 1];
+    const current = STRAIGHT_ZONES[index];
+    if (y < current.startY) {
+      const progress = Math.max(
+        0,
+        Math.min(
+          1,
+          (y - previous.endY) / (current.startY - previous.endY),
+        ),
+      );
+      const horizontalEase = (1 - Math.cos(Math.PI * progress)) / 2;
+      return {
+        leftX:
+          previous.leftX +
+          (current.leftX - previous.leftX) * horizontalEase,
+        rightX:
+          previous.rightX +
+          (current.rightX - previous.rightX) * horizontalEase,
+      };
+    }
+    if (y <= current.endY) {
+      return { leftX: current.leftX, rightX: current.rightX };
+    }
+  }
+
+  const last = STRAIGHT_ZONES.at(-1)!;
+  return { leftX: last.leftX, rightX: last.rightX };
+}
 
 function boundaryGroup(side: BoundarySide): string {
   return side === "left" ? LEFT_BOUNDARY_GROUP : RIGHT_BOUNDARY_GROUP;
@@ -233,7 +334,7 @@ function wallBumper(
     x:
       boundaryX(zone, side) +
       direction * (width / 2) * Math.cos(angleMagnitude),
-    y,
+    y: scaleCourseY(y),
     width,
     height: 24,
     angle,
@@ -254,7 +355,7 @@ function shelf(
 ): CourseRect {
   return {
     x,
-    y,
+    y: scaleCourseY(y),
     width,
     height: 22,
     angle,
@@ -338,7 +439,7 @@ export const COURSE_RECTS: CourseRect[] = [
 export const COURSE_CURVE_RECTS: CourseRect[] =
   COURSE_CURVES.flatMap(curveSegments);
 
-export const COURSE_PINS: CoursePin[] = [
+const BASE_COURSE_PINS: CoursePin[] = [
   // Start canopy: dense but fully separated staggered rows.
   ...[155, 300, 455, 610, 753].map((x) => ({
     x,
@@ -361,7 +462,6 @@ export const COURSE_PINS: CoursePin[] = [
 
   // One offset island per biased chute.
   { x: 650, y: 1450, radius: 24, zoneId: "right-chute" },
-  { x: 260, y: 2450, radius: 28, zoneId: "left-chute" },
 
   // Central release: deliberately uneven island sizes.
   { x: 225, y: 3820, radius: 35, zoneId: "central-release" },
@@ -386,7 +486,98 @@ export const COURSE_PINS: CoursePin[] = [
   })),
 ];
 
-export const ROTATING_BARS: RotatingBar[] = [
+export const COURSE_PINS: CoursePin[] = BASE_COURSE_PINS.map((pin) => ({
+  ...pin,
+  y: scaleCourseY(pin.y),
+}));
+
+const BASE_COURSE_BUMPERS: CourseBumper[] = [
+  // 25% Bumper Run: replace the opening pin language with active rebounds.
+  {
+    x: 260,
+    y: 2450,
+    radius: 34,
+    zoneId: "left-chute",
+    kind: "field",
+    kickSpeed: 4.8,
+  },
+  {
+    x: 340,
+    y: 3650,
+    radius: 34,
+    zoneId: "central-release",
+    kind: "field",
+    kickSpeed: 4.6,
+  },
+  {
+    x: 610,
+    y: 3705,
+    radius: 32,
+    zoneId: "central-release",
+    kind: "field",
+    kickSpeed: 4.4,
+  },
+
+  // 50% Squeeze Gates: fewer, larger bumpers sit between attached rails.
+  {
+    x: 570,
+    y: 4740,
+    radius: 34,
+    zoneId: "right-squeeze",
+    kind: "field",
+    kickSpeed: 4.8,
+  },
+  {
+    x: 470,
+    y: 5750,
+    radius: 34,
+    zoneId: "left-drift",
+    kind: "field",
+    kickSpeed: 4.6,
+  },
+
+  // 75% Final Mix: one last active rebound follows the dense pin field.
+  {
+    x: 300,
+    y: 7750,
+    radius: 32,
+    zoneId: "left-sprint",
+    kind: "field",
+    kickSpeed: 4.8,
+  },
+
+  // The final pair is embedded in both narrowing walls. Any contact kicks
+  // the marble back upward before it can enter the 60px finish corridor.
+  {
+    x: 365,
+    y: 8760,
+    radius: 36,
+    zoneId: "finish-corridor",
+    kind: "finish-launch",
+    kickSpeed: 7.2,
+    attachment: "left",
+    connectedGroupIds: [LEFT_BOUNDARY_GROUP],
+  },
+  {
+    x: 535,
+    y: 8760,
+    radius: 36,
+    zoneId: "finish-corridor",
+    kind: "finish-launch",
+    kickSpeed: 7.2,
+    attachment: "right",
+    connectedGroupIds: [RIGHT_BOUNDARY_GROUP],
+  },
+];
+
+export const COURSE_BUMPERS: CourseBumper[] = BASE_COURSE_BUMPERS.map(
+  (bumper) => ({
+    ...bumper,
+    y: scaleCourseY(bumper.y),
+  }),
+);
+
+const BASE_ROTATING_BARS: RotatingBar[] = [
   {
     x: 450,
     y: 820,
@@ -416,7 +607,7 @@ export const ROTATING_BARS: RotatingBar[] = [
   },
   {
     x: 350,
-    y: 8585,
+    y: 8609,
     width: 120,
     height: 22,
     baseAngle: 0.12,
@@ -426,6 +617,13 @@ export const ROTATING_BARS: RotatingBar[] = [
     wallSide: "left",
   },
 ];
+
+export const ROTATING_BARS: RotatingBar[] = BASE_ROTATING_BARS.map(
+  (bar) => ({
+    ...bar,
+    y: scaleCourseY(bar.y),
+  }),
+);
 
 export function rotatingBarAngle(bar: RotatingBar, step: number) {
   return bar.baseAngle + step * bar.angularSpeed;

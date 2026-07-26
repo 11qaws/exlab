@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  COURSE_BUMPERS,
   COURSE_BOUNDARY_THICKNESS,
+  COURSE_LENGTH_SCALE,
   COURSE_CURVES,
   COURSE_CURVE_RECTS,
   COURSE_PINS,
   COURSE_RECTS,
+  COURSE_SECTIONS,
   FINISH_LINE_WIDTH,
   FINISH_Y,
   MARBLE_RADIUS,
@@ -13,6 +16,7 @@ import {
   STRAIGHT_ZONES,
   TARGET_FIRST_FINISH_SECONDS,
   WORLD_HEIGHT,
+  courseBoundsAtY,
   rotatingBarAngle,
   rotatingBarTurnsTowardWall,
 } from "../app/marble/course";
@@ -46,7 +50,10 @@ import {
   nextCountdownStep,
 } from "../app/marble/countdown";
 import { createRaceDynamics } from "../app/marble/dynamics";
-import { simulateRace } from "../app/marble/simulation";
+import {
+  catchUpIntensity,
+  simulateRace,
+} from "../app/marble/simulation";
 
 test("roster accepts two through ten participants", () => {
   assert.equal(parseRoster("가\n나").isValid, true);
@@ -149,8 +156,10 @@ test("seeded dynamics vary races without breaking the final spinner rule", () =>
   assert.ok(first.forceZones.length >= 2);
 });
 
-test("the asymmetric course targets a roughly twenty-second first finish", () => {
-  assert.ok(WORLD_HEIGHT >= 8_000);
+test("the extended asymmetric course targets a roughly thirty-second first finish", () => {
+  assert.equal(TARGET_FIRST_FINISH_SECONDS, 30);
+  assert.equal(COURSE_LENGTH_SCALE, 1.5);
+  assert.equal(WORLD_HEIGHT, 13_500);
   assert.ok(COURSE_RECTS.length + COURSE_CURVE_RECTS.length >= 80);
   assert.ok(COURSE_PINS.length >= 25);
   assert.equal(STRAIGHT_ZONES.length, 10);
@@ -163,11 +172,16 @@ test("the asymmetric course targets a roughly twenty-second first finish", () =>
     (zone) => zone.rightX - zone.leftX,
   );
   assert.ok(Math.max(...widths) - Math.min(...widths) >= 600);
+  const playableWidths = STRAIGHT_ZONES.filter(
+    (zone) => zone.id !== "finish-corridor",
+  ).map((zone) => zone.rightX - zone.leftX);
+  assert.ok(Math.max(...playableWidths) - Math.min(...playableWidths) >= 400);
   const centres = STRAIGHT_ZONES.map(
     (zone) => (zone.leftX + zone.rightX) / 2,
   );
   assert.ok(Math.max(...centres) >= 600);
   assert.ok(Math.min(...centres) <= 300);
+  assert.ok(Math.max(...centres) - Math.min(...centres) >= 400);
 
   const finishCorridor = STRAIGHT_ZONES.find(
     (zone) => zone.id === "finish-corridor",
@@ -248,6 +262,15 @@ test("obstacles stay on straight zones and wall bumpers feed inward", () => {
     assert.ok(pin.y + pin.radius <= zone.endY);
   }
 
+  for (const bumper of COURSE_BUMPERS.filter(
+    (candidate) => candidate.kind === "field",
+  )) {
+    const zone = zones.get(bumper.zoneId);
+    assert.ok(zone);
+    assert.ok(bumper.y - bumper.radius >= zone.startY);
+    assert.ok(bumper.y + bumper.radius <= zone.endY);
+  }
+
   for (const bar of ROTATING_BARS) {
     const zone = zones.get(bar.zoneId);
     assert.ok(zone);
@@ -286,6 +309,83 @@ test("obstacles stay on straight zones and wall bumpers feed inward", () => {
       ?.requiresBilateralWallObstacles,
     false,
   );
+});
+
+test("quarter markers introduce four distinct obstacle patterns", () => {
+  assert.deepEqual(
+    COURSE_SECTIONS.map((section) => section.startY / WORLD_HEIGHT),
+    [0, 0.25, 0.5, 0.75],
+  );
+  assert.deepEqual(
+    COURSE_SECTIONS.map((section) => section.endY / WORLD_HEIGHT),
+    [0.25, 0.5, 0.75, 1],
+  );
+  assert.deepEqual(
+    COURSE_SECTIONS.map((section) => section.pattern),
+    ["pins", "bumpers", "gates", "final-mix"],
+  );
+
+  const signatures = COURSE_SECTIONS.map((section) => [
+    COURSE_PINS.filter(
+      (pin) => pin.y >= section.startY && pin.y < section.endY,
+    ).length,
+    COURSE_BUMPERS.filter(
+      (bumper) =>
+        bumper.y >= section.startY && bumper.y < section.endY,
+    ).length,
+    ROTATING_BARS.filter(
+      (bar) => bar.y >= section.startY && bar.y < section.endY,
+    ).length,
+  ]);
+  assert.equal(new Set(signatures.map((value) => value.join(":"))).size, 4);
+  assert.ok(signatures[0][0] >= 12);
+  assert.ok(signatures[1][1] >= 3);
+  assert.equal(signatures[2][2], 0);
+  assert.ok(signatures[3][0] >= 7);
+  assert.ok(signatures[3][2] >= 2);
+});
+
+test("finish entrance has paired launch bumpers beside the narrow lane", () => {
+  const finalGate = STRAIGHT_ZONES.find(
+    (zone) => zone.id === "final-gate",
+  )!;
+  const finishCorridor = STRAIGHT_ZONES.find(
+    (zone) => zone.id === "finish-corridor",
+  )!;
+  const launchBumpers = COURSE_BUMPERS.filter(
+    (bumper) => bumper.kind === "finish-launch",
+  );
+
+  assert.equal(launchBumpers.length, 2);
+  assert.deepEqual(
+    launchBumpers.map((bumper) => bumper.attachment).sort(),
+    ["left", "right"],
+  );
+  for (const bumper of launchBumpers) {
+    assert.ok(bumper.y > finalGate.endY);
+    assert.ok(bumper.y < finishCorridor.startY);
+    assert.ok(bumper.kickSpeed >= 6);
+  }
+  const [left, right] = launchBumpers;
+  const clearance =
+    Math.hypot(left.x - right.x, left.y - right.y) -
+    left.radius -
+    right.radius;
+  assert.ok(clearance >= MIN_COURSE_CLEARANCE);
+});
+
+test("catch-up force starts only after a meaningful leader gap", () => {
+  const dynamics = createRaceDynamics("catch-up-test").catchUp;
+  assert.equal(catchUpIntensity(dynamics.startGap, dynamics), 0);
+  assert.equal(
+    catchUpIntensity(
+      (dynamics.startGap + dynamics.maxGap) / 2,
+      dynamics,
+    ),
+    0.5,
+  );
+  assert.equal(catchUpIntensity(dynamics.maxGap, dynamics), 1);
+  assert.equal(catchUpIntensity(dynamics.maxGap * 2, dynamics), 1);
 });
 
 test("rotating bars keep turning through complete revolutions", () => {
@@ -364,6 +464,7 @@ test("every independent course object leaves more than one marble diameter", () 
   );
   assert.deepEqual(report.wallCoverageViolations, []);
   assert.deepEqual(report.finalEntranceSpinnerViolations, []);
+  assert.deepEqual(report.finalLaunchBumperViolations, []);
   assert.ok(report.minimumClearance >= MIN_COURSE_CLEARANCE);
 });
 
@@ -402,4 +503,43 @@ test("race presentation continues until the configured winner count arrives", ()
     simulation.frames.at(-1)!.finishedSlotIds.length >=
       simulation.targetFinishCount,
   );
+});
+
+test("result frames continue after the winner reveal and keep unfinished rows open", () => {
+  const simulation = simulateRace(
+    6,
+    "live-arrival-race",
+    "live-arrival-layout",
+    1,
+  );
+  const revealFrame =
+    simulation.frames[simulation.awardFrameIndex];
+  const finalFrame = simulation.frames.at(-1)!;
+
+  assert.equal(revealFrame.finishedSlotIds.length, 1);
+  assert.ok(simulation.frames.length - 1 > simulation.awardFrameIndex);
+  assert.ok(
+    finalFrame.finishedSlotIds.length >= revealFrame.finishedSlotIds.length,
+  );
+  assert.equal(
+    new Set(finalFrame.finishedSlotIds).size,
+    finalFrame.finishedSlotIds.length,
+  );
+});
+
+test("marbles remain inside the moving course after high-energy collisions", () => {
+  const simulation = simulateRace(
+    5,
+    "duration-5-6",
+    "layout-duration-6",
+  );
+  for (const frame of simulation.frames) {
+    for (const pose of frame.poses) {
+      const bounds = courseBoundsAtY(pose.y);
+      const innerMargin =
+        COURSE_BOUNDARY_THICKNESS / 2 + MARBLE_RADIUS;
+      assert.ok(pose.x >= bounds.leftX + innerMargin - 0.01);
+      assert.ok(pose.x <= bounds.rightX - innerMargin + 0.01);
+    }
+  }
 });

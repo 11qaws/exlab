@@ -1,5 +1,5 @@
 import { createPrng, hashText } from "./core";
-import { ROTATING_BARS } from "./course";
+import { ROTATING_BARS, scaleCourseY } from "./course";
 import type { RaceDynamics } from "./types";
 
 const range = (random: () => number, min: number, max: number) =>
@@ -54,17 +54,22 @@ export function createRaceDynamics(raceSeed: string): RaceDynamics {
     ],
     forceZones: [
       {
-        startY: 3250,
-        endY: 4100,
+        startY: scaleCourseY(3250),
+        endY: scaleCourseY(4100),
         forceX: firstZoneX,
         forceY: 0.000014,
       },
       {
-        startY: 6650,
-        endY: 7350,
+        startY: scaleCourseY(6650),
+        endY: scaleCourseY(7350),
         forceX: -firstZoneX * range(random, 0.82, 1.08),
         forceY: 0.00002,
       },
     ],
+    catchUp: {
+      startGap: 360,
+      maxGap: 1_350,
+      maxForceY: 0.00016,
+    },
   };
 }

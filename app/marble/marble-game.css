@@ -1059,6 +1059,16 @@ summary {
   border-radius: 8px;
 }
 
+.result-ranking li.is-pending {
+  border-bottom-style: dashed;
+  opacity: 0.46;
+}
+
+.result-ranking li.is-pending > i {
+  background: transparent;
+  border: 1px dashed #77515e;
+}
+
 .result-ranking li > strong {
   color: #b99ca5;
   font-size: 12px;

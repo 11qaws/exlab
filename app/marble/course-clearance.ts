@@ -1,4 +1,5 @@
 import {
+  COURSE_BUMPERS,
   COURSE_CURVE_RECTS,
   COURSE_PINS,
   COURSE_RECTS,
@@ -58,6 +59,11 @@ export type CourseFinalEntranceSpinnerViolation = {
   reason: string;
 };
 
+export type CourseFinalLaunchBumperViolation = {
+  side: BoundarySide | null;
+  reason: string;
+};
+
 export type CourseClearanceReport = {
   minimumClearance: number;
   requiredClearance: number;
@@ -65,6 +71,7 @@ export type CourseClearanceReport = {
   violations: CourseClearanceViolation[];
   wallCoverageViolations: CourseWallCoverageViolation[];
   finalEntranceSpinnerViolations: CourseFinalEntranceSpinnerViolation[];
+  finalLaunchBumperViolations: CourseFinalLaunchBumperViolation[];
 };
 
 function rectPoints(rect: CourseRect): Point[] {
@@ -274,6 +281,15 @@ function courseShapes(): CourseShape[] {
     radius: pin.radius,
     isBoundary: false,
   }));
+  const bumpers: CircleShape[] = COURSE_BUMPERS.map((bumper, index) => ({
+    id: `active-bumper-${index + 1}`,
+    kind: "circle",
+    x: bumper.x,
+    y: bumper.y,
+    radius: bumper.radius,
+    isBoundary: false,
+    connectedGroupIds: bumper.connectedGroupIds,
+  }));
   const rotatingPivots: CircleShape[] = ROTATING_BARS.map((bar, index) => ({
     id: `rotating-pivot-${index + 1}`,
     kind: "circle",
@@ -282,7 +298,7 @@ function courseShapes(): CourseShape[] {
     radius: ROTATING_BAR_CLEARANCE_RADIUS,
     isBoundary: false,
   }));
-  return [...rectangles, ...pins, ...rotatingPivots];
+  return [...rectangles, ...pins, ...bumpers, ...rotatingPivots];
 }
 
 function inspectWallCoverage(): CourseWallCoverageViolation[] {
@@ -342,6 +358,59 @@ function inspectFinalEntranceSpinner(): CourseFinalEntranceSpinnerViolation[] {
   });
 }
 
+function inspectFinalLaunchBumpers(): CourseFinalLaunchBumperViolation[] {
+  const finalGate = STRAIGHT_ZONES.find(
+    (zone) => zone.id === "final-gate",
+  );
+  const finishCorridor = STRAIGHT_ZONES.find(
+    (zone) => zone.id === "finish-corridor",
+  );
+  if (!finalGate || !finishCorridor) {
+    return [{ side: null, reason: "missing final approach zones" }];
+  }
+
+  const launchBumpers = COURSE_BUMPERS.filter(
+    (bumper) => bumper.kind === "finish-launch",
+  );
+  const violations: CourseFinalLaunchBumperViolation[] = [];
+  for (const side of ["left", "right"] as const) {
+    const matches = launchBumpers.filter(
+      (bumper) => bumper.attachment === side,
+    );
+    if (matches.length !== 1) {
+      violations.push({
+        side,
+        reason: `expected one ${side} launch bumper, found ${matches.length}`,
+      });
+      continue;
+    }
+    const bumper = matches[0];
+    if (
+      bumper.y <= finalGate.endY ||
+      bumper.y >= finishCorridor.startY
+    ) {
+      violations.push({
+        side,
+        reason: "launch bumper is outside the narrowing entrance",
+      });
+    }
+    if (bumper.kickSpeed < 6) {
+      violations.push({
+        side,
+        reason: "launch bumper kick is too weak",
+      });
+    }
+  }
+
+  if (launchBumpers.length !== 2) {
+    violations.push({
+      side: null,
+      reason: `expected two finish launch bumpers, found ${launchBumpers.length}`,
+    });
+  }
+  return violations;
+}
+
 export function inspectCourseClearance(): CourseClearanceReport {
   const shapes = courseShapes();
   const violations: CourseClearanceViolation[] = [];
@@ -383,6 +452,7 @@ export function inspectCourseClearance(): CourseClearanceReport {
     ),
     wallCoverageViolations: inspectWallCoverage(),
     finalEntranceSpinnerViolations: inspectFinalEntranceSpinner(),
+    finalLaunchBumperViolations: inspectFinalLaunchBumpers(),
   };
 }
 
@@ -391,7 +461,8 @@ export function assertCourseClearance(): void {
   if (
     report.violations.length === 0 &&
     report.wallCoverageViolations.length === 0 &&
-    report.finalEntranceSpinnerViolations.length === 0
+    report.finalEntranceSpinnerViolations.length === 0 &&
+    report.finalLaunchBumperViolations.length === 0
   ) {
     return;
   }
@@ -426,6 +497,14 @@ export function assertCourseClearance(): void {
       .join(", ");
     messages.push(
       `결승 입구 회전 막대 규칙 위반 ${report.finalEntranceSpinnerViolations.length}건 (${details})`,
+    );
+  }
+  if (report.finalLaunchBumperViolations.length > 0) {
+    const details = report.finalLaunchBumperViolations
+      .map(({ side, reason }) => `${side ?? "none"}: ${reason}`)
+      .join(", ");
+    messages.push(
+      `결승 진입 범퍼 규칙 위반 ${report.finalLaunchBumperViolations.length}건 (${details})`,
     );
   }
   throw new Error(`코스 검사 실패: ${messages.join("; ")}`);
