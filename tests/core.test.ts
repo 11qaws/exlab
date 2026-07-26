@@ -55,6 +55,7 @@ import {
   catchUpIntensity,
   simulateRace,
 } from "../app/marble/simulation";
+import { resolveRaceFrame } from "../app/marble/RaceCanvas";
 
 test("roster accepts two through ten participants", () => {
   assert.equal(parseRoster("가\n나").isValid, true);
@@ -414,6 +415,21 @@ test("race frames expose bounded bumper collision flashes", () => {
     assert.ok(Number.isFinite(flash.x));
     assert.ok(Number.isFinite(flash.y));
   }
+});
+
+test("race frame selection survives preview plan transitions", () => {
+  const frame = {
+    poses: [],
+    rankedSlotIds: ["slot-1"],
+    finishedSlotIds: [],
+    rotatingBarAngles: [],
+    bumperFlashes: [],
+  };
+
+  assert.equal(resolveRaceFrame([frame], -1), frame);
+  assert.equal(resolveRaceFrame([frame], Number.NaN), frame);
+  assert.equal(resolveRaceFrame([frame], 999), frame);
+  assert.equal(resolveRaceFrame([], 0), null);
 });
 
 test("catch-up force starts only after a meaningful leader gap", () => {

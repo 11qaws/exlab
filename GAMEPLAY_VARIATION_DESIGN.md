@@ -1,4 +1,4 @@
-# Gameplay Variation Design — 1.1.2
+# Gameplay Variation Design — 1.1.3
 
 ## 1.1.2 막대형 범퍼와 구간별 역전 검증
 

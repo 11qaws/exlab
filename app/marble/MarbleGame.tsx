@@ -391,7 +391,7 @@ function LiveRacePreview({
     const animate = (now: number) => {
       const elapsedMs = now - startedAt;
       const nextFrame = Math.min(
-        previewPlan.simulation.frames.length - 1,
+        Math.max(0, previewPlan.simulation.frames.length - 1),
         Math.floor((elapsedMs / 1000) * FRAME_RATE),
       );
       setPreviewFrameIndex(nextFrame);
@@ -1025,7 +1025,7 @@ export function MarbleGame() {
           <span aria-hidden="true">●</span>
           Ex Lab
         </a>
-        <span className="prototype-badge">RACE · VERSION 1.1.2</span>
+        <span className="prototype-badge">RACE · VERSION 1.1.3</span>
       </header>
 
       <section className="intro">

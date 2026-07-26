@@ -26,13 +26,26 @@ import {
   WORLD_WIDTH,
 } from "./course";
 import type { CourseBumper, CourseRect } from "./course";
-import type { RacePlan } from "./types";
+import type { RaceFrame, RacePlan } from "./types";
 
 type RaceCanvasProps = {
   plan: RacePlan;
   frameIndex: number;
   reducedMotion: boolean;
 };
+
+export function resolveRaceFrame(
+  frames: RaceFrame[],
+  frameIndex: number,
+): RaceFrame | null {
+  if (frames.length === 0) return null;
+  const finiteIndex = Number.isFinite(frameIndex) ? frameIndex : 0;
+  const safeIndex = Math.max(
+    0,
+    Math.min(Math.floor(finiteIndex), frames.length - 1),
+  );
+  return frames[safeIndex] ?? frames[0] ?? null;
+}
 
 function roundedRect(
   context: CanvasRenderingContext2D,
@@ -165,18 +178,16 @@ export function RaceCanvas({
   const verticalCameraRef = useRef<VerticalCameraState>({
     ...INITIAL_VERTICAL_CAMERA_STATE,
   });
-  const frame =
-    plan.simulation.frames[
-      Math.min(frameIndex, plan.simulation.frames.length - 1)
-    ];
+  const frame = resolveRaceFrame(plan.simulation.frames, frameIndex);
   const candidateById = useMemo(
     () => new Map(plan.candidates.map((candidate) => [candidate.id, candidate])),
     [plan.candidates],
   );
 
-  const leaderCandidate = candidateById.get(
-    plan.slotToCandidateId[frame.rankedSlotIds[0]],
-  );
+  const leaderSlotId = frame?.rankedSlotIds[0];
+  const leaderCandidate = leaderSlotId
+    ? candidateById.get(plan.slotToCandidateId[leaderSlotId])
+    : undefined;
 
   useEffect(() => {
     leaderFocusRef.current = { ...INITIAL_LEADER_FOCUS_STATE };
@@ -344,7 +355,7 @@ export function RaceCanvas({
       if (y < -extent || y > logicalHeight + extent) {
         return;
       }
-      const flash = frame.bumperFlashes[index];
+      const flash = frame.bumperFlashes?.[index];
       if (flash?.level > 0) {
         drawBumperFlash(
           context,
