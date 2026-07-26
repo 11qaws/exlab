@@ -61,6 +61,7 @@ const DEFAULT_ROSTER = [
 
 const ROSTER_KEY = "marble-game:roster";
 const HISTORY_KEY = "marble-game:history";
+const PREVIEW_DURATION_MS = 10_000;
 
 type Phase =
   | "ready"
@@ -309,6 +310,133 @@ function StartPreview({
           FINISH
         </text>
       </svg>
+    </div>
+  );
+}
+
+function LiveRacePreview({
+  candidates,
+  layoutSeed,
+  reducedMotion,
+}: {
+  candidates: Candidate[];
+  layoutSeed: string;
+  reducedMotion: boolean;
+}) {
+  const [previewCycle, setPreviewCycle] = useState(0);
+  const [previewPlan, setPreviewPlan] = useState<RacePlan | null>(null);
+  const [previewFrameIndex, setPreviewFrameIndex] = useState(0);
+  const [remainingSeconds, setRemainingSeconds] = useState(10);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPreviewFrameIndex(0);
+      setRemainingSeconds(10);
+      const previewCandidates =
+        candidates.length >= 2
+          ? candidates
+          : Array.from({ length: 2 }, (_, index) => ({
+              id: `preview-${index + 1}`,
+              name: `PREVIEW ${index + 1}`,
+              number: index + 1,
+              theme: PARTICIPANT_THEMES[index],
+            }));
+      const raceSeed = createSeed(`preview-race-${previewCycle + 1}`);
+      const previewLayoutSeed = createSeed(
+        `${layoutSeed}-preview-layout-${previewCycle + 1}`,
+      );
+      const resultSeed = createSeed(`preview-result-${previewCycle + 1}`);
+      try {
+        const simulation = simulateRace(
+          previewCandidates.length,
+          raceSeed,
+          previewLayoutSeed,
+          1,
+        );
+        setPreviewPlan(
+          buildRacePlan(
+            "10초 경기 미리보기",
+            previewCandidates,
+            "physical",
+            simulation,
+            {
+              raceSeed,
+              resultSeed,
+              layoutSeed: previewLayoutSeed,
+            },
+            1,
+          ),
+        );
+      } catch {
+        setPreviewPlan(null);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [candidates, layoutSeed, previewCycle]);
+
+  useEffect(() => {
+    if (!previewPlan) return;
+    const startedAt = performance.now();
+    let animationFrame = 0;
+    const animate = (now: number) => {
+      const elapsedMs = now - startedAt;
+      const nextFrame = Math.min(
+        previewPlan.simulation.frames.length - 1,
+        Math.floor((elapsedMs / 1000) * FRAME_RATE),
+      );
+      setPreviewFrameIndex(nextFrame);
+      setRemainingSeconds(
+        Math.max(0, Math.ceil((PREVIEW_DURATION_MS - elapsedMs) / 1000)),
+      );
+      if (elapsedMs >= PREVIEW_DURATION_MS) {
+        setPreviewCycle((value) => value + 1);
+        return;
+      }
+      animationFrame = requestAnimationFrame(animate);
+    };
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [previewPlan]);
+
+  if (!previewPlan) {
+    return (
+      <StartPreview candidates={candidates} layoutSeed={layoutSeed} />
+    );
+  }
+
+  return (
+    <div className="map-preview live-preview" aria-label="10초 Race 경기 미리보기">
+      <RaceCanvas
+        plan={previewPlan}
+        frameIndex={previewFrameIndex}
+        reducedMotion={reducedMotion}
+      />
+      <div className="preview-hud">
+        <div>
+          <span>10S LIVE PREVIEW</span>
+          <strong>{remainingSeconds}초 후 새 시드</strong>
+        </div>
+        <small>
+          {previewPlan.simulation.dynamics.fingerprint} · 배치{" "}
+          {previewPlan.simulation.layoutShift >= 0 ? "+" : ""}
+          {previewPlan.simulation.layoutShift}px
+        </small>
+      </div>
+      <div
+        className="preview-progress"
+        aria-hidden="true"
+        style={{
+          transform: `scaleX(${Math.max(
+            0,
+            Math.min(
+              1,
+              1 -
+                previewFrameIndex /
+                  Math.max(1, (PREVIEW_DURATION_MS / 1000) * FRAME_RATE),
+            ),
+          )})`,
+        }}
+      />
     </div>
   );
 }
@@ -1137,9 +1265,10 @@ export function MarbleGame() {
               능동 범퍼와 결승 회전 관문을 통과하는 약 30초 코스
             </p>
           </div>
-          <StartPreview
+          <LiveRacePreview
             candidates={activeCandidates}
             layoutSeed={layoutSeed}
+            reducedMotion={reducedMotion}
           />
           <div className="venue-meta">
             <div>

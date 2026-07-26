@@ -541,6 +541,61 @@ summary {
   letter-spacing: 0.12em;
 }
 
+.live-preview {
+  isolation: isolate;
+}
+
+.preview-hud {
+  align-items: flex-start;
+  background: linear-gradient(
+    180deg,
+    rgba(22, 13, 20, 0.92),
+    rgba(22, 13, 20, 0)
+  );
+  color: #fff8ef;
+  display: flex;
+  inset: 0 0 auto;
+  justify-content: space-between;
+  padding: 16px 18px 34px;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.preview-hud span,
+.preview-hud strong {
+  display: block;
+}
+
+.preview-hud span {
+  color: #ffb9cf;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.preview-hud strong {
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+.preview-hud small {
+  color: #d5bdc1;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.preview-progress {
+  background: #e84f83;
+  bottom: 0;
+  height: 4px;
+  left: 0;
+  position: absolute;
+  transform-origin: left center;
+  width: 100%;
+  z-index: 3;
+}
+
 .venue-meta {
   padding: 22px 30px;
 }
