@@ -368,7 +368,7 @@ export function buildRacePlan(
 
   return {
     runId: createSeed("run"),
-    title: title.trim() || "오늘의 Race",
+    title: title.trim() || "오늘의 Showdown",
     raceSeed: seeds.raceSeed,
     layoutSeed: seeds.layoutSeed,
     createdAt: new Date().toISOString(),

@@ -1,5 +1,23 @@
 # Development Log
 
+## 2026-07-27 1.3.0 Ex Lab Roulette·Showdown 통합
+
+- Showdown 단독 진입 화면을 Ex Lab 공통 셸로 교체하고, 게임 레지스트리에서 `Roulette`와 `Showdown`을 선택하는 실용형 운영 구조로 통합했다.
+- 패키지 이름도 Race 전용 `ex-lab-race`에서 전체 프로젝트 이름인 `ex-lab`으로 정리했다.
+- 공통 셸은 공유 명단, 마지막으로 사용한 게임과 실행 중 게임 전환 잠금만 소유한다. 셸은 고정 라이트 UI이며 지원이 부분적인 전역 라이트·다크·시스템 테마 선택과 저장은 제공하지 않는다. Showdown 코스의 기본 라이트·선택형 다크 맵 토글은 게임 전용 상태로 유지한다.
+- 첫 진입에는 마지막 선택 게임만 `React.lazy`로 불러오고, 실제로 방문한 Roulette·Showdown surface만 keep-alive로 유지한다. 게임을 오가도 각 설정 초안은 보존되며 비활성 adapter의 `active=false`가 숨은 미리보기·타이머·애니메이션을 멈춘다.
+- 공통 헤더에 현재 유효 인원을 표시하는 `참가자 N명` 명단 대화상자를 추가했다. 대화상자의 한 줄 한 명 입력과 동일 이름 정책을 두 게임이 함께 사용하며, 진행 중에는 편집을 잠근다.
+- 동일 이름 기본값은 미허용이다. 허용하면 중복 이름을 dedupe하지 않고 입력된 각 occurrence를 서로 다른 참가 번호로 보존하며, 정책은 `ex-lab:allow-duplicate-names:v1`에 저장한다.
+- 공유 명단의 단일 키를 `ex-lab:roster:v1`로 정했다. 새 키가 없을 때 Showdown의 Race 레거시 저장 키 `marble-game:roster`를 한 번 가져오며, 이후 공통 명단 저장은 레거시 키에도 mirror해 이전 버전 롤백 호환성을 유지한다. 별도 origin의 기존 Roulette 저장소는 자동 이전 범위에서 제외했다.
+- catalog와 런타임 adapter 등록을 분리해 이후 게임도 공통 셸을 수정하지 않고 같은 입력·활동 상태 계약으로 추가할 수 있게 했다.
+- Showdown 준비 화면의 큰 홍보형 제목과 장문 소개를 제거하고 게임 설정, 미리보기, 주 행동을 바로 볼 수 있게 했다. Showdown의 내부 Race 엔진과 Matter.js 물리, 결승 통과 결과, 라이브 시계와 골인 기록은 1.2.3 계약을 유지한다.
+- Showdown CSS는 `.showdown-game`, Roulette CSS는 `.roulette-game`의 `@scope`로 격리해 게임 간 전역 선택자 유출을 막았다.
+- 본문과 제목을 포함한 전체 타이포그래피를 산세리프로 통일하고 공통 셸의 하위 요소 override가 `Inter`, `Pretendard`, 시스템 산세리프 폴백을 강제한다. 제목 위계는 별도 장식 서체가 아니라 굵기와 자간으로 구분한다.
+- Roulette의 원판·다트 좌표로 결과를 커밋하는 물리 결과 경계, 실행당 단일 결과 확정, 오래된 geometry 콜백 차단과 pending 결과 복구를 통합 adapter에서도 보존했다.
+- Showdown 저장 이력은 JSON 배열과 필수 필드를 행별 검증해 손상된 레거시 행은 버리고, 유효한 구형 `winnerName`은 `winnerNames` 배열로 이관한 뒤 최대 20건만 복원한다.
+- 상위 Roulette의 Vitest 설정에서 `Codex/workspace/**`를 제외해 하위 Node 테스트를 “No test suite”로 잘못 수집하던 중첩 작업공간 오염을 차단했다. Roulette 단독 기준선 `npx vitest run src`는 20개 파일·149개 테스트를 통과했다.
+- Vitest에는 Jest의 `--runInBand` 옵션이 없으므로 해당 시도는 유효한 기준선 명령으로 기록하지 않는다.
+
 ## 2026-07-27 1.2.3 라이브 경기 시계·결과 발표 골인 기록
 
 - 라이브 순위 제목에 현재 경기 시간을 `TIME MM:SS.cc`로 추가했다. 새 패널을 만들지 않고 기존 제목과 병합해 10명 순위표의 세로 공간을 유지한다.

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 async function render() {
@@ -22,37 +23,41 @@ async function render() {
   );
 }
 
-test("server-renders the marble game preparation experience", async () => {
+test("server-renders the practical Ex Lab shell while preferences load", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, /<html lang="ko">/i);
-  assert.match(html, /<title>Ex Lab — Race<\/title>/i);
+  assert.match(html, /<title>Ex Lab<\/title>/i);
   assert.match(html, /Ex Lab/);
-  assert.match(html, /경기 준비/);
-  assert.match(html, />Race</);
-  assert.match(html, /RACE · VERSION (?:<!-- -->)?1\.2\.3/);
-  assert.match(html, /방송 화면 열기/);
+  assert.match(html, />Showdown</);
+  assert.match(html, />Roulette</);
+  assert.match(html, /게임 선택/);
+  assert.match(html, /설정 불러오는 중/);
+  assert.match(html, /aria-busy="true"/);
+  assert.doesNotMatch(html, /RACE · VERSION/);
+  assert.doesNotMatch(html, /경기 준비/);
+  assert.doesNotMatch(html, /방송 화면 열기/);
+  assert.doesNotMatch(html, /모든 이름이 조별 Race로 이어집니다/);
   assert.doesNotMatch(html, /codex-preview/i);
   assert.doesNotMatch(html, /react-loading-skeleton/i);
 });
 
-test("exposes grouping, physics-based results, map themes, and obstacle roles", async () => {
-  const response = await render();
-  const html = await response.text();
-  assert.match(html, /전체 (?:<!-- -->)?8(?:<!-- -->)?명/);
-  assert.match(html, /조당 최대 (?:<!-- -->)?10(?:<!-- -->)?명/);
-  assert.match(html, /동일 이름/);
-  assert.match(html, /미허용/);
-  assert.match(html, /당첨 인원/);
-  assert.doesNotMatch(html, /결과 선확정/);
-  assert.doesNotMatch(html, /물리 결과형/);
-  assert.match(html, /라이트/);
-  assert.match(html, /다크/);
-  assert.match(html, /고탄성 범퍼/);
-  assert.match(html, /탄성 벽/);
-  assert.match(html, /회전막대/);
-  assert.match(html, /자동 배치 다시 만들기/);
+test("pins the integrated package and both game catalog entries to 1.3.0", async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL("../package.json", import.meta.url), "utf8"),
+  );
+  const catalogSource = await readFile(
+    new URL("../app/_platform/catalog.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(packageJson.version, "1.3.0");
+  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.0"/);
+  assert.match(
+    catalogSource,
+    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.0"/,
+  );
 });

@@ -1,4 +1,5 @@
-:root {
+@scope (.showdown-game) {
+:scope {
   --page: #fff8f3;
   --panel: #fffdf9;
   --ink: #3b2426;
@@ -45,6 +46,12 @@ button:disabled {
   background: var(--page);
   color: var(--ink);
   padding: 28px clamp(20px, 4vw, 64px) 48px;
+}
+
+.preparation-screen.is-embedded {
+  background: transparent;
+  min-height: 0;
+  padding: 0;
 }
 
 .product-header,
@@ -129,11 +136,6 @@ button:disabled {
   padding: 8px 12px;
 }
 
-.intro {
-  margin: clamp(56px, 8vh, 94px) 0 44px;
-  max-width: 760px;
-}
-
 .eyebrow {
   color: var(--accent-dark);
   font-size: 11px;
@@ -143,28 +145,17 @@ button:disabled {
   text-transform: uppercase;
 }
 
-.intro h1 {
-  font-family: var(--font-display);
-  font-size: clamp(42px, 6vw, 82px);
-  letter-spacing: -0.065em;
-  line-height: 0.98;
-  margin: 0;
-}
-
-.intro > p:last-child {
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1.75;
-  margin: 24px 0 0;
-  max-width: 620px;
-}
-
 .preparation-grid {
   display: grid;
   grid-template-columns: minmax(360px, 0.92fr) minmax(440px, 1.35fr);
   gap: 24px;
-  margin: 0 auto;
+  margin: 24px auto 0;
   max-width: 1480px;
+}
+
+.preparation-screen.is-embedded .preparation-grid {
+  margin-top: 0;
+  max-width: none;
 }
 
 .setup-panel,
@@ -528,11 +519,20 @@ summary {
   padding: 30px 34px 14px;
 }
 
-.venue-copy > p:not(.eyebrow) {
+.venue-copy-heading {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.course-legend-details {
+  margin-top: 10px;
+}
+
+.course-legend-details > summary {
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.6;
-  margin: 9px 0 0;
+  font-size: 12px;
 }
 
 .course-legend {
@@ -540,7 +540,7 @@ summary {
   flex-wrap: wrap;
   gap: 7px 12px;
   list-style: none;
-  margin: 15px 0 0;
+  margin: 11px 0 0;
   padding: 0;
 }
 
@@ -1410,30 +1410,6 @@ summary {
     padding-top: 22px;
   }
 
-  .intro {
-    display: grid;
-    grid-template-columns: minmax(620px, 1.15fr) minmax(340px, 0.85fr);
-    column-gap: clamp(42px, 6vw, 96px);
-    margin: 30px auto 16px;
-    max-width: 1480px;
-  }
-
-  .intro .eyebrow {
-    grid-column: 1;
-  }
-
-  .intro h1 {
-    font-size: clamp(48px, 4.3vw, 68px);
-    grid-column: 1;
-  }
-
-  .intro > p:last-child {
-    align-self: end;
-    grid-column: 2;
-    grid-row: 2;
-    margin: 0 0 3px;
-  }
-
   .setup-panel {
     padding: 21px 28px;
   }
@@ -1489,14 +1465,6 @@ summary {
 
   .prototype-badge {
     display: none;
-  }
-
-  .intro {
-    margin: 52px 0 30px;
-  }
-
-  .intro h1 {
-    font-size: clamp(39px, 12vw, 58px);
   }
 
   .preparation-grid {
@@ -1625,4 +1593,5 @@ summary {
     filter: none;
     transform: none !important;
   }
+}
 }

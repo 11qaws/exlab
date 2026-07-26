@@ -1,0 +1,309 @@
+@scope (.roulette-game) {
+.current-round-winners {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  block-size: 100%;
+  max-block-size: 670px;
+  padding: clamp(14px, 1.8vw, 20px);
+  border: 3px solid var(--hot-pink);
+  border-radius: 18px;
+  background: linear-gradient(120deg, var(--card, #fff), var(--cream));
+  overflow: hidden;
+  box-shadow:
+    0 8px 0 var(--hot-pink-strong),
+    0 14px 30px rgb(255 159 176 / 30%);
+}
+
+.current-round-winners__announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.current-round-winners__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.current-round-winners__body {
+  min-block-size: 0;
+  padding-right: 5px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.current-round-winners__eyebrow {
+  margin: 0 0 4px;
+  color: var(--magenta);
+  font-family: 'Fredoka', 'Jua', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.current-round-winners h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: 'Jua', sans-serif;
+  font-size: clamp(22px, 2.4vw, 30px);
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.current-round-winners__count {
+  display: inline-flex;
+  min-height: 30px;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--magenta);
+  font-family: 'Fredoka', 'Jua', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.current-round-winners__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.current-round-winners__list li {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.current-round-winners__list li.is-latest {
+  border-color: var(--hot-pink-strong);
+  background: #fff8fa;
+  box-shadow: inset 4px 0 0 var(--hot-pink);
+}
+
+.current-round-winners__pending-summary {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  margin: 6px 0 0;
+  padding: 7px 9px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cream) 72%, white);
+}
+
+.current-round-winners__pending-summary strong,
+.current-round-winners__pending-summary small {
+  display: block;
+}
+
+.current-round-winners__pending-summary strong {
+  color: var(--muted);
+  font-family: 'Jua', sans-serif;
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.current-round-winners__pending-summary small {
+  color: var(--muted);
+  font-family: 'Fredoka', 'Jua', sans-serif;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.current-round-winners__pending-icon,
+.current-round-winners__pending-summary b {
+  color: var(--muted);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.current-round-winners__pending-icon {
+  text-align: right;
+}
+
+.current-round-winners__pending-summary b {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #f3eee7;
+  white-space: nowrap;
+}
+
+.current-round-winners__empty {
+  display: grid;
+  min-height: 132px;
+  place-items: center;
+  align-content: center;
+  gap: 5px;
+  margin: 0;
+  padding: 16px;
+  color: var(--muted);
+  font-family: 'Fredoka', 'Jua', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.current-round-winners__empty-mark {
+  font-size: 24px;
+}
+
+.current-round-winners__empty strong {
+  color: var(--ink);
+  font-family: 'Jua', sans-serif;
+  font-size: 18px;
+  font-weight: 400;
+}
+
+.current-round-winners__empty small {
+  max-width: 250px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.current-round-winners__number {
+  color: var(--magenta);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.current-round-winners__identity {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  overflow: hidden;
+  container-type: inline-size;
+}
+
+.current-round-winners__name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: 'Jua', sans-serif;
+  font-size: clamp(18px, 1.9vw, 24px);
+  font-weight: 400;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.current-round-winners__name--medium {
+  font-size: clamp(14px, 15cqi, 22px);
+}
+
+.current-round-winners__name--compact {
+  font-size: clamp(12px, 11.5cqi, 19px);
+  letter-spacing: -0.01em;
+}
+
+.current-round-winners__identity small {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-family: 'Fredoka', 'Jua', sans-serif;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.current-round-winners__state {
+  align-self: center;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #e6f9f0;
+  color: #267956;
+  font-family: 'Fredoka', 'Jua', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.current-round-winners__list li.is-latest .current-round-winners__state {
+  background: #ffe1e7;
+  color: var(--magenta);
+}
+
+.current-round-winners__removal {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-family: 'Fredoka', 'Jua', sans-serif;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+@media (max-width: 520px) {
+  .current-round-winners {
+    block-size: auto;
+    max-block-size: min(440px, 58dvh);
+    padding: 16px;
+    border-width: 2px;
+    border-radius: 16px;
+  }
+
+  .current-round-winners__header {
+    gap: 8px;
+  }
+
+  .current-round-winners__list li {
+    grid-template-columns: 25px minmax(0, 1fr) max-content;
+    gap: 8px;
+    min-height: 50px;
+    padding: 9px;
+  }
+
+  .current-round-winners__pending-summary {
+    grid-template-columns: 25px minmax(0, 1fr);
+    gap: 8px;
+    min-height: 50px;
+    padding: 9px;
+  }
+
+  .current-round-winners__pending-summary b {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: -4px;
+  }
+
+  .current-round-winners__name {
+    font-size: 21px;
+  }
+
+  .current-round-winners__name--medium {
+    font-size: clamp(14px, 15cqi, 18px);
+  }
+
+  .current-round-winners__name--compact {
+    font-size: clamp(12px, 11.5cqi, 16px);
+  }
+
+}
+
+}

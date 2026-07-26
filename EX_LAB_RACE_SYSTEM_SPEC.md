@@ -1,4 +1,21 @@
-# Ex Lab Race 시스템 명세 — 1.2.3
+# Ex Lab Showdown 시스템 명세 — 1.3.0
+
+## Ex Lab 통합 셸 경계
+
+- Showdown은 Ex Lab 게임 레지스트리에 등록된 하나의 게임 adapter로 실행한다. 내부 물리 엔진과 타입의 `Race` 명칭은 유지한다.
+- 명단 문자열은 공통 셸이 소유하고 Showdown은 안전한 준비 상태에서만 동기화한다.
+- 새 공통 명단이 없으면 기존 `marble-game:roster`를 한 번 가져오며, 이후 `ex-lab:roster:v1`을 정본으로 사용하되 롤백 호환용 레거시 키에도 같은 값을 mirror한다.
+- 셸은 마지막 게임을 보존하고 고정 라이트 UI를 사용한다. 코스의 기본 라이트·선택형 다크 맵 모드와 조 편성·당첨 인원·시드는 Showdown 전용 상태다.
+- 공통 헤더의 `참가자 N명` 대화상자가 명단과 동일 이름 정책을 함께 소유한다. 기본은 미허용이며 허용하면 같은 이름의 각 occurrence를 서로 다른 참가 번호로 보존한다.
+- Showdown은 최초 방문 때 lazy-load한다. 방문한 surface는 다른 게임을 선택해도 keep-alive로 설정 초안을 유지하고, 비활성 상태에서는 `active=false`를 받아 코스 미리보기·타이머·애니메이션을 멈춘다.
+- 공통 명단 저장은 `ex-lab:roster:v1`과 Race 레거시 `marble-game:roster`를 함께 갱신해 롤백 호환성을 유지한다.
+- Showdown CSS는 `.showdown-game` 범위로 격리하고 공통 셸의 `Inter → Pretendard → 시스템 sans` 서체 override를 따른다.
+- 저장 이력은 행별 필수 필드를 검증해 손상된 레거시 행을 제외하고, 유효한 구형 `winnerName`은 `winnerNames` 배열로 이관한다.
+- 실행 중에는 공통 셸의 게임 전환을 잠근다.
+- 통합 화면은 준비 화면의 큰 홍보형 제목과 장문 소개를 노출하지 않고 설정, 미리보기, 주 행동을 우선한다.
+- 1.3.0 통합은 아래 1.2.3 Showdown 물리, 결과, 시계와 골인 기록 계약을 변경하지 않는다.
+
+공통 상태 전이와 게임 adapter 계약은 [EX_LAB_PLATFORM_SPEC.md](./EX_LAB_PLATFORM_SPEC.md)를 따른다.
 
 ## 라이브 순위 골인 기록과 순위 전환
 
@@ -152,15 +169,16 @@
 ## 1. 제품 계층과 명칭
 
 - 전체 게임 프로젝트: `Ex Lab`
-- 게임: `Roulette`, `Race`
-- 현재 독립 구현 범위: `Ex Lab / Race`
+- 게임: `Roulette`, `Showdown`
+- 현재 독립 구현 범위: `Ex Lab / Showdown`
 - 공용 셸은 프로젝트명과 게임 전환을 담당하고, 게임 내부 화면은 게임명만 사용한다.
 - 기존 특정 서비스명은 UI, 메타데이터, 저장 키의 신규 명칭에서 사용하지 않는다.
 
 ## 2. 타이포그래피
 
-- 본문, 입력, 버튼, 순위표: `Pretendard` 우선
-- 프로젝트명, 게임명, 주요 제목, 카운트다운: Race의 무거운 쇼다운형 표시 서체 토큰
+- 본문, 입력, 버튼, 순위표, 프로젝트명, 게임명, 주요 제목, 카운트다운은 모두 산세리프를 사용한다.
+- 공통 폴백은 `Inter`, `Pretendard`, 시스템 산세리프, `sans-serif` 순서로 구성한다.
+- 표시 위계는 별도 장식 서체가 아니라 굵기와 자간으로 구분한다.
 - 서체는 컴포넌트에서 직접 지정하지 않고 `--font-body`, `--font-display` 토큰을 사용한다.
 
 ## 3. 참가자와 인원별 테마
@@ -188,9 +206,10 @@ type Candidate = {
 
 ### 동일 이름
 
-- 기본값: 미허용
-- 동일 이름이 있으면 명단은 보존하지만 유효하지 않은 상태로 표시하고 방송 화면 진입을 막는다.
-- 운영자가 `동일 이름 허용`을 켜면 서로 다른 내부 ID와 번호로 참가한다.
+- 공통 명단 대화상자의 단일 정책이며 기본값은 미허용이다.
+- 동일 이름이 있으면 입력 occurrence는 보존하지만 유효하지 않은 상태로 표시하고 저장과 방송 화면 진입을 막는다.
+- 운영자가 `동일 이름 허용`을 켜면 중복 행을 합치지 않고 서로 다른 내부 ID와 번호로 참가한다.
+- 선택값은 `ex-lab:allow-duplicate-names:v1`에 저장되어 Roulette와 Showdown에 동일하게 적용된다.
 
 ## 4. 전체 명단과 조 편성
 
@@ -243,12 +262,12 @@ ready
 
 ## 7. 풀 패키지 설계 개념
 
-풀 패키지는 이번 독립 Race 화면 위에 놓이는 상위 오케스트레이터다.
+풀 패키지는 이번 독립 Showdown 화면 위에 놓이는 상위 오케스트레이터다.
 
 ```ts
 type PackagePlan = {
   packageId: string;
-  game: "roulette" | "race";
+  game: "roulette" | "race"; // "race"는 Showdown adapter의 내부 식별자
   roster: Candidate[];
   groups: CandidateGroup[];
   winnersPerGroup: number;
@@ -271,7 +290,7 @@ type GroupResult = {
 2. 1조 방송 대기 화면을 연다.
 3. 운영자가 경기를 시작한다.
 4. N명 당첨이 확정되면 `GroupResult`를 저장한다.
-5. `다음 조 준비`로 다음 조의 새 Race 계획을 만든다.
+5. `다음 조 준비`로 다음 조의 새 Showdown 계획을 만든다.
 6. 마지막 조가 끝나면 모든 `GroupResult`를 합쳐 패키지 결과를 표시한다.
 
 ### 종합 결과
@@ -282,9 +301,9 @@ type GroupResult = {
 - 추후 결승 라운드를 사용할 경우 조별 당첨자만 새 명단으로 모아 별도 `PackagePlan`을 만든다.
 - 중단 후 재개를 위해 현재 조, 완료된 조 결과, 잠긴 명단과 옵션을 함께 저장한다.
 
-## 8. Roulette와의 통합 포인트
+## 8. Roulette와 Showdown의 통합 포인트
 
-- 공용: Ex Lab 셸, Pretendard, 참가자 명단 편집기, 동일 이름 정책, 참가자 테마, 방송 대기 상태, 결과 저장 계약
+- 공용: Ex Lab 셸, `Inter → Pretendard → 시스템 sans` 서체, 참가자 명단 편집기, 동일 이름 정책, 참가자 테마, 방송 대기 상태, 결과 저장 계약
 - Roulette 전용: 휠 미리보기, 회전 연출, 1회 추첨 계약
-- Race 전용: 조 편성, 물리 코스, 장애물 의미 색, N명 결승 통과 계약
+- Showdown 전용: 조 편성, 물리 코스, 장애물 의미 색, N명 결승 통과 계약
 - 공용 어댑터는 `RunRequest → GamePlan → GroupResult` 경계를 사용하고 게임 내부 물리 타입을 노출하지 않는다.

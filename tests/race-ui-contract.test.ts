@@ -42,6 +42,39 @@ test("broadcast waiting dialog starts focused without claiming a modal trap", ()
   );
 });
 
+test("embedded Race uses the shared roster contract without promotional copy", () => {
+  assert.match(gameSource, /export type MarbleGameProps = \{/);
+  assert.match(gameSource, /rosterText\?: string;/);
+  assert.match(gameSource, /active\?: boolean;/);
+  assert.match(
+    gameSource,
+    /onRosterTextChange\?: \(text: string\) => void;/,
+  );
+  assert.match(
+    gameSource,
+    /onActivityChange\?: \(active: boolean\) => void;/,
+  );
+  assert.match(
+    gameSource,
+    /const rosterText = controlledRosterText \?\? internalRosterText;/,
+  );
+  assert.match(
+    gameSource,
+    /onRosterTextChange\?\.\(nextRosterText\);/,
+  );
+  assert.match(
+    gameSource,
+    /phase === "generating"[\s\S]*?phase === "waiting"[\s\S]*?phase === "countdown"[\s\S]*?phase === "running"[\s\S]*?phase === "result"/,
+  );
+  assert.match(gameSource, /\{!embedded && \(\s*<header className="product-header">/);
+  assert.doesNotMatch(gameSource, /모든 이름이/);
+  assert.doesNotMatch(gameSource, /조별 Race로 이어집니다/);
+  assert.doesNotMatch(gameSource, /1,000px 목표 추격 보정/);
+  assert.match(gameSource, /<details className="course-legend-details">/);
+  assert.match(gameSource, /if \(!active\) return undefined;/);
+  assert.doesNotMatch(cssSource, /\.intro(?:\s|[>{.:])/);
+});
+
 test("mobile leaderboard keeps the first active contender visible", () => {
   assert.match(gameSource, /"is-active-contender"/);
   assert.match(

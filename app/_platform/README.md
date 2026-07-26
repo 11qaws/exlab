@@ -1,0 +1,56 @@
+# Ex Lab platform contract
+
+The platform owns the game catalog, shared roster, last-used game, and
+cross-game navigation. The shell uses a fixed practical light appearance and
+does not offer or store a global theme preference. Roulette and Showdown
+continue to own their rules, preview, run state, physics or selection logic,
+and detailed result presentation. Showdown alone keeps its game-specific
+light/dark map toggle, defaulting to light.
+
+## Lifecycle
+
+| Platform state | Meaning | Game switch |
+| --- | --- | --- |
+| `editing` | Inputs may be edited safely | allowed |
+| `generating` | A run is being prepared | locked |
+| `waiting` | Broadcast view is prepared | locked |
+| `active` | Countdown or game is running | locked |
+| `settling` | Physical/result gate is completing | locked |
+| `result` | Current run result is being presented | locked |
+| `failed` | Recovery is required before editing | locked |
+
+Each engine can keep finer internal states. Its adapter reports
+`onActivityChange(true)` for every locked state and reports `false` only after
+returning to a safe editing state. Unmount cleanup also reports `false`.
+
+Only the last-selected game is lazy-loaded at startup. A surface stays mounted
+after its first visit so switching games does not discard that engine's setup
+draft. The shell hides the inactive surface and passes `active={false}`;
+adapters pause previews, timers, and animations while inactive, then resume
+from the preserved draft when selected again.
+
+The header's `참가자 N명` button opens the one shared roster dialog. Duplicate
+names are rejected by default. When the persisted shared policy allows them,
+parsing preserves every occurrence and each engine assigns a distinct
+participant number instead of deduplicating the list.
+
+## Invariants
+
+1. The catalog in `catalog.ts` stays data-only and JSON-serializable.
+2. The shell never reads or changes engine-specific result or physics state.
+3. The shared roster has one owner (`ExLabApp`) and is passed to every game as a
+   controlled value.
+4. A legacy Race-engine roster is copied once to `ex-lab:roster:v1`. Every
+   subsequent shared-roster write mirrors `marble-game:roster` for rollback
+   compatibility.
+5. A game cannot be switched while its adapter reports an active session.
+6. New games register one catalog entry and one component implementing
+   `EmbeddedGameProps`; the shell layout does not change.
+7. Editing-state game surfaces stay mounted so their local setup drafts survive
+   a switch; inactive previews and other continuous work must not advance.
+8. Unvisited game modules are not loaded.
+9. Showdown styles stay inside `.showdown-game` and Roulette styles stay inside
+   `.roulette-game`; the common shell overrides descendants with the
+   Inter → Pretendard → system sans stack.
+10. Stored Showdown history validates rows, drops malformed legacy data, and
+    migrates a valid legacy `winnerName` into `winnerNames`.

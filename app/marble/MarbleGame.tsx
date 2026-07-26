@@ -75,6 +75,7 @@ import {
   type RaceMapMode,
 } from "./race-theme";
 import {
+  parseStoredRaceHistory,
   shouldPersistRaceHistoryCheckpoint,
   upsertRaceHistory,
   type RaceHistoryCheckpoint,
@@ -85,6 +86,7 @@ import type {
   StoredRaceResult,
 } from "./types";
 import { RaceCanvas } from "./RaceCanvas";
+import "./marble-game.css";
 
 const DEFAULT_ROSTER = [
   "아모",
@@ -110,6 +112,16 @@ type Phase =
   | "running"
   | "result"
   | "error";
+
+export type MarbleGameProps = {
+  embedded?: boolean;
+  active?: boolean;
+  rosterText?: string;
+  onRosterTextChange?: (text: string) => void;
+  allowDuplicateNames?: boolean;
+  onAllowDuplicateNamesChange?: (allow: boolean) => void;
+  onActivityChange?: (active: boolean) => void;
+};
 
 type FinalOvertakeCue = {
   fromSlotId: string;
@@ -469,7 +481,7 @@ function StartPreview({
     <div
       className="map-preview"
       data-map-mode={mapMode}
-      aria-label="Race 경기장 미리보기"
+      aria-label="Showdown 경기장 미리보기"
     >
       <svg
         className="preview-course"
@@ -666,11 +678,13 @@ function LiveRacePreview({
   layoutSeed,
   reducedMotion,
   mapMode,
+  active,
 }: {
   candidates: Candidate[];
   layoutSeed: string;
   reducedMotion: boolean;
   mapMode: RaceMapMode;
+  active: boolean;
 }) {
   const [previewCycle, setPreviewCycle] = useState(0);
   const [previewPlan, setPreviewPlan] = useState<RacePlan | null>(null);
@@ -678,6 +692,7 @@ function LiveRacePreview({
   const [remainingSeconds, setRemainingSeconds] = useState(10);
 
   useEffect(() => {
+    if (!active) return undefined;
     let retryTimer = 0;
     const timer = window.setTimeout(() => {
       setPreviewFrameIndex(0);
@@ -730,10 +745,10 @@ function LiveRacePreview({
       window.clearTimeout(timer);
       window.clearTimeout(retryTimer);
     };
-  }, [candidates, layoutSeed, previewCycle]);
+  }, [active, candidates, layoutSeed, previewCycle]);
 
   useEffect(() => {
-    if (!previewPlan) return;
+    if (!active || !previewPlan) return;
     const startedAt = performance.now();
     let animationFrame = 0;
     const animate = (now: number) => {
@@ -754,7 +769,7 @@ function LiveRacePreview({
     };
     animationFrame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrame);
-  }, [previewPlan]);
+  }, [active, previewPlan]);
 
   if (!previewPlan) {
     return (
@@ -770,7 +785,7 @@ function LiveRacePreview({
     <div
       className="map-preview live-preview"
       data-map-mode={mapMode}
-      aria-label="10초 Race 경기 미리보기"
+      aria-label="10초 Showdown 경기 미리보기"
     >
       <RaceCanvas
         plan={previewPlan}
@@ -808,14 +823,24 @@ function LiveRacePreview({
   );
 }
 
-export function MarbleGame() {
-  const [title, setTitle] = useState("오늘의 Race");
-  const [rosterText, setRosterText] = useState(DEFAULT_ROSTER);
+export function MarbleGame({
+  embedded = false,
+  active = true,
+  rosterText: controlledRosterText,
+  onRosterTextChange,
+  allowDuplicateNames: controlledAllowDuplicateNames,
+  onAllowDuplicateNamesChange,
+  onActivityChange,
+}: MarbleGameProps = {}) {
+  const [title, setTitle] = useState("오늘의 Showdown");
+  const [internalRosterText, setInternalRosterText] =
+    useState(DEFAULT_ROSTER);
   const [isEditingRoster, setIsEditingRoster] = useState(false);
   const [mapMode, setMapMode] = useState<RaceMapMode>(
     DEFAULT_RACE_MAP_MODE,
   );
-  const [allowDuplicateNames, setAllowDuplicateNames] = useState(false);
+  const [internalAllowDuplicateNames, setInternalAllowDuplicateNames] =
+    useState(false);
   const [groupCount, setGroupCount] = useState(1);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const [winnerCount, setWinnerCount] = useState(1);
@@ -846,7 +871,18 @@ export function MarbleGame() {
     createRacePlaybackClock(),
   );
   const lastPlaybackTimestamp = useRef<number | null>(null);
+  const activityChangeRef = useRef(onActivityChange);
   const reducedMotion = useReducedMotion();
+  const hasControlledRoster = controlledRosterText !== undefined;
+  const rosterText = controlledRosterText ?? internalRosterText;
+  const allowDuplicateNames =
+    controlledAllowDuplicateNames ?? internalAllowDuplicateNames;
+  const hasActiveRun =
+    phase === "generating" ||
+    phase === "waiting" ||
+    phase === "countdown" ||
+    phase === "running" ||
+    phase === "result";
   const stableLeadChanges = useMemo(
     () =>
       plan
@@ -915,13 +951,30 @@ export function MarbleGame() {
   );
 
   useEffect(() => {
+    activityChangeRef.current = onActivityChange;
+  }, [onActivityChange]);
+
+  useEffect(() => {
+    onActivityChange?.(hasActiveRun);
+  }, [hasActiveRun, onActivityChange]);
+
+  useEffect(
+    () => () => {
+      activityChangeRef.current?.(false);
+    },
+    [],
+  );
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
         const storedRoster = localStorage.getItem(ROSTER_KEY);
         const storedHistory = localStorage.getItem(HISTORY_KEY);
-        if (storedRoster) setRosterText(storedRoster);
+        if (storedRoster && !hasControlledRoster) {
+          setInternalRosterText(storedRoster);
+        }
         if (storedHistory) {
-          const parsedHistory = JSON.parse(storedHistory);
+          const parsedHistory = parseStoredRaceHistory(storedHistory);
           historyRef.current = parsedHistory;
           setHistory(parsedHistory);
         }
@@ -930,7 +983,7 @@ export function MarbleGame() {
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [hasControlledRoster]);
 
   useEffect(() => {
     if (!toast) return;
@@ -1167,14 +1220,23 @@ export function MarbleGame() {
     setHistory(nextHistory);
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
-      localStorage.setItem(ROSTER_KEY, rosterText);
+      if (!hasControlledRoster) {
+        localStorage.setItem(ROSTER_KEY, rosterText);
+      }
     } catch {
       window.setTimeout(
         () => setToast("결과는 표시했지만 이 기기에 저장하지 못했어요."),
         0,
       );
     }
-  }, [phase, plan, isReplay, frameIndex, rosterText]);
+  }, [
+    phase,
+    plan,
+    isReplay,
+    frameIndex,
+    rosterText,
+    hasControlledRoster,
+  ]);
 
   const handleOpenBroadcast = () => {
     if (
@@ -1385,10 +1447,10 @@ export function MarbleGame() {
 
     if (phase === "result") {
       return (
-        <main className="result-screen">
+        <main className="showdown-game result-screen">
           <div className="result-glow" aria-hidden="true" />
           <header className="result-header">
-            <p className="eyebrow">RACE RESULTS</p>
+            <p className="eyebrow">SHOWDOWN RESULTS</p>
             <span>
               도착 {arrivedRows.length}/{plan.candidates.length} ·
               미도착 순위는 공란
@@ -1401,7 +1463,7 @@ export function MarbleGame() {
             aria-labelledby="winner-title"
           >
             <p id="winner-title">
-              Race 당첨자 {plan.winnerCount}명
+              Showdown 당첨자 {plan.winnerCount}명
             </p>
             <div className="winner-list">
               {winnerRows.map(({ slotId, candidate }, index) => {
@@ -1565,10 +1627,10 @@ export function MarbleGame() {
     }
 
     return (
-      <main className="race-screen">
+      <main className="showdown-game race-screen">
         <header className="race-header">
           <div>
-            <p className="eyebrow">EX LAB · RACE</p>
+            <p className="eyebrow">EX LAB · SHOWDOWN</p>
             <h1>{plan.title}</h1>
           </div>
           <div className="race-header-actions">
@@ -1739,36 +1801,26 @@ export function MarbleGame() {
   }
 
   return (
-    <main className="preparation-screen">
-      <header className="product-header">
-        <a className="brand" href="#" aria-label="Ex Lab 처음으로">
-          <span aria-hidden="true">●</span>
-          Ex Lab
-        </a>
-        <div className="product-header-actions">
-          <MapThemeToggle mode={mapMode} onChange={setMapMode} />
-          <span className="prototype-badge">RACE · VERSION 1.2.3</span>
-        </div>
-      </header>
-
-      <section className="intro">
-        <p className="eyebrow">EX LAB · RACE</p>
-        <h1>
-          모든 이름이
-          <br />
-          조별 Race로 이어집니다.
-        </h1>
-        <p>
-          전체 명단을 편성하고 방송 화면을 여세요. 각 조는 운영자가
-          시작할 때까지 대기합니다.
-        </p>
-      </section>
+    <main
+      className={`showdown-game preparation-screen${embedded ? " is-embedded" : ""}`}
+    >
+      {!embedded && (
+        <header className="product-header">
+          <a className="brand" href="#" aria-label="Ex Lab 처음으로">
+            <span aria-hidden="true">●</span>
+            Ex Lab
+          </a>
+          <div className="product-header-actions">
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.0</span>
+          </div>
+        </header>
+      )}
 
       <div className="preparation-grid">
         <section className="setup-panel" aria-labelledby="setup-title">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">RACE SETUP</p>
+              <p className="eyebrow">SHOWDOWN SETUP</p>
               <h2 id="setup-title">경기 준비</h2>
             </div>
             <span
@@ -1864,7 +1916,13 @@ export function MarbleGame() {
               <textarea
                 id="roster-input"
                 value={rosterText}
-                onChange={(event) => setRosterText(event.target.value)}
+                onChange={(event) => {
+                  const nextRosterText = event.target.value;
+                  if (!hasControlledRoster) {
+                    setInternalRosterText(nextRosterText);
+                  }
+                  onRosterTextChange?.(nextRosterText);
+                }}
                 aria-invalid={!validation.isValid}
                 aria-describedby="roster-help"
               />
@@ -1912,7 +1970,13 @@ export function MarbleGame() {
               </span>
               <button
                 className="toggle-button"
-                onClick={() => setAllowDuplicateNames((value) => !value)}
+                onClick={() => {
+                  const nextValue = !allowDuplicateNames;
+                  if (controlledAllowDuplicateNames === undefined) {
+                    setInternalAllowDuplicateNames(nextValue);
+                  }
+                  onAllowDuplicateNamesChange?.(nextValue);
+                }}
                 aria-pressed={allowDuplicateNames}
               >
                 {allowDuplicateNames ? "허용" : "미허용"}
@@ -1960,16 +2024,17 @@ export function MarbleGame() {
 
         <section className="venue-panel" aria-labelledby="venue-title">
           <div className="venue-copy">
-            <p className="eyebrow">COURSE 01</p>
-            <h2 id="venue-title">Race</h2>
-            <p>
-              좌·우 사이클로이드와 수축·확장 구간, 네 가지 구간 패턴,
-              고탄성 범퍼와 한쪽 위험 레인, 1,000px 목표 추격 보정을
-              통과하는 약 30초 물리 코스
-            </p>
-            <CourseLegend />
+            <div className="venue-copy-heading">
+              <h2 id="venue-title">Showdown</h2>
+              <MapThemeToggle mode={mapMode} onChange={setMapMode} />
+            </div>
+            <details className="course-legend-details">
+              <summary>장애물 범례</summary>
+              <CourseLegend />
+            </details>
           </div>
           <LiveRacePreview
+            active={active}
             candidates={activeCandidates}
             layoutSeed={layoutSeed}
             reducedMotion={reducedMotion}

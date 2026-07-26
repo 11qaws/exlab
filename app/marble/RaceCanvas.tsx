@@ -487,7 +487,7 @@ export function RaceCanvas({
       context.stroke();
       context.setLineDash([]);
       context.fillStyle = colorWithAlpha(theme.text, 0.82);
-      context.font = `800 ${Math.max(10, 13 * scale)}px Pretendard, system-ui`;
+      context.font = `800 ${Math.max(10, 13 * scale)}px Inter, Pretendard, system-ui, sans-serif`;
       context.textAlign = "left";
       context.textBaseline = "bottom";
       context.fillText(
@@ -645,7 +645,7 @@ export function RaceCanvas({
         }
       }
       context.fillStyle = theme.text;
-      context.font = `800 ${Math.max(11, 17 * scale)}px system-ui`;
+      context.font = `800 ${Math.max(11, 17 * scale)}px Inter, Pretendard, system-ui, sans-serif`;
       context.fillText(
         "FINISH",
         startX,
@@ -727,7 +727,7 @@ export function RaceCanvas({
       );
       context.stroke();
       context.fillStyle = candidate.theme.onPrimary;
-      context.font = `900 ${Math.max(9, 12 * scale)}px Pretendard, system-ui`;
+      context.font = `900 ${Math.max(9, 12 * scale)}px Inter, Pretendard, system-ui, sans-serif`;
       context.textAlign = "center";
       context.textBaseline = "middle";
       context.fillText(String(candidate.number), 0, 0);
@@ -735,7 +735,7 @@ export function RaceCanvas({
 
       if (topSlots.has(pose.slotId) && scale > 0.55) {
         const label = shortName(candidate.name, 7);
-        context.font = `700 ${Math.max(11, 13 * scale)}px Pretendard, system-ui`;
+        context.font = `700 ${Math.max(11, 13 * scale)}px Inter, Pretendard, system-ui, sans-serif`;
         const width = context.measureText(label).width + 16;
         context.fillStyle = theme.label;
         context.beginPath();
@@ -760,7 +760,7 @@ export function RaceCanvas({
       ) {
         context.save();
         context.fillStyle = theme.highlight;
-        context.font = `900 ${Math.max(12, 15 * scale)}px Pretendard, system-ui`;
+        context.font = `900 ${Math.max(12, 15 * scale)}px Inter, Pretendard, system-ui, sans-serif`;
         context.textAlign = "center";
         context.textBaseline = "middle";
         context.fillText("↑", x, y + MARBLE_RADIUS * scale + 18);
@@ -820,9 +820,9 @@ export function RaceCanvas({
       aria-label={
         finalOvertakeCandidate
           ? finalOvertake?.hasOvertaken
-            ? `Race 경기장. 마지막 구간에서 ${finalOvertakeCandidate.name} 참가자가 선두를 추월했습니다.`
-            : `Race 경기장. 마지막 구간에서 ${finalOvertakeCandidate.name} 참가자가 선두 추월을 시도하고 있습니다.`
-          : `Race 경기장. 현재 선두는 ${leaderCandidate?.name ?? "확인 중"}입니다.`
+            ? `Showdown 경기장. 마지막 구간에서 ${finalOvertakeCandidate.name} 참가자가 선두를 추월했습니다.`
+            : `Showdown 경기장. 마지막 구간에서 ${finalOvertakeCandidate.name} 참가자가 선두 추월을 시도하고 있습니다.`
+          : `Showdown 경기장. 현재 선두는 ${leaderCandidate?.name ?? "확인 중"}입니다.`
       }
     />
   );

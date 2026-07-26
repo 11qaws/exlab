@@ -2,9 +2,31 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ex Lab",
-  description:
-    "전체 참가자를 최대 10명씩 나누어 진행하는 Ex Lab Race.",
+  metadataBase: new URL("https://marble-showdown-lab.civtale.chatgpt.site"),
+  title: {
+    default: "Ex Lab",
+    template: "%s · Ex Lab",
+  },
+  description: "Roulette와 Showdown을 한 명단으로 운영하는 게임 도구.",
+  openGraph: {
+    type: "website",
+    title: "Ex Lab",
+    description: "Roulette와 Showdown을 한 명단으로 운영하는 게임 도구.",
+    images: [
+      {
+        url: "/og.png",
+        width: 1731,
+        height: 909,
+        alt: "Ex Lab Roulette와 Showdown",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ex Lab",
+    description: "Roulette와 Showdown을 한 명단으로 운영하는 게임 도구.",
+    images: ["/og.png"],
+  },
 };
 
 export default function RootLayout({

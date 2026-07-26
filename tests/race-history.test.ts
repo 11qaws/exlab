@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  parseStoredRaceHistory,
   shouldPersistRaceHistoryCheckpoint,
   upsertRaceHistory,
 } from "../app/marble/race-history";
@@ -79,4 +80,22 @@ test("history upsert keeps the newest run first and enforces its limit", () => {
     () => upsertRaceHistory(history, stored("bad", []), 0),
     RangeError,
   );
+});
+
+test("stored history drops malformed rows and migrates a legacy winner", () => {
+  const valid = stored("valid", ["당첨자"]);
+  const parsed = parseStoredRaceHistory(JSON.stringify([
+    valid,
+    {
+      ...valid,
+      runId: "legacy",
+      winnerNames: undefined,
+      winnerName: "이전 당첨자",
+    },
+    { runId: "broken" },
+  ]));
+
+  assert.equal(parsed.length, 2);
+  assert.deepEqual(parsed[1].winnerNames, ["이전 당첨자"]);
+  assert.deepEqual(parseStoredRaceHistory("{broken"), []);
 });

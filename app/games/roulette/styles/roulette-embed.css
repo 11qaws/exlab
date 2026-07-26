@@ -1,0 +1,52 @@
+@scope (.roulette-game) {
+  :scope.is-embedded {
+    min-height: calc(100svh - var(--exlab-header-height));
+    background: var(--page);
+  }
+
+  .app-shell.is-embedded {
+    width: 100%;
+    min-height: calc(100svh - var(--exlab-header-height));
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .app-shell.is-embedded::before {
+    display: none;
+  }
+
+  .app-shell--preparation.is-embedded {
+    padding: clamp(18px, 2.4vw, 32px);
+  }
+
+  .app-shell--live.is-embedded {
+    padding-top: 18px;
+  }
+
+  .broadcast-phase-bar__tools {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+  }
+
+  @media (max-width: 620px) {
+    .app-shell--preparation.is-embedded,
+    .app-shell--live.is-embedded {
+      width: 100%;
+      min-height: calc(100svh - var(--exlab-header-height));
+      margin: 0;
+      padding: 12px;
+    }
+
+    .broadcast-phase-bar {
+      padding-right: 10px;
+    }
+
+    .broadcast-phase-bar__tools {
+      width: 100%;
+      justify-content: flex-end;
+    }
+  }
+}
