@@ -29,19 +29,23 @@ test("server-renders the marble game preparation experience", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="ko">/i);
-  assert.match(html, /<title>Marble Showdown — 기능 테스트<\/title>/i);
-  assert.match(html, /MARBLE SHOWDOWN/);
+  assert.match(html, /<title>Ex Lab — Race<\/title>/i);
+  assert.match(html, /Ex Lab/);
   assert.match(html, /경기 준비/);
-  assert.match(html, /레또 드롭/);
-  assert.match(html, /경기 시작/);
+  assert.match(html, />Race</);
+  assert.match(html, /방송 화면 열기/);
   assert.doesNotMatch(html, /codex-preview/i);
   assert.doesNotMatch(html, /react-loading-skeleton/i);
 });
 
-test("exposes the ten-person limit and both result modes", async () => {
+test("exposes grouping, duplicate policy, winner count, and both result modes", async () => {
   const response = await render();
   const html = await response.text();
-  assert.match(html, /8명이 레또 드롭에서 출발합니다/);
+  assert.match(html, /전체 (?:<!-- -->)?8(?:<!-- -->)?명/);
+  assert.match(html, /조당 최대 (?:<!-- -->)?10(?:<!-- -->)?명/);
+  assert.match(html, /동일 이름/);
+  assert.match(html, /미허용/);
+  assert.match(html, /당첨 인원/);
   assert.match(html, /결과 선확정/);
   assert.match(html, /물리 결과형/);
   assert.match(html, /자동 배치 다시 만들기/);

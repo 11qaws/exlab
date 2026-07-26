@@ -33,8 +33,12 @@ import {
 } from "../app/marble/course-clearance";
 import {
   buildRacePlan,
+  contrastRatio,
+  minimumGroupCount,
   parseRoster,
+  PARTICIPANT_THEMES,
   shuffleSeeded,
+  splitCandidatesIntoGroups,
 } from "../app/marble/core";
 import {
   COUNTDOWN_SEQUENCE,
@@ -54,19 +58,51 @@ test("roster accepts two through ten participants", () => {
   );
 });
 
-test("roster preserves overflow names and blocks eleven participants", () => {
+test("roster preserves overflow names beyond the full-list limit", () => {
   const validation = parseRoster(
-    Array.from({ length: 11 }, (_, index) => `참가자${index + 1}`).join("\n"),
+    Array.from({ length: 321 }, (_, index) => `참가자${index + 1}`).join("\n"),
   );
   assert.equal(validation.isValid, false);
-  assert.equal(validation.candidates.length, 10);
-  assert.deepEqual(validation.overflowNames, ["참가자11"]);
+  assert.equal(validation.candidates.length, 320);
+  assert.deepEqual(validation.overflowNames, ["참가자321"]);
 });
 
-test("duplicate names remain separate candidates", () => {
-  const validation = parseRoster("레또\n레또");
-  assert.equal(validation.isValid, true);
-  assert.notEqual(validation.candidates[0].id, validation.candidates[1].id);
+test("duplicate names are blocked by default and can be explicitly allowed", () => {
+  const validation = parseRoster("동일\n동일");
+  assert.equal(validation.isValid, false);
+  assert.deepEqual(validation.duplicateNames, ["동일"]);
+  const allowed = parseRoster("동일\n동일", {
+    allowDuplicateNames: true,
+  });
+  assert.equal(allowed.isValid, true);
+  assert.notEqual(allowed.candidates[0].id, allowed.candidates[1].id);
+});
+
+test("thirty-two participants default to four balanced groups", () => {
+  const candidates = parseRoster(
+    Array.from({ length: 32 }, (_, index) => `참가자${index + 1}`).join("\n"),
+  ).candidates;
+  assert.equal(minimumGroupCount(candidates.length), 4);
+  assert.deepEqual(
+    splitCandidatesIntoGroups(candidates, 1).map(
+      (group) => group.candidates.length,
+    ),
+    [8, 8, 8, 8],
+  );
+  assert.deepEqual(
+    splitCandidatesIntoGroups(candidates, 8).map(
+      (group) => group.candidates.length,
+    ),
+    [4, 4, 4, 4, 4, 4, 4, 4],
+  );
+});
+
+test("participant themes meet the common contrast rules", () => {
+  assert.equal(PARTICIPANT_THEMES.length, 10);
+  for (const theme of PARTICIPANT_THEMES) {
+    assert.ok(contrastRatio(theme.onPrimary, theme.primary) >= 4.5);
+    assert.ok(contrastRatio(theme.onSurface, theme.surface) >= 6.5);
+  }
 });
 
 test("seeded shuffle is deterministic", () => {
@@ -85,7 +121,8 @@ test("physics simulation produces a stable winner for the same seeds", () => {
   assert.deepEqual(first.fullFinishOrder, second.fullFinishOrder);
   assert.deepEqual(first.dynamics, second.dynamics);
   assert.ok(first.frames.length > 30);
-  assert.ok(first.winnerFrameIndex >= 0);
+  assert.ok(first.firstFinishFrameIndex >= 0);
+  assert.ok(first.awardFrameIndex >= first.firstFinishFrameIndex);
 });
 
 test("countdown exposes 3, 2, 1, and GO before the race starts", () => {
@@ -162,7 +199,7 @@ test("the asymmetric course targets a roughly twenty-second first finish", () =>
         `layout-duration-${index}`,
       );
       assert.ok(simulation.physicallyFinishedCount > 0);
-      return simulation.winnerFrameIndex / 30;
+      return simulation.firstFinishFrameIndex / 30;
     });
     const average =
       firstFinishSeconds.reduce((sum, duration) => sum + duration, 0) /
@@ -332,7 +369,7 @@ test("every independent course object leaves more than one marble diameter", () 
 
 test("preselected mode maps the locked result onto physical finish slots", () => {
   const candidates = parseRoster("가\n나\n다\n라").candidates;
-  const simulation = simulateRace(4, "race-plan", "layout-plan");
+  const simulation = simulateRace(4, "race-plan", "layout-plan", 2);
   const plan = buildRacePlan(
     "테스트",
     candidates,
@@ -343,8 +380,26 @@ test("preselected mode maps the locked result onto physical finish slots", () =>
       resultSeed: "result-plan",
       layoutSeed: "layout-plan",
     },
+    2,
   );
   assert.equal(plan.rankedCandidateIds.length, 4);
   assert.equal(new Set(plan.rankedCandidateIds).size, 4);
-  assert.equal(plan.winnerId, plan.rankedCandidateIds[0]);
+  assert.deepEqual(plan.winnerIds, plan.rankedCandidateIds.slice(0, 2));
+  assert.equal(plan.winnerCount, 2);
+});
+
+test("race presentation continues until the configured winner count arrives", () => {
+  const simulation = simulateRace(
+    8,
+    "multi-winner-race",
+    "multi-winner-layout",
+    4,
+  );
+  assert.equal(simulation.targetFinishCount, 4);
+  assert.ok(simulation.visibleFinishedCount >= 4);
+  assert.ok(simulation.awardFrameIndex > simulation.firstFinishFrameIndex);
+  assert.ok(
+    simulation.frames.at(-1)!.finishedSlotIds.length >=
+      simulation.targetFinishCount,
+  );
 });

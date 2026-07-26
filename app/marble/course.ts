@@ -6,7 +6,7 @@ export const FINISH_LINE_WIDTH = 60;
 export const MARBLE_RADIUS = 15;
 export const VIEW_HEIGHT = 1040;
 export const TARGET_FIRST_FINISH_SECONDS = 20;
-export const MAX_SIMULATION_SECONDS = 68;
+export const MAX_SIMULATION_SECONDS = 110;
 export const COURSE_BOUNDARY_THICKNESS = 24;
 
 export type BoundarySide = "left" | "right";

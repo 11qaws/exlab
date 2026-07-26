@@ -3,9 +3,9 @@ import { MarbleGame } from "./marble/MarbleGame";
 import "./marble/marble-game.css";
 
 export const metadata: Metadata = {
-  title: "Marble Showdown — 기능 테스트",
+  title: "Ex Lab — Race",
   description:
-    "최대 10명의 추첨 결과를 실제 물리 경기로 공개하는 단독 마블 게임 테스트.",
+    "전체 참가자를 최대 10명씩 나누어 진행하는 Ex Lab Race.",
 };
 
 export default function Home() {

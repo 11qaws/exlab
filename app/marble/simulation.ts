@@ -165,9 +165,17 @@ export function simulateRace(
   participantCount: number,
   raceSeed: string,
   layoutSeed: string,
+  targetFinishCount = 1,
 ): RaceSimulation {
   if (participantCount < 2 || participantCount > 10) {
     throw new Error("물리 경기는 2명 이상 10명 이하만 실행할 수 있습니다.");
+  }
+  if (
+    !Number.isInteger(targetFinishCount) ||
+    targetFinishCount < 1 ||
+    targetFinishCount > participantCount
+  ) {
+    throw new Error("당첨 인원은 1명 이상 참가자 수 이하여야 합니다.");
   }
 
   const random = createPrng(raceSeed);
@@ -205,7 +213,8 @@ export function simulateRace(
   const finished = new Set<string>();
   const stepMs = 1000 / 60;
   const maxSteps = 60 * MAX_SIMULATION_SECONDS;
-  let winnerFrameIndex = -1;
+  let firstFinishFrameIndex = -1;
+  let awardFrameIndex = -1;
   let step = 0;
 
   for (; step < maxSteps; step += 1) {
@@ -221,10 +230,12 @@ export function simulateRace(
       return angle;
     });
 
+    const windPulse = dynamics.windPulses.find(
+      (pulse) => step >= pulse.startStep && step < pulse.endStep,
+    );
     engine.gravity.x =
-      dynamics.windPulses.find(
-        (pulse) => step >= pulse.startStep && step < pulse.endStep,
-      )?.gravityX ?? 0;
+      windPulse?.gravityX ??
+      (step >= 4500 ? Math.sin(step * 0.045) * 1.35 : 0);
     if (step === 1500) {
       engine.gravity.y = 1.85;
     }
@@ -232,7 +243,13 @@ export function simulateRace(
       engine.gravity.y = 2.2;
     }
     if (step === 3900) {
-      engine.gravity.y = 2.8;
+      engine.gravity.y = 4.5;
+    }
+    if (step === 4500) {
+      engine.gravity.y = 7;
+    }
+    if (step === 5400) {
+      engine.gravity.y = 10;
     }
 
     for (const marble of marbles) {
@@ -262,31 +279,48 @@ export function simulateRace(
       frames.push(
         captureFrame(marbles, finishedSlotIds, rotatingBarAngles),
       );
-      if (winnerFrameIndex < 0 && finishedSlotIds.length > 0) {
-        winnerFrameIndex = frames.length - 1;
+      if (firstFinishFrameIndex < 0 && finishedSlotIds.length > 0) {
+        firstFinishFrameIndex = frames.length - 1;
+      }
+      if (
+        awardFrameIndex < 0 &&
+        finishedSlotIds.length >= targetFinishCount
+      ) {
+        awardFrameIndex = frames.length - 1;
       }
     }
 
-    if (finishedSlotIds.length === participantCount) {
+    if (
+      finishedSlotIds.length === participantCount &&
+      step % 2 === 0
+    ) {
       break;
     }
   }
 
   const fullFinishOrder = rankMarbles(marbles, finishedSlotIds);
   const visibleTailFrames = Math.round(FRAME_RATE * 1.2);
-  const safeWinnerFrame =
-    winnerFrameIndex >= 0
-      ? winnerFrameIndex
-      : Math.max(0, frames.length - visibleTailFrames - 1);
+  if (awardFrameIndex < 0) {
+    throw new Error(
+      `${targetFinishCount}명의 결승 통과를 확인하지 못했습니다. 새 코스로 다시 시도해 주세요.`,
+    );
+  }
+  const safeFirstFinishFrame =
+    firstFinishFrameIndex >= 0 ? firstFinishFrameIndex : awardFrameIndex;
   const visibleFrames = frames.slice(
     0,
-    Math.min(frames.length, safeWinnerFrame + visibleTailFrames),
+    Math.min(frames.length, awardFrameIndex + visibleTailFrames + 1),
   );
+  const visibleFinishedCount =
+    visibleFrames.at(-1)?.finishedSlotIds.length ?? 0;
 
   return {
     frames: visibleFrames,
     fullFinishOrder,
-    winnerFrameIndex: safeWinnerFrame,
+    firstFinishFrameIndex: safeFirstFinishFrame,
+    awardFrameIndex,
+    targetFinishCount,
+    visibleFinishedCount,
     durationMs: Math.round((visibleFrames.length / FRAME_RATE) * 1000),
     layoutShift,
     simulationSteps: step + 1,

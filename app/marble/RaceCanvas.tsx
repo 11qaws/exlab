@@ -263,7 +263,7 @@ export function RaceCanvas({
       context.rotate(pose.angle);
       context.shadowColor = "rgba(0, 0, 0, 0.35)";
       context.shadowBlur = 9 * scale;
-      context.fillStyle = candidate.color;
+      context.fillStyle = candidate.theme.primary;
       context.beginPath();
       context.arc(0, 0, MARBLE_RADIUS * scale, 0, Math.PI * 2);
       context.fill();
@@ -271,8 +271,8 @@ export function RaceCanvas({
       context.strokeStyle = "#fff8ef";
       context.lineWidth = Math.max(1.5, 2.5 * scale);
       context.stroke();
-      context.fillStyle = "#351923";
-      context.font = `900 ${Math.max(9, 12 * scale)}px system-ui`;
+      context.fillStyle = candidate.theme.onPrimary;
+      context.font = `900 ${Math.max(9, 12 * scale)}px Pretendard, system-ui`;
       context.textAlign = "center";
       context.textBaseline = "middle";
       context.fillText(String(candidate.number), 0, 0);
@@ -311,7 +311,7 @@ export function RaceCanvas({
       ref={canvasRef}
       className="race-canvas"
       role="img"
-      aria-label={`레또 드롭 경기장. 현재 선두는 ${leaderCandidate?.name ?? "확인 중"}입니다.`}
+      aria-label={`Race 경기장. 현재 선두는 ${leaderCandidate?.name ?? "확인 중"}입니다.`}
     />
   );
 }

@@ -65,6 +65,7 @@ button:disabled {
   font-weight: 900;
   letter-spacing: 0.12em;
   text-decoration: none;
+  font-family: var(--font-display);
 }
 
 .brand > span {
@@ -97,6 +98,7 @@ button:disabled {
 }
 
 .intro h1 {
+  font-family: var(--font-display);
   font-size: clamp(42px, 6vw, 82px);
   letter-spacing: -0.065em;
   line-height: 0.98;
@@ -155,6 +157,7 @@ button:disabled {
 .section-heading h2,
 .venue-copy h2,
 .result-ranking h2 {
+  font-family: var(--font-display);
   font-size: 26px;
   letter-spacing: -0.04em;
   margin: 0;
@@ -201,6 +204,96 @@ button:disabled {
 
 .title-input:focus {
   border-bottom-color: var(--accent);
+}
+
+.group-planner {
+  background: #fff7f1;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  margin-top: 22px;
+  padding: 14px;
+}
+
+.group-planner-heading,
+.group-planner-heading > div,
+.group-planner-heading label {
+  align-items: center;
+  display: flex;
+}
+
+.group-planner-heading {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.group-planner-heading > div {
+  gap: 8px;
+}
+
+.group-planner-heading span,
+.group-planner-heading label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.group-planner-heading strong {
+  font-size: 12px;
+}
+
+.group-planner-heading label {
+  gap: 8px;
+}
+
+.group-planner select,
+.select-setting select {
+  background: white;
+  border: 1px solid #d8c4be;
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 28px 7px 9px;
+}
+
+.group-tabs {
+  display: flex;
+  gap: 7px;
+  margin-top: 12px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+}
+
+.group-tabs button {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 850;
+  min-width: 58px;
+  padding: 8px 10px;
+}
+
+.group-tabs button small {
+  display: block;
+  font-size: 9px;
+  margin-top: 2px;
+}
+
+.group-tabs button.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: white;
+}
+
+.group-planner > p {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 9px 0 0;
 }
 
 .roster-heading {
@@ -251,8 +344,12 @@ button:disabled {
 }
 
 .roster-grid li {
-  background: #fbf1eb;
+  background: var(--participant-surface, #fbf1eb);
+  border: 1px solid
+    color-mix(in srgb, var(--participant-border, #e9d9d3) 42%, white);
+  border-left: 3px solid var(--participant-border, var(--line));
   border-radius: var(--radius-sm);
+  color: var(--participant-on-surface, var(--ink));
   grid-template-columns: 22px 10px minmax(0, 1fr);
   gap: 9px;
   min-height: 38px;
@@ -268,6 +365,7 @@ button:disabled {
 .roster-grid li > i,
 .leaderboard li > i,
 .result-ranking li > i {
+  background: var(--participant-primary, var(--accent));
   border-radius: 50%;
   display: block;
   height: 9px;
@@ -392,6 +490,10 @@ summary {
 
 .setting-row {
   margin-top: 14px;
+}
+
+.select-setting {
+  flex: 0 0 auto;
 }
 
 .toggle-button {
@@ -614,6 +716,7 @@ summary {
 }
 
 .race-header h1 {
+  font-family: var(--font-display);
   font-size: clamp(18px, 2.2vw, 29px);
   letter-spacing: -0.04em;
   margin: 0;
@@ -696,7 +799,7 @@ summary {
 .leaderboard li {
   border-bottom: 1px solid #3f2530;
   gap: 10px;
-  grid-template-columns: 25px 9px minmax(0, 1fr);
+  grid-template-columns: 25px 9px minmax(0, 1fr) auto;
   min-height: 38px;
   padding: 5px 8px;
   transition: background 180ms ease-out;
@@ -713,7 +816,11 @@ summary {
 }
 
 .leaderboard li.is-leading {
-  background: #4b2434;
+  background: color-mix(
+    in srgb,
+    var(--participant-primary, #e84f83) 20%,
+    #351c27
+  );
   border-radius: var(--radius-sm);
   border-bottom-color: transparent;
 }
@@ -721,6 +828,18 @@ summary {
 .leaderboard li.is-leading > strong,
 .leaderboard li.is-leading > span {
   color: white;
+}
+
+.leaderboard li.is-qualified {
+  border-left: 3px solid var(--participant-primary);
+}
+
+.leaderboard li em,
+.result-ranking li em {
+  color: var(--participant-primary);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
 }
 
 .camera-note {
@@ -741,6 +860,7 @@ summary {
 }
 
 .countdown span {
+  font-family: var(--font-display);
   font-size: clamp(92px, 16vw, 210px);
   font-weight: 950;
   letter-spacing: -0.08em;
@@ -752,6 +872,44 @@ summary {
   font-size: 12px;
   font-weight: 750;
   margin: 22px 0 0;
+}
+
+.broadcast-waiting {
+  align-items: center;
+  background: rgba(20, 10, 15, 0.78);
+  display: flex;
+  flex-direction: column;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: absolute;
+  text-align: center;
+}
+
+.broadcast-waiting h2 {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 5vw, 58px);
+  letter-spacing: -0.045em;
+  margin: 0;
+}
+
+.broadcast-waiting > span {
+  color: #d2b8c0;
+  font-size: 13px;
+  line-height: 1.7;
+  margin-top: 12px;
+  max-width: 520px;
+}
+
+.broadcast-waiting > div {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.broadcast-waiting .secondary-button {
+  border-color: #77515e;
+  color: white;
 }
 
 .finish-banner {
@@ -803,18 +961,36 @@ summary {
   text-align: center;
 }
 
+.winner-list {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+  justify-content: center;
+  margin: 22px auto 20px;
+  max-width: 980px;
+  width: 100%;
+}
+
+.winner-card {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .winner-marble {
   align-items: center;
   border: 4px solid white;
   border-radius: 50%;
   box-shadow: 0 16px 60px rgba(0, 0, 0, 0.38);
-  color: #351923;
+  background: var(--participant-primary);
+  color: var(--participant-on-primary);
   display: flex;
   font-size: 24px;
   font-weight: 950;
   height: 88px;
   justify-content: center;
-  margin-bottom: 22px;
+  margin-bottom: 10px;
   width: 88px;
 }
 
@@ -827,10 +1003,25 @@ summary {
 }
 
 .winner-reveal h1 {
+  font-family: var(--font-display);
   font-size: clamp(48px, 9vw, 112px);
   letter-spacing: -0.07em;
   line-height: 1;
   margin: 8px 0 12px;
+}
+
+.winner-reveal.is-multiple {
+  margin-top: clamp(34px, 6vh, 68px);
+}
+
+.winner-reveal.is-multiple h1 {
+  font-size: clamp(18px, 2.4vw, 32px);
+  letter-spacing: -0.045em;
+}
+
+.winner-reveal.is-multiple .winner-marble {
+  height: 68px;
+  width: 68px;
 }
 
 .result-ranking {
@@ -853,9 +1044,19 @@ summary {
 .result-ranking li {
   border-bottom: 1px solid #3f2530;
   gap: 12px;
-  grid-template-columns: 26px 10px minmax(0, 1fr);
+  grid-template-columns: 26px 10px minmax(0, 1fr) auto;
   min-height: 42px;
   padding: 6px 9px;
+}
+
+.result-ranking li.is-winner {
+  background: color-mix(
+    in srgb,
+    var(--participant-primary) 14%,
+    transparent
+  );
+  border-left: 3px solid var(--participant-primary);
+  border-radius: 8px;
 }
 
 .result-ranking li > strong {

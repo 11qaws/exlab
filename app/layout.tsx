@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Marble Showdown",
+  title: "Ex Lab",
   description:
-    "최대 10명이 참가하는 완전 물리 기반 마블 경기 추첨 시스템.",
+    "전체 참가자를 최대 10명씩 나누어 진행하는 Ex Lab Race.",
 };
 
 export default function RootLayout({

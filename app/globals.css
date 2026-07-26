@@ -2,6 +2,11 @@
 
 :root {
   color-scheme: light;
+  --font-body:
+    Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", Inter, system-ui,
+    sans-serif;
+  --font-display:
+    Impact, "Arial Black", Pretendard, "Noto Sans KR", system-ui, sans-serif;
 }
 
 html {
@@ -12,9 +17,7 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  font-family:
-    Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", Inter, system-ui,
-    sans-serif;
+  font-family: var(--font-body);
   text-rendering: optimizeLegibility;
 }
 

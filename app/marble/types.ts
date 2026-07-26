@@ -1,17 +1,37 @@
 export type ResultMode = "preselected" | "physical";
 
+export type ParticipantTheme = {
+  key: string;
+  primary: string;
+  onPrimary: string;
+  surface: string;
+  onSurface: string;
+  border: string;
+};
+
 export type Candidate = {
   id: string;
   name: string;
-  color: string;
+  theme: ParticipantTheme;
   number: number;
 };
 
 export type RosterValidation = {
   candidates: Candidate[];
   overflowNames: string[];
+  duplicateNames: string[];
   isValid: boolean;
   message: string;
+};
+
+export type RosterOptions = {
+  allowDuplicateNames?: boolean;
+};
+
+export type CandidateGroup = {
+  id: string;
+  index: number;
+  candidates: Candidate[];
 };
 
 export type MarblePose = {
@@ -60,7 +80,10 @@ export type RaceDynamics = {
 export type RaceSimulation = {
   frames: RaceFrame[];
   fullFinishOrder: string[];
-  winnerFrameIndex: number;
+  firstFinishFrameIndex: number;
+  awardFrameIndex: number;
+  targetFinishCount: number;
+  visibleFinishedCount: number;
   durationMs: number;
   layoutShift: number;
   simulationSteps: number;
@@ -80,7 +103,8 @@ export type RacePlan = {
   candidates: Candidate[];
   slotToCandidateId: Record<string, string>;
   rankedCandidateIds: string[];
-  winnerId: string;
+  winnerCount: number;
+  winnerIds: string[];
   simulation: RaceSimulation;
 };
 
@@ -91,6 +115,7 @@ export type StoredRaceResult = {
   raceSeed: string;
   layoutSeed: string;
   createdAt: string;
-  winnerName: string;
+  winnerNames: string[];
+  winnerName?: string;
   rankedNames: string[];
 };
