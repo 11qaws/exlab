@@ -1,5 +1,5 @@
-import { ExLabApp } from "./ExLabApp";
+import { ExlabApp } from "./ExlabApp";
 
 export default function Home() {
-  return <ExLabApp />;
+  return <ExlabApp />;
 }

@@ -23,15 +23,15 @@ async function render() {
   );
 }
 
-test("server-renders the practical Ex Lab shell while preferences load", async () => {
+test("server-renders the practical exlab shell while preferences load", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, /<html lang="ko">/i);
-  assert.match(html, /<title>Ex Lab<\/title>/i);
-  assert.match(html, /Ex Lab/);
+  assert.match(html, /<title>exlab<\/title>/i);
+  assert.match(html, /exlab/i);
   assert.match(html, />Showdown</);
   assert.match(html, />Roulette</);
   assert.match(html, /게임 선택/);
@@ -45,7 +45,7 @@ test("server-renders the practical Ex Lab shell while preferences load", async (
   assert.doesNotMatch(html, /react-loading-skeleton/i);
 });
 
-test("pins the integrated package and both game catalog entries to 1.3.0", async () => {
+test("pins the integrated package and both game catalog entries to 1.3.1", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
@@ -54,10 +54,10 @@ test("pins the integrated package and both game catalog entries to 1.3.0", async
     "utf8",
   );
 
-  assert.equal(packageJson.version, "1.3.0");
-  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.0"/);
+  assert.equal(packageJson.version, "1.3.1");
+  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.1"/);
   assert.match(
     catalogSource,
-    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.0"/,
+    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.1"/,
   );
 });

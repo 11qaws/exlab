@@ -1,15 +1,15 @@
 @scope (.showdown-game) {
 :scope {
-  --page: #fff8f3;
-  --panel: #fffdf9;
-  --ink: #3b2426;
-  --muted: #6b5356;
-  --line: #e9d9d3;
+  --page: var(--exlab-background, #fff8f3);
+  --panel: var(--exlab-surface, #fffdf9);
+  --ink: var(--exlab-text, #3b2426);
+  --muted: var(--exlab-muted, #6b5356);
+  --line: var(--exlab-border, #e9d9d3);
   --stage: #1f1118;
   --stage-2: #2d1721;
   --stage-ink: #fff8ef;
-  --accent: #e84f83;
-  --accent-dark: #ad204f;
+  --accent: var(--exlab-accent, #e84f83);
+  --accent-dark: var(--exlab-accent-ink, #ad204f);
   --success: #075c43;
   --warning: #7b4300;
   --danger: #8f2439;
@@ -72,7 +72,7 @@ button:disabled {
 
 .map-theme-toggle {
   align-items: center;
-  background: #f7e9e5;
+  background: var(--exlab-surface-subtle, #f7e9e5);
   border: 1px solid var(--line);
   border-radius: 999px;
   display: inline-flex;
@@ -92,7 +92,7 @@ button:disabled {
 
 .map-theme-toggle button[aria-pressed="true"] {
   background: var(--accent-dark);
-  color: white;
+  color: var(--exlab-surface, white);
 }
 
 .map-theme-toggle.is-compact {
@@ -244,7 +244,7 @@ button:disabled {
 }
 
 .group-planner {
-  background: #fff7f1;
+  background: var(--exlab-surface-subtle, #fff7f1);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   margin-top: 22px;
@@ -284,8 +284,8 @@ button:disabled {
 
 .group-planner select,
 .select-setting select {
-  background: white;
-  border: 1px solid #d8c4be;
+  background: var(--panel);
+  border: 1px solid var(--exlab-border-strong, #d8c4be);
   border-radius: 8px;
   color: var(--ink);
   font: inherit;
@@ -303,7 +303,7 @@ button:disabled {
 }
 
 .group-tabs button {
-  background: white;
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 9px;
   color: var(--muted);
@@ -506,7 +506,7 @@ summary {
 }
 
 .toggle-button {
-  background: #f8e8e2;
+  background: var(--exlab-accent-bg, #f8e8e2);
   border: 0;
   border-radius: 999px;
   color: var(--ink);
@@ -1375,6 +1375,123 @@ summary {
   overflow-wrap: anywhere;
 }
 
+.showdown-setup-fields {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.showdown-setup-workspace .group-planner {
+  margin-top: 18px;
+}
+
+.showdown-setup-workspace .roster-heading {
+  margin-top: 20px;
+}
+
+.showdown-setup-workspace .roster-grid {
+  min-height: 0;
+}
+
+.showdown-advanced-settings {
+  display: grid;
+  gap: 14px;
+}
+
+.showdown-advanced-settings .setting-row {
+  margin-top: 0;
+}
+
+.showdown-preview-heading {
+  display: grid;
+  gap: 2px;
+}
+
+.showdown-preview-heading span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.showdown-preview-heading strong {
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.showdown-setup-workspace .exlab-setup-workspace__preview-stage {
+  min-height: 520px;
+}
+
+.showdown-setup-workspace
+  .exlab-setup-workspace__preview-stage
+  > .map-preview {
+  height: 100%;
+  inset: 0;
+  min-height: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.showdown-preview-footer {
+  align-items: center;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(180px, 1fr) minmax(0, 1.25fr) auto;
+}
+
+.showdown-preview-footer > div {
+  display: grid;
+  gap: 2px;
+}
+
+.showdown-preview-footer > div span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.showdown-preview-footer > div strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.showdown-preview-footer .course-legend-details {
+  margin-top: 0;
+}
+
+.showdown-preview-footer .course-legend {
+  margin-top: 8px;
+}
+
+.showdown-readiness {
+  display: grid;
+  gap: 2px;
+}
+
+.showdown-readiness span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.showdown-readiness strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.showdown-setup-workspace
+  .exlab-setup-workspace__primary-action
+  .primary-button {
+  min-width: 180px;
+}
+
+.embedded-history-panel {
+  margin: 0 clamp(18px, 2.25vw, 32px) 28px;
+}
+
 @media (max-width: 1024px) {
   .preparation-grid {
     grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.05fr);
@@ -1402,6 +1519,14 @@ summary {
 
   .leaderboard li {
     min-height: 34px;
+  }
+
+  .showdown-preview-footer {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .showdown-preview-footer .course-legend-details {
+    display: none;
   }
 }
 
@@ -1577,6 +1702,14 @@ summary {
 
   .result-actions button {
     width: 100%;
+  }
+
+  .showdown-setup-workspace .exlab-setup-workspace__preview-stage {
+    min-height: 420px;
+  }
+
+  .showdown-preview-footer {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }
 

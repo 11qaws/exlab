@@ -23,11 +23,14 @@ import {
   writeDuplicateNamePolicy,
   writeLastGame,
   writeSharedRoster,
+  writeStreamerTheme,
 } from "./_platform/storage";
+import { validateSharedRosterDraft } from "./_platform/roster";
 import {
-  parseSharedRosterNames,
-  validateSharedRosterDraft,
-} from "./_platform/roster";
+  DEFAULT_STREAMER_THEME_ID,
+  streamerThemeCssVariables,
+  type StreamerThemeId,
+} from "./_platform/theme";
 
 const GAME_SURFACES = {
   roulette: lazy(async () => {
@@ -35,8 +38,8 @@ const GAME_SURFACES = {
     return { default: game.RouletteGame };
   }),
   showdown: lazy(async () => {
-    const game = await import("./marble/MarbleGame");
-    return { default: game.MarbleGame };
+    const game = await import("./marble/ShowdownGame");
+    return { default: game.ShowdownGame };
   }),
 } as const;
 
@@ -131,9 +134,7 @@ function SharedRosterDialog({
           <strong>{validation.names.length}명</strong>
         </header>
 
-        <label htmlFor="exlab-roster-input">
-          한 줄에 한 명
-        </label>
+        <label htmlFor="exlab-roster-input">한 줄에 한 명</label>
         <textarea
           id="exlab-roster-input"
           value={draft}
@@ -158,7 +159,10 @@ function SharedRosterDialog({
           />
           <span>
             <strong>동일 이름 허용</strong>
-            <small>기본값은 미허용이며, 허용 시 서로 다른 참가 번호를 사용합니다.</small>
+            <small>
+              기본값은 미허용이며, 허용 시 서로 다른 참가 번호를
+              사용합니다.
+            </small>
           </span>
         </label>
 
@@ -182,10 +186,12 @@ function SharedRosterDialog({
   );
 }
 
-export function ExLabApp() {
+export function ExlabApp() {
   const [gameId, setGameId] = useState<GameId>(DEFAULT_GAME_ID);
   const [rosterText, setRosterText] = useState(DEFAULT_SHARED_ROSTER);
   const [allowDuplicateNames, setAllowDuplicateNames] = useState(false);
+  const [streamerThemeId, setStreamerThemeId] =
+    useState<StreamerThemeId>(DEFAULT_STREAMER_THEME_ID);
   const [preferencesReady, setPreferencesReady] = useState(false);
   const [rosterEditorOpen, setRosterEditorOpen] = useState(false);
   const [visitedGameIds, setVisitedGameIds] = useState<Set<GameId>>(
@@ -197,7 +203,7 @@ export function ExLabApp() {
     roulette: false,
     showdown: false,
   });
-  const rosterTriggerRef = useRef<HTMLButtonElement>(null);
+  const rosterTriggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -206,9 +212,9 @@ export function ExLabApp() {
         setGameId(preferences.gameId);
         setRosterText(preferences.rosterText);
         setAllowDuplicateNames(preferences.allowDuplicateNames);
+        setStreamerThemeId(preferences.streamerThemeId);
         setVisitedGameIds(new Set([preferences.gameId]));
       } catch {
-        // Keep the safe defaults when browser storage cannot be read.
         setVisitedGameIds(new Set([DEFAULT_GAME_ID]));
       } finally {
         setPreferencesReady(true);
@@ -223,8 +229,7 @@ export function ExLabApp() {
     try {
       writeSharedRoster(window.localStorage, rosterText);
     } catch {
-      // Storage can be unavailable in hardened/private browser contexts. The
-      // controlled roster remains valid for this tab.
+      // The controlled roster remains valid for this tab.
     }
   }, [preferencesReady, rosterText]);
 
@@ -233,7 +238,7 @@ export function ExLabApp() {
     try {
       writeLastGame(window.localStorage, gameId);
     } catch {
-      // A storage failure must not block a game that is already usable.
+      // A storage failure must not block a usable game.
     }
   }, [gameId, preferencesReady]);
 
@@ -249,13 +254,18 @@ export function ExLabApp() {
     }
   }, [allowDuplicateNames, preferencesReady]);
 
+  useEffect(() => {
+    if (!preferencesReady) return;
+    try {
+      writeStreamerTheme(window.localStorage, streamerThemeId);
+    } catch {
+      // The selected visual identity still applies for this tab.
+    }
+  }, [preferencesReady, streamerThemeId]);
+
   const selectedGame = useMemo(() => gameCatalogEntry(gameId), [gameId]);
   const gameActive = activityByGame[gameId];
   const navigationLocked = gameActive || rosterEditorOpen;
-  const sharedRosterCount = useMemo(
-    () => parseSharedRosterNames(rosterText).length,
-    [rosterText],
-  );
   const activityHandlers = useMemo<
     Record<GameId, (active: boolean) => void>
   >(
@@ -277,7 +287,16 @@ export function ExLabApp() {
   );
 
   useEffect(() => {
-    document.title = `${selectedGame.label} · Ex Lab`;
+    if (rosterEditorOpen) return;
+    const trigger = rosterTriggerRef.current;
+    if (!trigger?.isConnected) return;
+
+    trigger.focus();
+    rosterTriggerRef.current = null;
+  }, [rosterEditorOpen]);
+
+  useEffect(() => {
+    document.title = `${selectedGame.label} · exlab`;
   }, [selectedGame.label]);
 
   const handleGameChange = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -293,18 +312,28 @@ export function ExLabApp() {
   };
   const closeRosterEditor = useCallback(() => {
     setRosterEditorOpen(false);
-    window.requestAnimationFrame(() => rosterTriggerRef.current?.focus());
+  }, []);
+  const openRosterEditor = useCallback(() => {
+    rosterTriggerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setRosterEditorOpen(true);
   }, []);
 
   return (
-    <div className="exlab-shell">
+    <div
+      className="exlab-shell"
+      data-streamer-theme={streamerThemeId}
+      style={streamerThemeCssVariables(streamerThemeId, "light")}
+    >
       <header
         className="exlab-header"
         inert={rosterEditorOpen}
         aria-hidden={rosterEditorOpen || undefined}
       >
-        <span className="exlab-wordmark" aria-label="Ex Lab">
-          Ex Lab
+        <span className="exlab-wordmark" aria-label="exlab">
+          exlab
         </span>
 
         <div className="exlab-toolbar">
@@ -315,7 +344,9 @@ export function ExLabApp() {
               onChange={handleGameChange}
               disabled={navigationLocked || !preferencesReady}
               aria-label="게임 선택"
-              aria-describedby={navigationLocked ? "game-switch-lock" : undefined}
+              aria-describedby={
+                navigationLocked ? "game-switch-lock" : undefined
+              }
             >
               {GAME_CATALOG.map((game) => (
                 <option key={game.id} value={game.id}>
@@ -334,18 +365,6 @@ export function ExLabApp() {
               {rosterEditorOpen ? "명단 편집 중" : "진행 중"}
             </span>
           )}
-
-          <button
-            ref={rosterTriggerRef}
-            className="exlab-roster-trigger"
-            type="button"
-            disabled={gameActive || !preferencesReady}
-            aria-haspopup="dialog"
-            onClick={() => setRosterEditorOpen(true)}
-          >
-            참가자 <strong>{sharedRosterCount}명</strong>
-          </button>
-
         </div>
       </header>
 
@@ -357,7 +376,9 @@ export function ExLabApp() {
         aria-hidden={rosterEditorOpen || undefined}
       >
         {preferencesReady ? (
-          GAME_CATALOG.filter((game) => visitedGameIds.has(game.id)).map((game) => {
+          GAME_CATALOG.filter((game) =>
+            visitedGameIds.has(game.id)
+          ).map((game) => {
             const GameSurface = GAME_SURFACES[game.id];
             const isActiveGame = game.id === gameId;
             return (
@@ -381,6 +402,9 @@ export function ExLabApp() {
                     onRosterTextChange={setRosterText}
                     allowDuplicateNames={allowDuplicateNames}
                     onAllowDuplicateNamesChange={setAllowDuplicateNames}
+                    streamerThemeId={streamerThemeId}
+                    onStreamerThemeChange={setStreamerThemeId}
+                    onRequestRosterEdit={openRosterEditor}
                     onActivityChange={activityHandlers[game.id]}
                   />
                 </Suspense>

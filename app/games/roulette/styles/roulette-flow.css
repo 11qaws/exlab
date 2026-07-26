@@ -1,7 +1,7 @@
 @scope (.roulette-game) {
-/* Retto Roulette setup-flow corrections. Keep these out of rettoStock.css. v0.8 */
+/* Roulette setup-flow corrections. Keep these out of the foundation. */
 
-/* The four-step route sits on the brown RettoStock header in roster/setup.
+/* The four-step route sits on the brown Roulette header in roster/setup.
    Text that reused the ink token disappeared into that background. */
 .brand-header .raffle-status-path li {
   color: #f1d9de;

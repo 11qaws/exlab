@@ -1,5 +1,19 @@
 # Development Log
 
+## 2026-07-27 1.3.1 exlab 통합 안정화·공통 테마·명칭 이전
+
+- Roulette와 Showdown 준비 화면을 같은 `SetupWorkspace` 정보 구조로 통일했다. 공통 명단·동일 이름 정책·스트리머 테마는 한 곳에서 편집하고, 게임별 설정·미리보기·세부 설정·실행 버튼만 각 게임이 제공한다.
+- 공통 명단은 인원 제한 없이 보존하고 Showdown 진입 시 조당 최대 10명으로 균형 편성한다. 32명은 기본 4조이며 더 많은 조로 세분화할 수 있다.
+- 게임 surface를 한 번 방문하면 keep-alive로 유지해 게임을 오가도 제목·조 편성·연출 설정 초안이 사라지지 않게 했다. 진행 중이거나 명단 편집 중에는 게임 전환과 공통 설정 변경을 잠근다.
+- `exclipper/rettohighlight`의 프로필 artifact를 바탕으로 아모레또·유레카·세나 아르벨·토로리 코코·망징이 5개 스트리머 카드를 구성했다. 선택 테마는 공통 셸과 Roulette·Showdown의 제품 chrome에 즉시 적용하되 참가자 구분색, 장애물 역할색, Showdown 물리와 결과에는 관여하지 않는다.
+- 전체 타이포그래피를 `Inter`, `Pretendard`, 시스템 산세리프 폴백으로 통일하고 serif 계열을 제거했다.
+- 통합 과정에서 깨진 Roulette 준비 화면의 이중 명단 편집, 빈 설정 공간, 공통 헤더 높이를 반영하지 않던 라이브 뷰포트, 비활성 탭의 스크롤 이동을 복구했다. 방송 대기·고속 회전·32명 긴 이름 환경에서도 데스크톱 화면에 가로 넘침이 없음을 확인했다.
+- 공통 저장소의 정본을 `exlab:*`로 이전하고 기존 `ex-lab:*`, `retto-roulette-*`, `marble-game:roster` 키를 검증된 fallback과 rollback mirror로만 유지했다. Roulette pending 결과·상품 배정·기록과 Showdown 기록도 같은 방식으로 무손실 이전한다.
+- 사용자 노출명, 패키지명, 앱 adapter, Showdown surface, Roulette 스타일 파일과 시스템 명세를 lowercase `exlab` 기준으로 바꿨다. 기존 Sites 프로젝트 ID와 배포 origin은 로컬 저장소 호환을 위해 유지한다.
+- `exlab`과 `Roulette · Showdown`만 표시하는 새 1.91:1 OG 이미지를 생성해 `public/og.png`에 반영했다.
+- 명단 대화상자는 열릴 때 입력란에 초점을 주고 Tab 순환과 Escape 닫기를 지원하며, 닫힌 뒤 원래의 `명단 편집` 버튼으로 초점을 복구한다.
+- 생산 빌드, TypeScript, ESLint, diff whitespace 검사와 106개 자동 테스트를 통과했다. 32명의 긴 한국어 이름으로 데스크톱·태블릿·모바일 준비 화면, 게임 전환 상태 보존, 4조 자동 편성, 테마 저장, Roulette 방송 화면을 브라우저에서 확인했다.
+
 ## 2026-07-27 1.3.0 Ex Lab Roulette·Showdown 통합
 
 - Showdown 단독 진입 화면을 Ex Lab 공통 셸로 교체하고, 게임 레지스트리에서 `Roulette`와 `Showdown`을 선택하는 실용형 운영 구조로 통합했다.

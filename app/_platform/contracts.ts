@@ -1,5 +1,5 @@
 /**
- * Shared lifecycle vocabulary for every Ex Lab game.
+ * Shared lifecycle vocabulary for every exlab game.
  *
  * Game engines may have more detailed internal phases. They map those phases to
  * this small platform lifecycle so the host can protect cross-game actions
@@ -76,6 +76,9 @@ export type EmbeddedGameProps = {
   onRosterTextChange: (nextRosterText: string) => void;
   allowDuplicateNames: boolean;
   onAllowDuplicateNamesChange: (allow: boolean) => void;
+  streamerThemeId: StreamerThemeId;
+  onStreamerThemeChange: (themeId: StreamerThemeId) => void;
+  onRequestRosterEdit: () => void;
   onActivityChange: (active: boolean) => void;
 };
 
@@ -113,3 +116,4 @@ export type GameResultEnvelope<
   metrics?: Record<string, string | number>;
   payload: TPayload;
 };
+import type { StreamerThemeId } from "./theme/streamerThemes";

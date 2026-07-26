@@ -1,12 +1,12 @@
 @scope (.roulette-game) {
 /*
- * Broadcast reveal choreography for Retto Roulette.
+ * Broadcast reveal choreography for Roulette.
  *
  * This file intentionally contains only state-based overrides. The shared
- * RettoStock skin remains the source of palette, typography, and controls.
+ * Roulette skin remains the source of palette, typography, and controls.
  */
 
-/* The status path sits on RettoStock's dark header. Keep every live-state
+/* The status path sits on Roulette's dark header. Keep every live-state
    label readable, including the quieter completed steps. */
 .app-shell--live .raffle-status-path li {
   color: #f1d9de;

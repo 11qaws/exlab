@@ -1,5 +1,5 @@
 @scope (.roulette-game) {
-/* RettoStock's Amore Cute configurator system, adapted for Retto Roulette. */
+/* Shared Roulette foundation tokens and controls. */
 :scope {
   --page: #fcf5f5;
   --cream: #fff0f3;

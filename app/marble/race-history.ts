@@ -1,4 +1,18 @@
+import {
+  readMirroredStorage,
+  removeMirroredStorage,
+  writeMirroredStorage,
+  type BrowserStorage,
+} from "../_platform/mirroredStorage";
 import type { StoredRaceResult } from "./types";
+
+export const SHOWDOWN_HISTORY_KEY = "exlab:showdown:history:v1";
+export const LEGACY_SHOWDOWN_HISTORY_KEY = "marble-game:history";
+
+const SHOWDOWN_HISTORY_KEYS = {
+  canonical: SHOWDOWN_HISTORY_KEY,
+  legacy: [LEGACY_SHOWDOWN_HISTORY_KEY],
+} as const;
 
 export type RaceHistoryCheckpoint = {
   runId: string;
@@ -45,24 +59,61 @@ function parseStoredRaceResult(value: unknown): StoredRaceResult | null {
   };
 }
 
-export function parseStoredRaceHistory(
+function parseStoredRaceHistoryValue(
   value: string | null,
   limit = 20,
-): StoredRaceResult[] {
-  if (!value) return [];
+): StoredRaceResult[] | null {
+  if (!value) return null;
   if (!Number.isInteger(limit) || limit < 1) {
     throw new RangeError("Race history limit must be a positive integer.");
   }
   try {
     const parsed: unknown = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) return null;
     return parsed
       .map(parseStoredRaceResult)
       .filter((item): item is StoredRaceResult => item !== null)
       .slice(0, limit);
   } catch {
-    return [];
+    return null;
   }
+}
+
+export function parseStoredRaceHistory(
+  value: string | null,
+  limit = 20,
+): StoredRaceResult[] {
+  return parseStoredRaceHistoryValue(value, limit) ?? [];
+}
+
+export function readStoredRaceHistory(
+  storage: BrowserStorage,
+  limit = 20,
+): StoredRaceResult[] {
+  return readMirroredStorage(
+    storage,
+    SHOWDOWN_HISTORY_KEYS,
+    (raw) => parseStoredRaceHistoryValue(raw, limit),
+  ) ?? [];
+}
+
+export function writeStoredRaceHistory(
+  storage: BrowserStorage,
+  history: readonly StoredRaceResult[],
+  limit = 20,
+): void {
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new RangeError("Race history limit must be a positive integer.");
+  }
+  writeMirroredStorage(
+    storage,
+    SHOWDOWN_HISTORY_KEYS,
+    JSON.stringify(history.slice(0, limit)),
+  );
+}
+
+export function removeStoredRaceHistory(storage: BrowserStorage): void {
+  removeMirroredStorage(storage, SHOWDOWN_HISTORY_KEYS);
 }
 
 export function shouldPersistRaceHistoryCheckpoint(

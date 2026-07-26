@@ -8,6 +8,12 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { SetupWorkspace } from "../_platform/components/SetupWorkspace";
+import { SharedSetupSummary } from "../_platform/components/SharedSetupSummary";
+import {
+  DEFAULT_STREAMER_THEME_ID,
+  type StreamerThemeId,
+} from "../_platform/theme";
 import {
   buildRacePlan,
   createRaceSlotAssignment,
@@ -75,9 +81,10 @@ import {
   type RaceMapMode,
 } from "./race-theme";
 import {
-  parseStoredRaceHistory,
+  readStoredRaceHistory,
   shouldPersistRaceHistoryCheckpoint,
   upsertRaceHistory,
+  writeStoredRaceHistory,
   type RaceHistoryCheckpoint,
 } from "./race-history";
 import type {
@@ -86,7 +93,7 @@ import type {
   StoredRaceResult,
 } from "./types";
 import { RaceCanvas } from "./RaceCanvas";
-import "./marble-game.css";
+import "./showdown-game.css";
 
 const DEFAULT_ROSTER = [
   "아모",
@@ -100,7 +107,6 @@ const DEFAULT_ROSTER = [
 ].join("\n");
 
 const ROSTER_KEY = "marble-game:roster";
-const HISTORY_KEY = "marble-game:history";
 const PREVIEW_DURATION_MS = 10_000;
 const MAX_PRESENTATION_DELTA_MS = 100;
 
@@ -113,13 +119,16 @@ type Phase =
   | "result"
   | "error";
 
-export type MarbleGameProps = {
+export type ShowdownGameProps = {
   embedded?: boolean;
   active?: boolean;
   rosterText?: string;
   onRosterTextChange?: (text: string) => void;
   allowDuplicateNames?: boolean;
   onAllowDuplicateNamesChange?: (allow: boolean) => void;
+  streamerThemeId?: StreamerThemeId;
+  onStreamerThemeChange?: (themeId: StreamerThemeId) => void;
+  onRequestRosterEdit?: () => void;
   onActivityChange?: (active: boolean) => void;
 };
 
@@ -823,15 +832,18 @@ function LiveRacePreview({
   );
 }
 
-export function MarbleGame({
+export function ShowdownGame({
   embedded = false,
   active = true,
   rosterText: controlledRosterText,
   onRosterTextChange,
   allowDuplicateNames: controlledAllowDuplicateNames,
   onAllowDuplicateNamesChange,
+  streamerThemeId = DEFAULT_STREAMER_THEME_ID,
+  onStreamerThemeChange,
+  onRequestRosterEdit,
   onActivityChange,
-}: MarbleGameProps = {}) {
+}: ShowdownGameProps = {}) {
   const [title, setTitle] = useState("오늘의 Showdown");
   const [internalRosterText, setInternalRosterText] =
     useState(DEFAULT_ROSTER);
@@ -969,14 +981,13 @@ export function MarbleGame({
     const timer = window.setTimeout(() => {
       try {
         const storedRoster = localStorage.getItem(ROSTER_KEY);
-        const storedHistory = localStorage.getItem(HISTORY_KEY);
+        const storedHistory = readStoredRaceHistory(localStorage);
         if (storedRoster && !hasControlledRoster) {
           setInternalRosterText(storedRoster);
         }
-        if (storedHistory) {
-          const parsedHistory = parseStoredRaceHistory(storedHistory);
-          historyRef.current = parsedHistory;
-          setHistory(parsedHistory);
+        if (storedHistory.length > 0) {
+          historyRef.current = storedHistory;
+          setHistory(storedHistory);
         }
       } catch {
         setToast("저장된 명단을 불러오지 못해 기본 명단을 사용합니다.");
@@ -1219,7 +1230,7 @@ export function MarbleGame({
     historyRef.current = nextHistory;
     setHistory(nextHistory);
     try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
+      writeStoredRaceHistory(localStorage, nextHistory);
       if (!hasControlledRoster) {
         localStorage.setItem(ROSTER_KEY, rosterText);
       }
@@ -1630,7 +1641,7 @@ export function MarbleGame({
       <main className="showdown-game race-screen">
         <header className="race-header">
           <div>
-            <p className="eyebrow">EX LAB · SHOWDOWN</p>
+            <p className="eyebrow">exlab · SHOWDOWN</p>
             <h1>{plan.title}</h1>
           </div>
           <div className="race-header-actions">
@@ -1800,18 +1811,301 @@ export function MarbleGame({
     );
   }
 
+  if (embedded) {
+    const requestSharedRosterEdit =
+      onRequestRosterEdit ?? (() => setIsEditingRoster(true));
+
+    return (
+      <main className="showdown-game preparation-screen is-embedded">
+        <SetupWorkspace
+          className="showdown-setup-workspace"
+          eyebrow="SHOWDOWN"
+          title="경기 준비"
+          sharedSetup={(
+            <SharedSetupSummary
+              rosterCount={validation.candidates.length}
+              allowDuplicateNames={allowDuplicateNames}
+              streamerThemeId={streamerThemeId}
+              onStreamerThemeChange={(themeId) =>
+                onStreamerThemeChange?.(themeId)
+              }
+              onRequestRosterEdit={requestSharedRosterEdit}
+              disabled={phase !== "ready"}
+            />
+          )}
+          essentialSettings={(
+            <div className="showdown-setup-fields">
+              <label className="field-label" htmlFor="race-title">
+                경기 제목
+              </label>
+              <input
+                id="race-title"
+                className="title-input"
+                value={title}
+                maxLength={50}
+                onChange={(event) => setTitle(event.target.value)}
+              />
+
+              <section
+                className="group-planner"
+                aria-labelledby="group-plan-title"
+              >
+                <div className="group-planner-heading">
+                  <div>
+                    <span id="group-plan-title">조 편성</span>
+                    <strong>전체 {validation.candidates.length}명</strong>
+                  </div>
+                  <label htmlFor="group-count">
+                    조 개수
+                    <select
+                      id="group-count"
+                      value={effectiveGroupCount}
+                      onChange={(event) => {
+                        setGroupCount(Number(event.target.value));
+                        setActiveGroupIndex(0);
+                      }}
+                      disabled={validation.candidates.length < 2}
+                    >
+                      {Array.from(
+                        {
+                          length:
+                            maximumGroups - minimumGroups + 1,
+                        },
+                        (_, index) => minimumGroups + index,
+                      ).map((count) => (
+                        <option value={count} key={count}>
+                          {count}조
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="group-tabs" aria-label="경기 조 선택">
+                  {groups.map((group) => (
+                    <button
+                      type="button"
+                      key={group.id}
+                      className={
+                        group.index === selectedGroupIndex
+                          ? "is-active"
+                          : ""
+                      }
+                      onClick={() => setActiveGroupIndex(group.index)}
+                      aria-pressed={group.index === selectedGroupIndex}
+                    >
+                      {group.index + 1}조
+                      <small>{group.candidates.length}명</small>
+                    </button>
+                  ))}
+                </div>
+                <p>
+                  조당 최대 {MAX_GROUP_SIZE}명 ·{" "}
+                  {selectedGroupIndex + 1}조를 준비합니다.
+                </p>
+              </section>
+
+              <div className="roster-heading">
+                <div>
+                  <span>{selectedGroupIndex + 1}조 참가자</span>
+                  <strong>
+                    {activeCandidates.length} / {MAX_GROUP_SIZE}
+                  </strong>
+                </div>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={requestSharedRosterEdit}
+                >
+                  전체 명단 편집
+                </button>
+              </div>
+              <ol className="roster-grid">
+                {activeCandidates.map((candidate) => (
+                  <li
+                    key={candidate.id}
+                    style={participantStyle(candidate)}
+                  >
+                    <strong>{candidate.number}</strong>
+                    <i />
+                    <span title={candidate.name}>
+                      {shortName(candidate.name)}
+                    </span>
+                  </li>
+                ))}
+                {validation.candidates.length === 0 && (
+                  <li className="empty-roster">
+                    공통 명단에서 참가자를 추가하세요.
+                  </li>
+                )}
+              </ol>
+            </div>
+          )}
+          advancedSettings={(
+            <div className="showdown-advanced-settings">
+              <div className="setting-row">
+                <span>
+                  <strong>당첨 인원</strong>
+                  <small>
+                    이 인원이 결승선을 통과할 때까지 경기를 유지
+                  </small>
+                </span>
+                <label className="select-setting" htmlFor="winner-count">
+                  <select
+                    id="winner-count"
+                    value={effectiveWinnerCount}
+                    onChange={(event) =>
+                      setWinnerCount(Number(event.target.value))
+                    }
+                  >
+                    {Array.from(
+                      { length: Math.max(1, activeCandidates.length) },
+                      (_, index) => index + 1,
+                    ).map((count) => (
+                      <option value={count} key={count}>
+                        {count}명
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="setting-row">
+                <span>
+                  <strong>효과음</strong>
+                  <small>카운트다운과 결승 신호만 재생</small>
+                </span>
+                <button
+                  type="button"
+                  className="toggle-button"
+                  onClick={() => setSoundEnabled((value) => !value)}
+                  aria-pressed={soundEnabled}
+                >
+                  {soundEnabled ? "켜짐" : "꺼짐"}
+                </button>
+              </div>
+            </div>
+          )}
+          advancedSettingsLabel="경기 방식"
+          advancedSettingsDescription="당첨 인원과 효과음을 설정합니다."
+          previewHeader={(
+            <div className="showdown-preview-heading">
+              <span>10초 자동 미리보기</span>
+              <strong>Showdown</strong>
+            </div>
+          )}
+          previewTools={(
+            <MapThemeToggle mode={mapMode} onChange={setMapMode} />
+          )}
+          previewStage={(
+            <LiveRacePreview
+              active={active}
+              candidates={activeCandidates}
+              layoutSeed={layoutSeed}
+              reducedMotion={reducedMotion}
+              mapMode={mapMode}
+            />
+          )}
+          previewFooter={(
+            <div className="showdown-preview-footer">
+              <div>
+                <span>출발 방식</span>
+                <strong>불규칙 간격 · 동일 높이 동시 개방</strong>
+              </div>
+              <details className="course-legend-details">
+                <summary>장애물 범례</summary>
+                <CourseLegend />
+              </details>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleRegenerateLayout}
+              >
+                새 배치
+              </button>
+            </div>
+          )}
+          readiness={(
+            <div className="showdown-readiness">
+              <span>
+                {validation.isValid
+                  ? "경기 준비 완료"
+                  : "명단 확인 필요"}
+              </span>
+              <strong>
+                {validation.isValid
+                  ? `${activeCandidates.length}명 출발 · ${effectiveWinnerCount}명 당첨`
+                  : validation.message}
+              </strong>
+            </div>
+          )}
+          primaryAction={(
+            <button
+              type="button"
+              className="primary-button"
+              disabled={!validation.isValid || phase === "generating"}
+              onClick={handleOpenBroadcast}
+            >
+              {phase === "generating"
+                ? "방송 화면 준비 중…"
+                : "방송 화면 열기"}
+            </button>
+          )}
+          busy={phase === "generating"}
+        />
+
+        {history.length > 0 && (
+          <details className="history-panel embedded-history-panel">
+            <summary>최근 경기 {history.length}개</summary>
+            <ol>
+              {history.slice(0, 5).map((item) => (
+                <li key={item.runId}>
+                  <span>
+                    {new Date(item.createdAt).toLocaleDateString("ko-KR")}
+                  </span>
+                  <strong>
+                    {(item.winnerNames
+                      ?? [item.winnerName ?? "알 수 없음"]
+                    ).join(", ")}
+                  </strong>
+                  <small>{item.rankedNames.length}명 경기</small>
+                </li>
+              ))}
+            </ol>
+          </details>
+        )}
+
+        {phase === "error" && (
+          <div className="error-banner" role="alert">
+            <div>
+              <strong>경기장을 준비하지 못했어요.</strong>
+              <span>{errorMessage}</span>
+            </div>
+            <button type="button" onClick={() => setPhase("ready")}>
+              준비로 돌아가기
+            </button>
+          </div>
+        )}
+
+        {toast && (
+          <div className="toast" role="status">
+            {toast}
+          </div>
+        )}
+      </main>
+    );
+  }
+
   return (
     <main
       className={`showdown-game preparation-screen${embedded ? " is-embedded" : ""}`}
     >
       {!embedded && (
         <header className="product-header">
-          <a className="brand" href="#" aria-label="Ex Lab 처음으로">
+          <a className="brand" href="#" aria-label="exlab 처음으로">
             <span aria-hidden="true">●</span>
-            Ex Lab
+            exlab
           </a>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.0</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.1</span>
           </div>
         </header>
       )}

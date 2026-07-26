@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const gameSource = readFileSync(
-  new URL("../app/marble/MarbleGame.tsx", import.meta.url),
+  new URL("../app/marble/ShowdownGame.tsx", import.meta.url),
   "utf8",
 );
 const canvasSource = readFileSync(
@@ -11,7 +11,7 @@ const canvasSource = readFileSync(
   "utf8",
 );
 const cssSource = readFileSync(
-  new URL("../app/marble/marble-game.css", import.meta.url),
+  new URL("../app/marble/showdown-game.css", import.meta.url),
   "utf8",
 );
 
@@ -43,7 +43,7 @@ test("broadcast waiting dialog starts focused without claiming a modal trap", ()
 });
 
 test("embedded Race uses the shared roster contract without promotional copy", () => {
-  assert.match(gameSource, /export type MarbleGameProps = \{/);
+  assert.match(gameSource, /export type ShowdownGameProps = \{/);
   assert.match(gameSource, /rosterText\?: string;/);
   assert.match(gameSource, /active\?: boolean;/);
   assert.match(

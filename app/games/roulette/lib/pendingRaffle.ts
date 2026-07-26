@@ -1,6 +1,18 @@
+import {
+  readMirroredStorage,
+  removeMirroredStorage,
+  writeMirroredStorage,
+  type BrowserStorage,
+} from '../../../_platform/mirroredStorage';
 import type { DrawRecord } from '../types';
 
-export const PENDING_RAFFLE_KEY = 'retto-roulette-pending-result';
+export const PENDING_RAFFLE_KEY = 'exlab:roulette:pending-result:v1';
+export const LEGACY_PENDING_RAFFLE_KEY = 'retto-roulette-pending-result';
+
+const PENDING_RAFFLE_KEYS = {
+  canonical: PENDING_RAFFLE_KEY,
+  legacy: [LEGACY_PENDING_RAFFLE_KEY],
+} as const;
 
 export type PendingRaffleLock = {
   version: 1;
@@ -37,6 +49,31 @@ export function parsePendingRaffleLock(raw: string | null): PendingRaffleLock | 
   } catch {
     return null;
   }
+}
+
+export function readPendingRaffleLock(
+  storage: BrowserStorage,
+): PendingRaffleLock | null {
+  return readMirroredStorage(
+    storage,
+    PENDING_RAFFLE_KEYS,
+    parsePendingRaffleLock,
+  );
+}
+
+export function writePendingRaffleLock(
+  storage: BrowserStorage,
+  pending: PendingRaffleLock,
+): void {
+  writeMirroredStorage(
+    storage,
+    PENDING_RAFFLE_KEYS,
+    JSON.stringify(pending),
+  );
+}
+
+export function removePendingRaffleLock(storage: BrowserStorage): void {
+  removeMirroredStorage(storage, PENDING_RAFFLE_KEYS);
 }
 
 export function mergeRecoveredHistory(

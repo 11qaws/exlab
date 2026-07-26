@@ -1,12 +1,14 @@
-# Ex Lab 통합 플랫폼 명세
+# exlab 통합 플랫폼 명세
 
-버전 기준: 1.3.0
+버전 기준: 1.3.1
 
 ## 1. 목적과 경계
 
-Ex Lab은 하나의 공유 명단으로 여러 게임을 준비하고 실행하는 운영 도구다.
+exlab은 하나의 공유 명단으로 여러 게임을 준비하고 실행하는 운영 도구다.
 공통 셸은 게임 선택, 공유 명단과 실행 안전 경계만 소유한다.
-셸의 외형은 고정 라이트 UI이며 전역 테마 선택이나 테마 저장을 제공하지 않는다.
+셸의 기반은 고정 라이트 UI이며 5개 스트리머 프로필의 색을 제품 chrome에
+적용하는 공통 identity 테마를 선택·저장한다. Showdown의 맵 라이트·다크
+모드와 참가자·장애물 의미 색은 이 identity 테마와 분리한다.
 각 게임은 설정, 계획 생성, 진행 연출, 결과 확정과 게임별 기록을 소유한다.
 
 - 공통 주 작업: `참가자 N명에서 공유 명단 확인 → 게임 선택 → 방송 화면 열기 → 수동 시작 → 결과`
@@ -105,19 +107,22 @@ type GameResultEnvelope<TPayload = unknown> = {
 
 ## 5. 공유 명단과 저장
 
-- 공통 키: `ex-lab:roster:v1`
-- 마지막 게임: `ex-lab:last-game:v1`
-- 동일 이름 정책: `ex-lab:allow-duplicate-names:v1` (`0`이 기본, 허용은 `1`)
+- 공통 키: `exlab:roster:v1`
+- 마지막 게임: `exlab:last-game:v1`
+- 동일 이름 정책: `exlab:allow-duplicate-names:v1` (`0`이 기본, 허용은 `1`)
+- 스트리머 테마: `exlab:theme:v1`
 - Showdown의 기존 Race 저장 키 `marble-game:roster`는 통합 키가 없을 때 한 번 가져온다.
-- 공통 명단을 저장할 때 `ex-lab:roster:v1`과 `marble-game:roster`를 함께
+- 공통 명단을 저장할 때 `exlab:roster:v1`, 이전 `ex-lab:roster:v1`,
+  `marble-game:roster`를 함께
   갱신해 구버전으로 롤백해도 최신 명단을 읽을 수 있게 한다.
 - 기존 Roulette는 다른 origin이므로 브라우저 저장소를 자동으로 읽지 않는다.
   기존 결과는 레거시 사이트를 유지하고 CSV/JSON 가져오기로 이전한다.
 - Roulette 가중치, 상품, 제외 명단은 게임 전용 상태이며 Showdown에 전달하지 않는다.
 - Showdown 이력은 저장 JSON이 배열인지 확인하고 필수 필드를 행별 검증한다.
   손상된 행은 제외하고 구형 단일 `winnerName`은 `winnerNames` 배열로 이관한다.
-- 공통 셸은 테마 값을 저장하지 않는다. Showdown 맵 모드는 해당 게임 전용
-  설정으로만 관리한다.
+- 공통 셸은 `exlab:theme:v1`에 스트리머 identity 테마를 저장한다. Showdown
+  맵 모드는 해당 게임 전용 설정으로만 관리하고, identity 테마가 물리·결과
+  또는 참가자·장애물 의미 색을 바꾸지 않는다.
 
 공통 명단 parser는 빈 행만 제거하며 동일 이름을 dedupe하지 않는다. 허용
 정책이 꺼져 있으면 저장을 차단하고, 켜져 있으면 입력 순서와 occurrence 수를
@@ -127,7 +132,7 @@ type GameResultEnvelope<TPayload = unknown> = {
 
 항상 표시:
 
-- Ex Lab, 현재 게임, 현재 단계
+- exlab, 현재 게임, 현재 단계
 - 공통 헤더의 `참가자 N명` 명단 편집 진입점과 실행 차단 사유
 - 게임 실행에 필요한 필수 설정과 주 행동 하나
 - 실제 명단이 반영된 미리보기

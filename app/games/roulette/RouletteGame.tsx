@@ -8,6 +8,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 
+import { SetupWorkspace } from '../../_platform/components/SetupWorkspace';
+import { SharedSetupSummary } from '../../_platform/components/SharedSetupSummary';
+import {
+  DEFAULT_STREAMER_THEME_ID,
+  type StreamerThemeId,
+} from '../../_platform/theme';
 import BroadcastActionDock, { type BroadcastDockAction } from './components/BroadcastActionDock';
 import BroadcastCandidateRoster from './components/BroadcastCandidateRoster';
 import CurrentRoundWinners from './components/CurrentRoundWinners';
@@ -27,6 +33,10 @@ import {
 } from './lib/broadcastSession';
 import { sampleWithoutReplacement } from './lib/draw';
 import { createHistoryCsv } from './lib/historyCsv';
+import {
+  readStoredRouletteHistory,
+  writeStoredRouletteHistory,
+} from './lib/historyStorage';
 import { createPrizeDrawOptions } from './lib/prizeDraw';
 import {
   appendPrizeAssignmentResult,
@@ -49,15 +59,18 @@ import {
 import {
   consumePendingRecord,
   mergeRecoveredHistory,
-  parsePendingRaffleLock,
-  PENDING_RAFFLE_KEY,
+  readPendingRaffleLock,
+  removePendingRaffleLock,
+  type PendingRaffleLock,
+  writePendingRaffleLock,
 } from './lib/pendingRaffle';
 import { derivePreparationReadiness } from './lib/preparation';
 import {
   createStoredPrizeAssignment,
   mergePrizeAssignmentResults,
-  parseStoredPrizeAssignment,
-  PRIZE_ASSIGNMENT_KEY,
+  readStoredPrizeAssignment,
+  removeStoredPrizeAssignment,
+  writeStoredPrizeAssignment,
 } from './lib/prizeAssignmentStorage';
 import {
   isCurrentPresentationCompletion,
@@ -86,15 +99,15 @@ import type {
   WheelPresentation,
 } from './types';
 
-import './styles/rettoStock.css';
-import './styles/rettoRoulette.skin.css';
-import './styles/rettoRoulette.shell.css';
+import './styles/roulette-foundation.css';
+import './styles/roulette-skin.css';
+import './styles/roulette-shell.css';
 import './roulette-game.css';
-import './styles/rettoRoulette.cinematic.css';
-import './styles/rettoRoulette.flow.css';
-import './styles/rettoRoulette.preparation.css';
-import './styles/rettoRoulette.viewport.css';
-import './styles/rettoRoulette.liveInfo.css';
+import './styles/roulette-cinematic.css';
+import './styles/roulette-flow.css';
+import './styles/roulette-preparation.css';
+import './styles/roulette-viewport.css';
+import './styles/roulette-live-info.css';
 import './styles/roulette-embed.css';
 
 type DrawOption = {
@@ -261,16 +274,6 @@ function totalEffectiveWeight(options: readonly DrawOption[]) {
   return options.reduce((sum, option) => sum + Math.max(0, option.weight), 0);
 }
 
-function isStoredDrawRecord(value: unknown): value is DrawRecord {
-  if (!value || typeof value !== 'object') return false;
-  const item = value as Partial<DrawRecord>;
-  return typeof item.id === 'string'
-    && typeof item.createdAt === 'string'
-    && (item.mode === 'wheel' || item.mode === 'marble')
-    && (item.target === 'people' || item.target === 'prizes')
-    && typeof item.winner === 'string';
-}
-
 /** A compact audit marker without persisting an unbounded copy of a large roster. */
 function fingerprintOptions(options: readonly DrawOption[]) {
   let hash = 0x811c9dc5;
@@ -333,6 +336,9 @@ export interface RouletteGameProps {
   onRosterTextChange?: (text: string) => void;
   allowDuplicateNames?: boolean;
   onAllowDuplicateNamesChange?: (allow: boolean) => void;
+  streamerThemeId?: StreamerThemeId;
+  onStreamerThemeChange?: (themeId: StreamerThemeId) => void;
+  onRequestRosterEdit?: () => void;
   onActivityChange?: (active: boolean) => void;
 }
 
@@ -342,6 +348,9 @@ export function RouletteGame({
   rosterText,
   onRosterTextChange,
   allowDuplicateNames = false,
+  streamerThemeId = DEFAULT_STREAMER_THEME_ID,
+  onStreamerThemeChange,
+  onRequestRosterEdit,
   onActivityChange,
 }: RouletteGameProps) {
   const [drawMode] = useState<DrawMode>('wheel');
@@ -508,12 +517,12 @@ export function RouletteGame({
 
   const persistPendingResults = useCallback((roundId: string, records: DrawRecord[]) => {
     try {
-      localStorage.setItem(PENDING_RAFFLE_KEY, JSON.stringify({
+      writePendingRaffleLock(localStorage, {
         version: 1,
         roundId,
         savedAt: new Date().toISOString(),
         records,
-      }));
+      });
       return true;
     } catch {
       showToast('결과는 고정됐지만 복구용 기록을 저장하지 못했어요. 이 탭을 닫지 마세요.');
@@ -600,17 +609,13 @@ export function RouletteGame({
   useEffect(() => {
     let storedHistory: DrawRecord[] = [];
     try {
-      const saved = localStorage.getItem('retto-roulette-history');
-      if (saved) {
-        const parsed: unknown = JSON.parse(saved);
-        if (Array.isArray(parsed)) storedHistory = parsed.filter(isStoredDrawRecord).slice(0, 100);
-      }
+      storedHistory = readStoredRouletteHistory(localStorage);
     } catch {
       // A history failure should never prevent a live giveaway from working.
     }
 
     try {
-      const pending = parsePendingRaffleLock(localStorage.getItem(PENDING_RAFFLE_KEY));
+      const pending = readPendingRaffleLock(localStorage);
       if (pending) {
         const knownIds = new Set(storedHistory.map((record) => record.id));
         const recoveredCount = pending.records.filter((record) => !knownIds.has(record.id)).length;
@@ -631,21 +636,23 @@ export function RouletteGame({
   useEffect(() => {
     if (!historyHydrated) return;
     try {
-      localStorage.setItem('retto-roulette-history', JSON.stringify(history.slice(0, 100)));
+      writeStoredRouletteHistory(localStorage, history);
       if (pendingRecoveryNeedsCleanupRef.current) {
-        localStorage.removeItem(PENDING_RAFFLE_KEY);
+        removePendingRaffleLock(localStorage);
         pendingRecoveryNeedsCleanupRef.current = false;
       } else {
-        const pending = parsePendingRaffleLock(localStorage.getItem(PENDING_RAFFLE_KEY));
+        const pending = readPendingRaffleLock(localStorage);
         if (pending) {
-          const nextPending = history.reduce(
-            (remaining, record) => (
-              remaining && record.revealedAt ? consumePendingRecord(remaining, record.id) : remaining
-            ),
-            pending as ReturnType<typeof parsePendingRaffleLock>,
-          );
-          if (nextPending) localStorage.setItem(PENDING_RAFFLE_KEY, JSON.stringify(nextPending));
-          else localStorage.removeItem(PENDING_RAFFLE_KEY);
+          let nextPending: PendingRaffleLock | null = pending;
+          history.forEach((record) => {
+            if (!nextPending || !record.revealedAt) return;
+            nextPending = consumePendingRecord(nextPending, record.id);
+          });
+          if (nextPending) {
+            writePendingRaffleLock(localStorage, nextPending);
+          } else {
+            removePendingRaffleLock(localStorage);
+          }
         }
       }
     } catch {
@@ -657,7 +664,7 @@ export function RouletteGame({
 
   useEffect(() => {
     try {
-      const stored = parseStoredPrizeAssignment(localStorage.getItem(PRIZE_ASSIGNMENT_KEY));
+      const stored = readStoredPrizeAssignment(localStorage);
       if (stored) {
         setPrizeRecipients(stored.recipients);
         setPrizeRecipientText(stored.recipients.map((recipient) => recipient.name).join('\n'));
@@ -677,16 +684,19 @@ export function RouletteGame({
     if (!prizeAssignmentHydrated) return;
     try {
       if (prizeRecipients.length === 0) {
-        localStorage.removeItem(PRIZE_ASSIGNMENT_KEY);
+        removeStoredPrizeAssignment(localStorage);
         return;
       }
       if (!prizeAssignmentBatchId) return;
-      localStorage.setItem(PRIZE_ASSIGNMENT_KEY, JSON.stringify(createStoredPrizeAssignment(
-        prizeAssignmentBatchId,
-        prizeRecipientSource,
-        prizeRecipients,
-        prizeAssignmentResults,
-      )));
+      writeStoredPrizeAssignment(
+        localStorage,
+        createStoredPrizeAssignment(
+          prizeAssignmentBatchId,
+          prizeRecipientSource,
+          prizeRecipients,
+          prizeAssignmentResults,
+        ),
+      );
     } catch {
       if (prizeAssignmentStorageWarningShownRef.current) return;
       prizeAssignmentStorageWarningShownRef.current = true;
@@ -745,8 +755,13 @@ export function RouletteGame({
   }, [showToast]);
 
   useEffect(() => {
-    if (!embedded) window.scrollTo(0, 0);
-  }, [embedded, raffleStatus]);
+    // An inactive keep-alive game must not move the shared page, but the active
+    // embedded game still needs to reset its viewport when preparation changes
+    // into the broadcast surface. Otherwise a mobile user enters the live
+    // screen at the old preparation CTA scroll position underneath the sticky
+    // exlab header.
+    if (!embedded || active) window.scrollTo(0, 0);
+  }, [active, embedded, raffleStatus]);
 
   useEffect(() => () => {
     // Ignore a late browser animation callback after this app has gone away.
@@ -1174,7 +1189,7 @@ export function RouletteGame({
     );
     if (!launchCommittedPresentation(firstPresentation)) {
       if (pendingSaved) {
-        try { localStorage.removeItem(PENDING_RAFFLE_KEY); } catch { /* ignored */ }
+        try { removePendingRaffleLock(localStorage); } catch { /* ignored */ }
       }
       if (dartCommit) primeDartAim();
       return;
@@ -1216,6 +1231,17 @@ export function RouletteGame({
     setSetupReturnStatus(returnStatus);
     setSetupSession((value) => value + 1);
     setToolsOpen(false);
+  };
+
+  const requestPreparationRosterEdit = () => {
+    if (embedded && onRequestRosterEdit) {
+      onRequestRosterEdit();
+      return;
+    }
+    openParticipantEditor(
+      'configuring',
+      participants.length === 0 ? 'paste' : 'edit',
+    );
   };
 
   const clearParticipantRoster = () => {
@@ -1617,7 +1643,7 @@ export function RouletteGame({
     const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'ex-lab-roulette-winners.csv';
+    link.download = 'exlab-roulette-winners.csv';
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -1864,7 +1890,7 @@ export function RouletteGame({
     );
   };
 
-  const renderRoundSettings = () => (
+  const renderRoundSettings = (rosterManagedExternally = false) => (
     <RoundSetupPanel
       target={drawTarget}
       wheelPresentation={wheelPresentation}
@@ -1887,6 +1913,7 @@ export function RouletteGame({
       removeAfterDraw={removeAfterDraw}
       useWeights={useWeights}
       disabled={!isConfigurationEditable}
+      rosterManagedExternally={rosterManagedExternally}
       onTargetChange={changeTarget}
       onRewardLabelChange={(value) => {
         setRewardLabel(value);
@@ -1918,7 +1945,7 @@ export function RouletteGame({
         prepareNextRoundSettings();
       }}
       onParticipantWeightChange={updateParticipantWeight}
-      onEditRoster={() => openParticipantEditor('configuring', participants.length === 0 ? 'paste' : 'edit')}
+      onEditRoster={requestPreparationRosterEdit}
       onRestoreExcluded={resetWinnerState}
       onAddPrize={addPrize}
       onUpdatePrize={updatePrize}
@@ -2139,7 +2166,7 @@ export function RouletteGame({
       }
       switch (preparation.recovery) {
         case 'open-roster':
-          openParticipantEditor('configuring', participants.length === 0 ? 'paste' : 'edit');
+          requestPreparationRosterEdit();
           break;
         case 'restore-excluded':
           resetWinnerState();
@@ -2160,13 +2187,154 @@ export function RouletteGame({
       }
     };
 
+    if (embedded) {
+      return (
+        <div ref={rouletteRootRef} className="roulette-game is-embedded">
+          <main className="app-shell app-shell--preparation is-embedded">
+            <div
+              className="roulette-shared-setup"
+              inert={editorOpen}
+              aria-hidden={editorOpen || undefined}
+            >
+              <SetupWorkspace
+                className="roulette-setup-workspace"
+                eyebrow="ROULETTE"
+                title={
+                  drawTarget === 'people'
+                    ? '당첨자 추첨'
+                    : '상품 추첨'
+                }
+                sharedSetup={(
+                  <SharedSetupSummary
+                    rosterCount={participants.length}
+                    allowDuplicateNames={allowDuplicateNames}
+                    streamerThemeId={streamerThemeId}
+                    onStreamerThemeChange={(themeId) =>
+                      onStreamerThemeChange?.(themeId)
+                    }
+                    onRequestRosterEdit={requestPreparationRosterEdit}
+                    disabled={editorOpen || !isConfigurationEditable}
+                  />
+                )}
+                essentialSettings={renderRoundSettings(true)}
+                essentialSettingsLabel="추첨 설정"
+                previewHeader={(
+                  <div className="roulette-preview-heading">
+                    <span>방송 캔버스</span>
+                    <strong>{presentationLabel} 미리보기</strong>
+                  </div>
+                )}
+                previewTools={(
+                  <span className="roulette-preview-count">
+                    {previewNames.length > 0
+                      ? `${previewNames.length}${preparationUnit}`
+                      : '샘플'}
+                  </span>
+                )}
+                previewStage={(
+                  <DrawPreviewDirector
+                    enabled={active}
+                    names={previewNames}
+                    weights={previewWeights}
+                    target={drawTarget}
+                    mode={drawMode}
+                    presentation={wheelPresentation}
+                    title={stageTitle}
+                  />
+                )}
+                previewFooter={(
+                  <div className="roulette-preview-summary">
+                    <strong>
+                      {preparationReady
+                        ? drawTarget === 'people'
+                          ? `${drawOptions.length}명 · 한 번에 1명`
+                          : `${drawOptions.length}종 · 재고 ${availablePrizeCount}개 · 한 번에 1개`
+                        : drawTarget === 'people' && participants.length === 0
+                          ? '명단 없음'
+                          : drawTarget === 'prizes' && availablePrizeCount === 0
+                            ? '상품 없음'
+                            : '설정 확인 필요'}
+                    </strong>
+                    <span>
+                      {presentationLabel} · {ruleLabel} · {duplicateLabel}
+                    </span>
+                  </div>
+                )}
+                readiness={(
+                  <div
+                    className={`roulette-readiness${
+                      preparationReady ? ' is-ready' : ' is-blocked'
+                    }`}
+                  >
+                    <span aria-hidden="true" />
+                    <div>
+                      <strong>{preparation.statusLabel}</strong>
+                      <small>
+                        {preparationReady
+                          ? '방송 화면을 열어 대기 상태로 전환합니다.'
+                          : preparation.ctaLabel}
+                      </small>
+                    </div>
+                  </div>
+                )}
+                primaryAction={(
+                  <button
+                    className="preparation-preview__primary"
+                    type="button"
+                    onClick={runPreparationAction}
+                  >
+                    {preparationReady
+                      ? '방송 화면 열기'
+                      : preparation.ctaLabel}
+                  </button>
+                )}
+              />
+            </div>
+
+            {editorOpen && (
+              <div
+                className="roster-drawer"
+                role="dialog"
+                aria-modal="true"
+                aria-label="명단 편집"
+              >
+                <button
+                  className="roster-drawer__scrim"
+                  type="button"
+                  aria-label="명단 편집 닫기"
+                  onClick={cancelParticipantEditor}
+                />
+                <ParticipantSetup
+                  key={setupSession}
+                  initialParticipants={participants}
+                  initialStep={setupStartStep}
+                  onClear={
+                    participants.length > 0
+                      ? clearParticipantRoster
+                      : undefined
+                  }
+                  onCancel={cancelParticipantEditor}
+                  onDraftChange={setParticipantPreviewDraft}
+                  onDirtyChange={setRosterEditorDirty}
+                  allowDuplicateNames={allowDuplicateNames}
+                  onStart={saveParticipants}
+                />
+              </div>
+            )}
+
+            {toast && <div className="toast" role="status">{toast}</div>}
+          </main>
+        </div>
+      );
+    }
+
     return (
       <div ref={rouletteRootRef} className={`roulette-game${embedded ? ' is-embedded' : ''}`}>
         <main className={`app-shell app-shell--preparation${embedded ? ' is-embedded' : ''}`}>
           {!embedded && (
             <header className="brand-header">
-              <div className="brand brand--static" aria-label="Ex Lab Roulette">
-                <strong>Ex Lab · Roulette</strong>
+              <div className="brand brand--static" aria-label="exlab Roulette">
+                <strong>exlab · Roulette</strong>
               </div>
               <nav className="preparation-phase" aria-label="추첨 진행">
                 <strong aria-current="step">준비</strong>
@@ -2268,8 +2436,8 @@ export function RouletteGame({
       <main className={`app-shell app-shell--live${embedded ? ' is-embedded' : ''}`}>
         {!embedded && (
           <header className="brand-header broadcast-header" inert={toolsOpen} aria-hidden={toolsOpen || undefined}>
-            <div className="brand brand--static" aria-label="Ex Lab Roulette">
-              <strong>Ex Lab · Roulette</strong>
+            <div className="brand brand--static" aria-label="exlab Roulette">
+              <strong>exlab · Roulette</strong>
             </div>
             <div className="broadcast-header__actions">
               {isPresentationLocked ? (

@@ -1,5 +1,5 @@
 @scope (.roulette-game) {
-/* Project-shell refinements. Do not add them to rettoStock.css. */
+/* Project-shell refinements. Keep foundation rules separate. */
 
 .brand {
   display: inline-flex;

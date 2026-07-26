@@ -1,9 +1,9 @@
 @scope (.roulette-game) {
 /*
- * Retto Roulette's visual adapter.
+ * Roulette's visual adapter.
  *
- * RettoStock's common skin stays in ../rettoStock.css. Put only Roulette
- * palette and font overrides in this file.
+ * The shared foundation stays in roulette-foundation.css. Put only Roulette
+ * palette and wheel overrides in this file.
  */
 
 .roulette-wheel {

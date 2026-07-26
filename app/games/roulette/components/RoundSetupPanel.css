@@ -19,6 +19,16 @@
   font-family: 'Fredoka', 'Jua', sans-serif;
 }
 
+.round-setup--compact[data-roster-managed-externally='true'] {
+  grid-template-rows:
+    repeat(3, var(--round-setup-control-row-size))
+    auto;
+}
+
+.round-setup__data-slot--external-roster {
+  display: none;
+}
+
 .round-setup__row {
   display: grid;
   grid-template-columns: 90px minmax(0, 1fr);

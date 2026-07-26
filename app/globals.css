@@ -7,9 +7,15 @@
   --exlab-surface-subtle: #f7e9e5;
   --exlab-text: #3b2426;
   --exlab-muted: #6b5356;
+  --exlab-text-subtle: #846b70;
+  --exlab-text-faint: #a58f93;
   --exlab-border: #dfcec8;
+  --exlab-border-strong: #c9aea8;
   --exlab-accent: #ad204f;
   --exlab-on-accent: #ffffff;
+  --exlab-accent-ink: #8f1740;
+  --exlab-accent-bg: #f9e8ee;
+  --exlab-accent-line: #e8bdcc;
   --exlab-header-height: 58px;
   --font-body:
     Inter, Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", system-ui,
@@ -43,11 +49,11 @@ body {
   min-height: 100svh;
   background: var(--exlab-background);
   color: var(--exlab-text);
+  font-family: var(--font-body);
 }
 
-.exlab-shell,
-.exlab-shell * {
-  font-family: var(--font-body) !important;
+.exlab-shell :where(button, input, select, textarea) {
+  font-family: inherit;
 }
 
 .exlab-header {
@@ -68,9 +74,9 @@ body {
   color: var(--exlab-text);
   flex: 0 0 auto;
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 900;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.045em;
   line-height: 1;
 }
 

@@ -44,7 +44,7 @@ export type RaceMapTheme = {
 export const DEFAULT_RACE_MAP_MODE: RaceMapMode = "light";
 
 /**
- * The shared five-streamer palette in the same order as the Retto wheel.
+ * The shared five-streamer palette in the canonical profile order.
  * Map themes may change the course surfaces, but obstacles always use these
  * canonical colors so their identity remains stable between light and dark.
  */

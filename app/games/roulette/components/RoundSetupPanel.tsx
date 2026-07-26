@@ -35,6 +35,7 @@ export interface RoundSetupPanelProps {
   removeAfterDraw: boolean;
   useWeights: boolean;
   disabled?: boolean;
+  rosterManagedExternally?: boolean;
   onTargetChange: (target: DrawTarget) => void;
   onRewardLabelChange: (value: string) => void;
   onDrawLabelChange: (value: string) => void;
@@ -47,7 +48,7 @@ export interface RoundSetupPanelProps {
   onRemoveAfterDrawChange: (value: boolean) => void;
   onUseWeightsChange: (value: boolean) => void;
   onParticipantWeightChange: (id: string, weight: number) => void;
-  onEditRoster: () => void;
+  onEditRoster?: () => void;
   onRestoreExcluded?: () => void;
   onAddPrize: () => void;
   onUpdatePrize: (id: string, patch: PrizePatch) => void;
@@ -82,6 +83,7 @@ export default function RoundSetupPanel({
   removeAfterDraw,
   useWeights,
   disabled = false,
+  rosterManagedExternally = false,
   onTargetChange,
   onRewardLabelChange,
   onDrawLabelChange,
@@ -126,9 +128,17 @@ export default function RoundSetupPanel({
     : recentWinnerCount === 0
       ? '없음'
       : prizeRecipientCount > 0 ? `${recentWinnerCount}명으로 교체` : `${recentWinnerCount}명 불러오기`;
+  const externalPeopleRoster =
+    rosterManagedExternally && target === 'people';
 
   return (
-    <section className="round-setup round-setup--compact" aria-label="추첨 설정">
+    <section
+      className="round-setup round-setup--compact"
+      aria-label="추첨 설정"
+      data-roster-managed-externally={
+        externalPeopleRoster ? 'true' : 'false'
+      }
+    >
       <label className="round-setup__row round-setup__row--title" data-setup-slot="title">
         <span className="round-setup__label">방송 제목</span>
         <input
@@ -166,11 +176,15 @@ export default function RoundSetupPanel({
       </div>
 
       <div
-        className={`round-setup__data-slot round-setup__data-slot--${target}`}
+        className={`round-setup__data-slot round-setup__data-slot--${target}${
+          externalPeopleRoster
+            ? ' round-setup__data-slot--external-roster'
+            : ''
+        }`}
         data-setup-slot="data"
         data-setup-data-layout={target === 'people' ? 'span' : 'split'}
       >
-        {target === 'people' ? (
+        {target === 'people' && !rosterManagedExternally ? (
           <div className="round-setup__row round-setup__row--source round-setup__row--source-spanning">
             <span className="round-setup__label">명단</span>
             <div className="round-setup__source-summary">
@@ -186,12 +200,12 @@ export default function RoundSetupPanel({
               <button
                 type="button"
                 className={participantTotal === 0 ? 'is-primary' : undefined}
-                disabled={disabled}
+                disabled={disabled || onEditRoster === undefined}
                 onClick={onEditRoster}
               >{participantTotal === 0 ? '명단 추가' : '편집'}</button>
             </div>
           </div>
-        ) : (
+        ) : target === 'prizes' ? (
           <div className="round-setup__row round-setup__row--source round-setup__row--recipients">
             <span className="round-setup__label">받을 사람</span>
             <label className="round-setup__recipient-entry">
@@ -220,7 +234,7 @@ export default function RoundSetupPanel({
               )}
             </div>
           </div>
-        )}
+        ) : null}
 
         {target === 'prizes' && (
           <div className="round-setup__prizes">

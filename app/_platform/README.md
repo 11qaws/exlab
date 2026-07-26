@@ -1,11 +1,12 @@
-# Ex Lab platform contract
+# exlab platform contract
 
-The platform owns the game catalog, shared roster, last-used game, and
-cross-game navigation. The shell uses a fixed practical light appearance and
-does not offer or store a global theme preference. Roulette and Showdown
-continue to own their rules, preview, run state, physics or selection logic,
-and detailed result presentation. Showdown alone keeps its game-specific
-light/dark map toggle, defaulting to light.
+The platform owns the game catalog, shared roster, last-used game, five
+streamer identity themes, and cross-game navigation. The shell keeps a
+practical light base and stores the selected profile's product-chrome colours.
+Roulette and Showdown continue to own their rules, preview, run state, physics
+or selection logic, participant/semantic colours, and detailed result
+presentation. Showdown alone keeps its independent game-specific light/dark
+map toggle, defaulting to light.
 
 ## Lifecycle
 
@@ -38,10 +39,11 @@ participant number instead of deduplicating the list.
 
 1. The catalog in `catalog.ts` stays data-only and JSON-serializable.
 2. The shell never reads or changes engine-specific result or physics state.
-3. The shared roster has one owner (`ExLabApp`) and is passed to every game as a
+3. The shared roster has one owner (`ExlabApp`) and is passed to every game as a
    controlled value.
-4. A legacy Race-engine roster is copied once to `ex-lab:roster:v1`. Every
-   subsequent shared-roster write mirrors `marble-game:roster` for rollback
+4. Previous `ex-lab:roster:v1` and Race-engine rosters migrate to
+   `exlab:roster:v1`. Every subsequent shared-roster write mirrors the legacy
+   keys for rollback
    compatibility.
 5. A game cannot be switched while its adapter reports an active session.
 6. New games register one catalog entry and one component implementing

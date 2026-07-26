@@ -117,7 +117,7 @@ export default function WinnerHero({
 
       <div className="winner-hero__card">
         <p className="winner-hero__brand" aria-hidden="true">
-          <b>EX LAB · ROULETTE</b>
+          <b>exlab · ROULETTE</b>
         </p>
 
         <div className="winner-hero__result-heading">

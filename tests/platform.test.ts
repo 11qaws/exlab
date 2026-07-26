@@ -14,12 +14,17 @@ import {
   isGameSwitchLocked,
 } from "../app/_platform/contracts";
 import {
+  LEGACY_PLATFORM_STORAGE_KEYS,
   PLATFORM_STORAGE_KEYS,
   readPlatformPreferences,
   writeDuplicateNamePolicy,
   writeLastGame,
   writeSharedRoster,
+  writeStreamerTheme,
 } from "../app/_platform/storage";
+import {
+  DEFAULT_STREAMER_THEME_ID,
+} from "../app/_platform/theme/streamerThemes";
 import {
   parseSharedRosterNames,
   validateSharedRosterDraft,
@@ -119,7 +124,99 @@ test("shared roster migrates once without deleting the legacy Race roster", () =
     rosterText: "세나\n코코",
     gameId: "roulette",
     allowDuplicateNames: true,
+    streamerThemeId: DEFAULT_STREAMER_THEME_ID,
   });
+});
+
+test("canonical exlab preferences take priority over ex-lab values", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(PLATFORM_STORAGE_KEYS.roster, "canonical roster");
+  storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.roster, "legacy roster");
+  storage.setItem(PLATFORM_STORAGE_KEYS.lastGame, "roulette");
+  storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.lastGame, "showdown");
+  storage.setItem(PLATFORM_STORAGE_KEYS.allowDuplicateNames, "0");
+  storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.allowDuplicateNames, "1");
+  storage.setItem(PLATFORM_STORAGE_KEYS.streamerTheme, "sena");
+  storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.streamerTheme, "eureka");
+
+  assert.deepEqual(readPlatformPreferences(storage), {
+    rosterText: "canonical roster",
+    gameId: "roulette",
+    allowDuplicateNames: false,
+    streamerThemeId: "sena",
+  });
+});
+
+test("previous ex-lab preferences remain readable as fallbacks", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.roster, "legacy roster");
+  storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.lastGame, "roulette");
+  storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.allowDuplicateNames, "1");
+  storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.streamerTheme, "eureka");
+
+  assert.deepEqual(readPlatformPreferences(storage), {
+    rosterText: "legacy roster",
+    gameId: "roulette",
+    allowDuplicateNames: true,
+    streamerThemeId: "eureka",
+  });
+  assert.equal(
+    storage.getItem(PLATFORM_STORAGE_KEYS.roster),
+    "legacy roster",
+  );
+});
+
+test("invalid stored streamer themes fall back to the product default", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(PLATFORM_STORAGE_KEYS.streamerTheme, "unknown-theme");
+
+  assert.equal(
+    readPlatformPreferences(storage).streamerThemeId,
+    DEFAULT_STREAMER_THEME_ID,
+  );
+});
+
+test("platform writes mirror canonical, previous, and standalone keys", () => {
+  const storage = new MemoryStorage();
+
+  writeSharedRoster(storage, "아모레또\n유레카");
+  writeLastGame(storage, "showdown");
+  writeDuplicateNamePolicy(storage, true);
+  writeStreamerTheme(storage, "mangjing");
+
+  assert.equal(
+    storage.getItem(PLATFORM_STORAGE_KEYS.roster),
+    "아모레또\n유레카",
+  );
+  assert.equal(
+    storage.getItem(LEGACY_PLATFORM_STORAGE_KEYS.roster),
+    "아모레또\n유레카",
+  );
+  assert.equal(
+    storage.getItem(PLATFORM_STORAGE_KEYS.legacyRaceRoster),
+    "아모레또\n유레카",
+  );
+  assert.equal(storage.getItem(PLATFORM_STORAGE_KEYS.lastGame), "showdown");
+  assert.equal(
+    storage.getItem(LEGACY_PLATFORM_STORAGE_KEYS.lastGame),
+    "showdown",
+  );
+  assert.equal(
+    storage.getItem(PLATFORM_STORAGE_KEYS.allowDuplicateNames),
+    "1",
+  );
+  assert.equal(
+    storage.getItem(LEGACY_PLATFORM_STORAGE_KEYS.allowDuplicateNames),
+    "1",
+  );
+  assert.equal(
+    storage.getItem(PLATFORM_STORAGE_KEYS.streamerTheme),
+    "mangjing",
+  );
+  assert.equal(
+    storage.getItem(LEGACY_PLATFORM_STORAGE_KEYS.streamerTheme),
+    "mangjing",
+  );
 });
 
 test("legacy Race selection resumes as Showdown", () => {
@@ -152,13 +249,13 @@ test("shared roster preserves occurrences and applies one duplicate policy", () 
 
 test("game surfaces keep setup drafts mounted and isolate activity locks", async () => {
   const source = await readFile(
-    new URL("../app/ExLabApp.tsx", import.meta.url),
+    new URL("../app/ExlabApp.tsx", import.meta.url),
     "utf8",
   );
 
   assert.match(
     source,
-    /GAME_CATALOG\.filter\(\(game\) => visitedGameIds\.has\(game\.id\)\)\.map\(\(game\) => \{/,
+    /GAME_CATALOG\s*\.filter\(\(game\)\s*=>\s*visitedGameIds\.has\(game\.id\)\s*\)\s*\.map\(\(game\)\s*=>\s*\{/,
   );
   assert.match(source, /hidden=\{!isActiveGame\}/);
   assert.match(source, /active=\{isActiveGame\}/);
@@ -172,7 +269,7 @@ test("game surfaces keep setup drafts mounted and isolate activity locks", async
 
 test("integrated preparation source contains no large Showdown promotional copy", async () => {
   const source = await readFile(
-    new URL("../app/marble/MarbleGame.tsx", import.meta.url),
+    new URL("../app/marble/ShowdownGame.tsx", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(source, /모든 이름이/);

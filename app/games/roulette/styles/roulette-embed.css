@@ -1,7 +1,26 @@
 @scope (.roulette-game) {
   :scope.is-embedded {
+    --page: var(--exlab-background);
+    --cream: var(--exlab-surface-subtle);
+    --card: var(--exlab-surface);
+    --ink: var(--exlab-text);
+    --muted: var(--exlab-muted);
+    --line: var(--exlab-border);
+    --hot-pink: var(--exlab-accent);
+    --hot-pink-strong: var(--exlab-accent-ink);
+    --magenta: var(--exlab-accent-ink);
+    --shadow: 0 10px 30px
+      color-mix(in srgb, var(--exlab-accent) 18%, transparent);
     min-height: calc(100svh - var(--exlab-header-height));
     background: var(--page);
+    background-image: none;
+    color: var(--ink);
+    font-family: var(--font-body);
+  }
+
+  :scope.is-embedded,
+  :scope.is-embedded * {
+    font-family: var(--font-body) !important;
   }
 
   .app-shell.is-embedded {
@@ -11,6 +30,7 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
+    background: var(--exlab-surface);
   }
 
   .app-shell.is-embedded::before {
@@ -18,7 +38,217 @@
   }
 
   .app-shell--preparation.is-embedded {
-    padding: clamp(18px, 2.4vw, 32px);
+    display: block;
+    padding: 0;
+  }
+
+  .roulette-shared-setup {
+    min-height: calc(100svh - var(--exlab-header-height));
+  }
+
+  .roulette-setup-workspace .round-setup--compact,
+  .roulette-setup-workspace .round-setup__data-slot,
+  .roulette-setup-workspace .round-setup__prizes {
+    background: var(--exlab-surface);
+  }
+
+  .roulette-setup-workspace
+    :is(
+      .round-setup__row--title input,
+      .round-setup__recipient-entry textarea
+    ) {
+    background: var(--exlab-background);
+  }
+
+  .roulette-setup-workspace
+    .round-setup__segmented
+    button[aria-pressed="true"] {
+    background: var(--exlab-accent-bg);
+    box-shadow: inset 0 -3px 0 var(--exlab-accent);
+  }
+
+  .roulette-setup-workspace .round-setup__label,
+  .roulette-setup-workspace
+    :is(
+      .round-setup__row--title input,
+      .round-setup__segmented button,
+      .round-setup__advanced summary
+    ) {
+    font-weight: 750;
+  }
+
+  .roulette-setup-workspace .draw-preview-director {
+    border-radius: 0;
+    background:
+      radial-gradient(
+        circle at 50% 48%,
+        color-mix(in srgb, var(--exlab-surface) 96%, transparent) 0 26%,
+        transparent 64%
+      ),
+      linear-gradient(
+        145deg,
+        var(--exlab-accent-bg),
+        var(--exlab-surface-subtle)
+      );
+  }
+
+  :scope.is-embedded .roulette-wheel__stage::after {
+    background: color-mix(
+      in srgb,
+      var(--exlab-accent) 32%,
+      transparent
+    );
+  }
+
+  :scope.is-embedded .roulette-wheel__rim {
+    border-color: var(--exlab-accent);
+    background: var(--exlab-surface);
+    box-shadow:
+      0 0 0 0.25rem var(--exlab-surface),
+      0 0 0 0.52rem var(--exlab-accent),
+      0 0.7rem 0 var(--exlab-accent-ink),
+      0 1.2rem 2.2rem
+        color-mix(in srgb, var(--exlab-accent) 38%, transparent);
+  }
+
+  :scope.is-embedded .roulette-wheel__slice {
+    stroke: var(--exlab-surface-subtle);
+  }
+
+  :scope.is-embedded
+    :is(.roulette-wheel__label, .roulette-wheel__empty-copy) {
+    fill: var(--exlab-text);
+    stroke: color-mix(
+      in srgb,
+      var(--exlab-surface) 88%,
+      transparent
+    );
+  }
+
+  :scope.is-embedded .roulette-wheel__hub {
+    border-color: var(--exlab-accent);
+    background: var(--exlab-accent-bg);
+    box-shadow:
+      inset 0.2rem 0.2rem 0
+        color-mix(in srgb, var(--exlab-surface) 72%, transparent),
+      0 0.28rem 0 var(--exlab-accent-ink);
+  }
+
+  :scope.is-embedded
+    :is(.roulette-wheel__hub span, .roulette-wheel__hub small) {
+    color: var(--exlab-text);
+  }
+
+  :scope.is-embedded .roulette-wheel__hub small {
+    color: var(--exlab-accent-ink);
+  }
+
+  :scope.is-embedded .roulette-wheel__pointer {
+    filter: drop-shadow(0 0.3rem 0 var(--exlab-accent-ink));
+  }
+
+  :scope.is-embedded .roulette-wheel__pointer::before {
+    background: var(--exlab-accent);
+  }
+
+  :scope.is-embedded .roulette-wheel__pointer-pin {
+    border-color: var(--exlab-accent);
+    background: var(--exlab-surface);
+  }
+
+  .roulette-preview-heading {
+    display: grid;
+    gap: 2px;
+  }
+
+  .roulette-preview-heading span {
+    color: var(--exlab-muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .roulette-preview-heading strong {
+    color: var(--exlab-text);
+    font-size: 18px;
+    font-weight: 850;
+    letter-spacing: -0.025em;
+  }
+
+  .roulette-preview-count {
+    background: var(--exlab-accent-bg);
+    border: 1px solid var(--exlab-accent-line);
+    border-radius: 999px;
+    color: var(--exlab-accent-ink);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 6px 9px;
+  }
+
+  .roulette-preview-summary {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .roulette-preview-summary strong {
+    color: var(--exlab-text);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .roulette-preview-summary span {
+    color: var(--exlab-muted);
+    font-size: 11px;
+  }
+
+  .roulette-readiness {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+  }
+
+  .roulette-readiness > span {
+    background: var(--orange);
+    border-radius: 50%;
+    box-shadow: 0 0 0 4px rgb(255 157 84 / 14%);
+    flex: 0 0 auto;
+    height: 8px;
+    width: 8px;
+  }
+
+  .roulette-readiness.is-ready > span {
+    background: var(--mint);
+    box-shadow: 0 0 0 4px rgb(52 224 168 / 14%);
+  }
+
+  .roulette-readiness > div {
+    display: grid;
+    gap: 2px;
+  }
+
+  .roulette-readiness strong {
+    color: var(--exlab-text);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .roulette-readiness small {
+    color: var(--exlab-muted);
+    font-size: 10px;
+  }
+
+  .roulette-setup-workspace
+    .exlab-setup-workspace__primary-action
+    .preparation-preview__primary {
+    background: var(--exlab-accent);
+    border-color: var(--exlab-accent);
+    box-shadow: 0 4px 0 var(--exlab-accent-ink);
+    color: var(--exlab-on-accent);
+    font-size: 13px;
+    font-weight: 850;
+    min-width: 180px;
   }
 
   .app-shell--live.is-embedded {
@@ -31,6 +261,23 @@
     margin-left: auto;
   }
 
+  /*
+   * The standalone broadcast shell reserves three rows for its own product
+   * header, phase bar, and stage. exlab supplies the product header, so the
+   * embedded surface owns only the latter two rows and must subtract the
+   * shared header from its viewport height.
+   */
+  @media (min-width: 901px) {
+    .app-shell.app-shell--live.is-embedded {
+      grid-template-rows: auto minmax(0, 1fr);
+      width: 100%;
+      height: calc(100dvh - var(--exlab-header-height));
+      min-height: 0;
+      margin: 0;
+      padding: 18px clamp(18px, 2.4vw, 32px);
+    }
+  }
+
   @media (max-width: 620px) {
     .app-shell--preparation.is-embedded,
     .app-shell--live.is-embedded {
@@ -38,6 +285,10 @@
       min-height: calc(100svh - var(--exlab-header-height));
       margin: 0;
       padding: 12px;
+    }
+
+    .app-shell--preparation.is-embedded {
+      padding: 0;
     }
 
     .broadcast-phase-bar {

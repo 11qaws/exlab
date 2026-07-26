@@ -1,6 +1,19 @@
+import {
+  readMirroredStorage,
+  removeMirroredStorage,
+  writeMirroredStorage,
+  type BrowserStorage,
+} from '../../../_platform/mirroredStorage';
 import type { DrawRecord, PrizeRecipient, PrizeRecipientSource } from '../types';
 
-export const PRIZE_ASSIGNMENT_KEY = 'retto-roulette-prize-assignment';
+export const PRIZE_ASSIGNMENT_KEY = 'exlab:roulette:prize-assignment:v1';
+export const LEGACY_PRIZE_ASSIGNMENT_KEY =
+  'retto-roulette-prize-assignment';
+
+const PRIZE_ASSIGNMENT_KEYS = {
+  canonical: PRIZE_ASSIGNMENT_KEY,
+  legacy: [LEGACY_PRIZE_ASSIGNMENT_KEY],
+} as const;
 
 export interface StoredPrizeAssignment {
   version: 1;
@@ -69,6 +82,31 @@ export function parseStoredPrizeAssignment(raw: string | null): StoredPrizeAssig
   } catch {
     return null;
   }
+}
+
+export function readStoredPrizeAssignment(
+  storage: BrowserStorage,
+): StoredPrizeAssignment | null {
+  return readMirroredStorage(
+    storage,
+    PRIZE_ASSIGNMENT_KEYS,
+    parseStoredPrizeAssignment,
+  );
+}
+
+export function writeStoredPrizeAssignment(
+  storage: BrowserStorage,
+  assignment: StoredPrizeAssignment,
+): void {
+  writeMirroredStorage(
+    storage,
+    PRIZE_ASSIGNMENT_KEYS,
+    JSON.stringify(assignment),
+  );
+}
+
+export function removeStoredPrizeAssignment(storage: BrowserStorage): void {
+  removeMirroredStorage(storage, PRIZE_ASSIGNMENT_KEYS);
 }
 
 export function createStoredPrizeAssignment(

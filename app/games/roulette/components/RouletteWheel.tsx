@@ -1268,7 +1268,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
       data-auto-whirl-duration={autoWhirlDuration.toFixed(3)}
       data-photo-finish-duration={autoPhotoFinishDuration.toFixed(3)}
       style={wheelStyle}
-      aria-label="Ex Lab Roulette 추첨 룰렛"
+      aria-label="exlab Roulette 추첨 룰렛"
     >
       <div className="roulette-wheel__stage">
         <span className="roulette-wheel__spark roulette-wheel__spark--one" aria-hidden="true">✦</span>
@@ -1306,7 +1306,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
             >
               <title>
                 {participantCount > 0
-                  ? `Ex Lab Roulette, ${itemNoun} ${participantCount}${countUnit}`
+                  ? `exlab Roulette, ${itemNoun} ${participantCount}${countUnit}`
                   : '명단을 준비하면 룰렛이 완성됩니다.'}
               </title>
 
@@ -1364,7 +1364,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
             )}
 
             <div className="roulette-wheel__hub" aria-hidden="true">
-              <span>EX LAB</span>
+              <span>exlab</span>
               <small>ROULETTE</small>
             </div>
           </div>
