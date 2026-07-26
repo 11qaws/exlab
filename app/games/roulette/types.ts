@@ -1,0 +1,77 @@
+/** Public Roulette modes never expose the retired in-app marble renderer. */
+export type DrawMode = 'wheel';
+/** Read-only compatibility for history written by the legacy standalone app. */
+export type LegacyDrawMode = 'marble';
+export type DrawTarget = 'people' | 'prizes';
+/** Physical interaction that fixes a result against the same weighted wheel geometry. */
+export type WheelPresentation = 'spin' | 'dart';
+
+export interface Participant {
+  id: string;
+  name: string;
+  weight: number;
+  commentCount?: number;
+}
+
+export interface Prize {
+  id: string;
+  name: string;
+  quantity: number;
+  weight: number;
+}
+
+export type PrizeRecipientSource = 'linked' | 'manual';
+
+/** One prize assignment slot. Duplicate names remain separate slots. */
+export interface PrizeRecipient {
+  id: string;
+  name: string;
+  source: PrizeRecipientSource;
+  sourceSessionId?: string;
+  sourceResultId?: string;
+}
+
+export interface DrawRecord {
+  id: string;
+  /** Groups consecutive rounds shown in one open broadcast stage. */
+  sessionId?: string;
+  /** Selection time, fixed at the button press that committed this result. */
+  createdAt: string;
+  /** Optional on-air reveal time after the wheel or dart animation finishes. */
+  revealedAt?: string;
+  /** Groups individual animation results from one multi-winner draw. */
+  roundId?: string;
+  /** Optional on-air context, for example "버거 3명 추첨". */
+  roundLabel?: string;
+  /** Optional reward/event name, kept separate from the on-air title. */
+  rewardLabel?: string;
+  /** One-based order within a multi-winner draw. */
+  roundOrder?: number;
+  mode: DrawMode | LegacyDrawMode;
+  /** Present for wheel draws so the history can explain the on-air reveal. */
+  presentation?: WheelPresentation;
+  /** Snapshot of the eligible display candidates when this result was started. */
+  candidateCount?: number;
+  /** Stable compact audit marker for the exact candidate ids/names/weights. */
+  candidateFingerprint?: string;
+  /** Sum of the effective weights in that candidate snapshot. */
+  candidateTotalWeight?: number;
+  /** Kept with the record so older results do not inherit a later rule change. */
+  useWeights?: boolean;
+  /** Whether this winner was removed from later participant draws. */
+  removeAfterDraw?: boolean;
+  target: DrawTarget;
+  winner: string;
+  /** Original configured prize row when the target is a product. */
+  prizeId?: string;
+  /** Unique marker for the inventory decrement committed by a product draw. */
+  prizeUnitId?: string;
+  prize?: string;
+  /** Missing on legacy records that used one wheel option per inventory unit. */
+  prizeProbabilityModel?: 'quantity-ratio';
+  /** Stable assignment slot used when winners are handed off to a prize draw. */
+  recipientId?: string;
+  /** Distinguishes an explicit new assignment using the same recipient slots. */
+  prizeAssignmentBatchId?: string;
+  recipient?: string;
+}

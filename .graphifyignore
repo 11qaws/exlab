@@ -1,9 +1,0 @@
-node_modules/
-dist/
-docs/
-graphify-out/
-.git/
-.vite/
-coverage/
-package-lock.json
-*.log
