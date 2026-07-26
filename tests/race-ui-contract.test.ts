@@ -54,6 +54,32 @@ test("mobile leaderboard keeps the first active contender visible", () => {
   );
 });
 
+test("live leaderboard records finish times and swaps ranks in 200ms", () => {
+  assert.match(gameSource, /LEADERBOARD_SWAP_DURATION_MS = 200/);
+  assert.match(gameSource, /resolveFinishRecords\(plan\.simulation\.frames\)/);
+  assert.match(gameSource, /getSnapshotBeforeUpdate/);
+  assert.match(gameSource, /data-rank-slot-id=\{slotId\}/);
+  assert.match(
+    gameSource,
+    /translate\(\$\{offsetX\}px, \$\{offsetY\}px\)/,
+  );
+  assert.match(
+    gameSource,
+    /this\.props\.reducedMotion[\s\S]*?this\.cancelRankAnimations\(\)/,
+  );
+  assert.match(gameSource, /element\.dataset\.rankAnimating = "true"/);
+  assert.match(
+    gameSource,
+    /transform \$\{LEADERBOARD_SWAP_DURATION_MS\}ms/,
+  );
+  assert.match(
+    gameSource,
+    /key=\{`\$\{plan\.runId\}:\$\{playbackEpoch\}`\}/,
+  );
+  assert.match(gameSource, /className=\{\[[\s\S]*?"leaderboard-time"/);
+  assert.match(cssSource, /font-variant-numeric:\s*tabular-nums;/);
+});
+
 test("semantic canvas obstacles use the theme outline", () => {
   assert.match(canvasSource, /isSemanticObstacle/);
   assert.match(canvasSource, /context\.strokeStyle = theme\.outline;/);

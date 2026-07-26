@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Component,
   useEffect,
   useMemo,
   useRef,
@@ -46,11 +47,14 @@ import {
 import {
   findFinalSectionOvertakes,
   findStableLeadChanges,
+  formatFinishTime,
   isCloseRace,
   isFinalApproach,
   isPhotoFinish,
   resolveArrivalDelta,
   resolveCourseProgress,
+  resolveFinishRecords,
+  type FinishRecord,
 } from "./race-presentation";
 import {
   advanceRacePlayback,
@@ -137,6 +141,250 @@ function participantStyle(candidate: Candidate): ParticipantStyle {
     "--participant-on-surface": candidate.theme.onSurface,
     "--participant-border": candidate.theme.border,
   };
+}
+
+export const LEADERBOARD_SWAP_DURATION_MS = 200;
+
+type LiveLeaderboardRow = {
+  slotId: string;
+  candidate: Candidate;
+};
+
+type LiveLeaderboardProps = {
+  rows: LiveLeaderboardRow[];
+  finishedSlotIds: ReadonlySet<string>;
+  activeLeaderSlotId?: string;
+  finishRecords: ReadonlyMap<string, FinishRecord>;
+  reducedMotion: boolean;
+};
+
+type LeaderboardPositionSnapshot = ReadonlyMap<
+  string,
+  { left: number; top: number }
+>;
+
+function sameLeaderboardOrder(
+  previousRows: readonly LiveLeaderboardRow[],
+  nextRows: readonly LiveLeaderboardRow[],
+): boolean {
+  return (
+    previousRows.length === nextRows.length &&
+    previousRows.every(
+      (row, index) => row.slotId === nextRows[index]?.slotId,
+    )
+  );
+}
+
+class LiveLeaderboard extends Component<LiveLeaderboardProps> {
+  private readonly rowElements = new Map<string, HTMLLIElement>();
+  private readonly rowRefCallbacks = new Map<
+    string,
+    (element: HTMLLIElement | null) => void
+  >();
+  private readonly rankAnimations = new Map<string, Animation>();
+  private readonly rankAnimationTimers = new Map<string, number>();
+
+  private rowRef(slotId: string) {
+    const existing = this.rowRefCallbacks.get(slotId);
+    if (existing) return existing;
+    const callback = (element: HTMLLIElement | null) => {
+      if (element) {
+        this.rowElements.set(slotId, element);
+      } else {
+        this.rowElements.delete(slotId);
+      }
+    };
+    this.rowRefCallbacks.set(slotId, callback);
+    return callback;
+  }
+
+  private cancelRankAnimation(slotId: string) {
+    const animation = this.rankAnimations.get(slotId);
+    this.rankAnimations.delete(slotId);
+    animation?.cancel();
+
+    const timer = this.rankAnimationTimers.get(slotId);
+    if (timer !== undefined) window.clearTimeout(timer);
+    this.rankAnimationTimers.delete(slotId);
+
+    const element = this.rowElements.get(slotId);
+    if (!element) return;
+    delete element.dataset.rankAnimating;
+    element.style.removeProperty("transform");
+    element.style.removeProperty("transition");
+  }
+
+  private cancelRankAnimations() {
+    const slotIds = new Set([
+      ...this.rankAnimations.keys(),
+      ...this.rankAnimationTimers.keys(),
+    ]);
+    slotIds.forEach((slotId) => this.cancelRankAnimation(slotId));
+  }
+
+  getSnapshotBeforeUpdate(
+    previousProps: Readonly<LiveLeaderboardProps>,
+  ): LeaderboardPositionSnapshot | null {
+    if (
+      this.props.reducedMotion ||
+      sameLeaderboardOrder(previousProps.rows, this.props.rows)
+    ) {
+      return null;
+    }
+
+    return new Map(
+      previousProps.rows.flatMap((row) => {
+        const element = this.rowElements.get(row.slotId);
+        if (!element) return [];
+        const rect = element.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return [];
+        return [[row.slotId, { left: rect.left, top: rect.top }] as const];
+      }),
+    );
+  }
+
+  componentDidUpdate(
+    _previousProps: Readonly<LiveLeaderboardProps>,
+    _previousState: Readonly<Record<string, never>>,
+    snapshot: LeaderboardPositionSnapshot | null,
+  ) {
+    if (this.props.reducedMotion) {
+      this.cancelRankAnimations();
+      return;
+    }
+    if (!snapshot) return;
+
+    this.props.rows.forEach((row) => {
+      const element = this.rowElements.get(row.slotId);
+      const previousPosition = snapshot.get(row.slotId);
+      if (!element || !previousPosition) return;
+
+      this.cancelRankAnimation(row.slotId);
+      const nextRect = element.getBoundingClientRect();
+      if (nextRect.width === 0 || nextRect.height === 0) {
+        this.rankAnimations.delete(row.slotId);
+        return;
+      }
+      const offsetX = previousPosition.left - nextRect.left;
+      const offsetY = previousPosition.top - nextRect.top;
+      if (
+        Math.abs(offsetX) < 0.5 &&
+        Math.abs(offsetY) < 0.5
+      ) {
+        this.rankAnimations.delete(row.slotId);
+        return;
+      }
+
+      element.dataset.rankAnimating = "true";
+      const startTransform = `translate(${offsetX}px, ${offsetY}px)`;
+      if (typeof element.animate !== "function") {
+        element.style.transition = "none";
+        element.style.transform = startTransform;
+        void element.offsetWidth;
+        element.style.transition = `transform ${LEADERBOARD_SWAP_DURATION_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1), background 180ms ease-out`;
+        element.style.transform = "translate(0, 0)";
+        const timer = window.setTimeout(() => {
+          if (this.rankAnimationTimers.get(row.slotId) !== timer) return;
+          this.rankAnimationTimers.delete(row.slotId);
+          delete element.dataset.rankAnimating;
+          element.style.removeProperty("transform");
+          element.style.removeProperty("transition");
+        }, LEADERBOARD_SWAP_DURATION_MS + 34);
+        this.rankAnimationTimers.set(row.slotId, timer);
+        return;
+      }
+
+      const animation = element.animate(
+        [
+          { transform: startTransform },
+          { transform: "translate(0, 0)" },
+        ],
+        {
+          duration: LEADERBOARD_SWAP_DURATION_MS,
+          easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        },
+      );
+      this.rankAnimations.set(row.slotId, animation);
+      const releaseAnimation = () => {
+        if (this.rankAnimations.get(row.slotId) === animation) {
+          this.rankAnimations.delete(row.slotId);
+          delete element.dataset.rankAnimating;
+        }
+      };
+      animation.onfinish = releaseAnimation;
+      animation.oncancel = releaseAnimation;
+    });
+  }
+
+  componentWillUnmount() {
+    this.cancelRankAnimations();
+  }
+
+  render() {
+    const {
+      rows,
+      finishedSlotIds,
+      activeLeaderSlotId,
+      finishRecords,
+    } = this.props;
+
+    return (
+      <ol>
+        {rows.map(({ slotId, candidate }, index) => {
+          const finished = finishedSlotIds.has(slotId);
+          const finishRecord = finished
+            ? finishRecords.get(slotId)
+            : undefined;
+          const finishTime = finishRecord
+            ? formatFinishTime(finishRecord.elapsedMs)
+            : "—";
+
+          return (
+            <li
+              key={slotId}
+              ref={this.rowRef(slotId)}
+              data-rank-slot-id={slotId}
+              data-live-rank={index + 1}
+              className={[
+                index === 0 ? "is-leading" : "",
+                finished ? "is-qualified" : "",
+                slotId === activeLeaderSlotId
+                  ? "is-active-contender"
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              style={participantStyle(candidate)}
+              aria-label={`${index + 1}위 ${candidate.name}, ${
+                finishRecord ? `골인 ${finishTime}` : "경기 중"
+              }`}
+            >
+              <strong aria-hidden="true">{index + 1}</strong>
+              <i aria-hidden="true" />
+              <span title={candidate.name} aria-hidden="true">
+                {shortName(candidate.name)}
+              </span>
+              <time
+                className={[
+                  "leaderboard-time",
+                  finishRecord ? "is-finished" : "is-pending",
+                ].join(" ")}
+                dateTime={
+                  finishRecord
+                    ? `PT${(finishRecord.elapsedMs / 1000).toFixed(3)}S`
+                    : undefined
+                }
+                title={finishRecord ? "골인 시간" : "골인 전"}
+                aria-hidden="true"
+              >
+                {finishTime}
+              </time>
+            </li>
+          );
+        })}
+      </ol>
+    );
+  }
 }
 
 function useReducedMotion() {
@@ -629,6 +877,13 @@ export function MarbleGame() {
     () => (plan ? isPhotoFinish(plan.simulation.frames) : false),
     [plan],
   );
+  const finishRecords = useMemo(
+    () =>
+      plan
+        ? resolveFinishRecords(plan.simulation.frames)
+        : new Map<string, FinishRecord>(),
+    [plan],
+  );
   const validation = useMemo(
     () => parseRoster(rosterText, { allowDuplicateNames }),
     [allowDuplicateNames, rosterText],
@@ -1034,9 +1289,10 @@ export function MarbleGame() {
     const arrivedRanking = currentFrame.finishedSlotIds
       .map((slotId) => candidateForSlot(plan, slotId))
       .filter((candidate): candidate is Candidate => Boolean(candidate));
-    const ranking = currentFrame.rankedSlotIds
-      .map((slotId) => candidateForSlot(plan, slotId))
-      .filter((candidate): candidate is Candidate => Boolean(candidate));
+    const rankingRows = currentFrame.rankedSlotIds.flatMap((slotId) => {
+      const candidate = candidateForSlot(plan, slotId);
+      return candidate ? [{ slotId, candidate }] : [];
+    });
     const resultRows = Array.from(
       { length: plan.candidates.length },
       (_, index) => arrivedRanking[index],
@@ -1046,11 +1302,7 @@ export function MarbleGame() {
         plan.candidates.find((candidate) => candidate.id === candidateId),
       )
       .filter((candidate): candidate is Candidate => Boolean(candidate));
-    const finishedCandidateIds = new Set(
-      currentFrame.finishedSlotIds
-        .map((slotId) => plan.slotToCandidateId[slotId])
-        .filter(Boolean),
-    );
+    const finishedSlotIds = new Set(currentFrame.finishedSlotIds);
     const confirmedWinnerCount = Math.min(
       currentFrame.finishedSlotIds.length,
       plan.winnerCount,
@@ -1074,9 +1326,7 @@ export function MarbleGame() {
     const activeRankedSlotIds = currentFrame.rankedSlotIds.filter(
       (slotId) => !currentFrame.finishedSlotIds.includes(slotId),
     );
-    const activeLeaderCandidateId = activeRankedSlotIds[0]
-      ? plan.slotToCandidateId[activeRankedSlotIds[0]]
-      : undefined;
+    const activeLeaderSlotId = activeRankedSlotIds[0];
     const presentationFrame =
       currentFrame.finishedSlotIds.length <
         plan.simulation.resultGateCount &&
@@ -1400,32 +1650,14 @@ export function MarbleGame() {
                 {soundEnabled ? "소리 켜짐" : "음소거"}
               </button>
             </div>
-            <ol>
-              {ranking.map((candidate, index) => (
-                <li
-                  key={candidate.id}
-                  className={[
-                    index === 0 ? "is-leading" : "",
-                    finishedCandidateIds.has(candidate.id)
-                      ? "is-qualified"
-                      : "",
-                    candidate.id === activeLeaderCandidateId
-                      ? "is-active-contender"
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  style={participantStyle(candidate)}
-                >
-                  <strong>{index + 1}</strong>
-                  <i />
-                  <span title={candidate.name}>
-                    {shortName(candidate.name)}
-                  </span>
-                  {finishedCandidateIds.has(candidate.id) && <em>당첨</em>}
-                </li>
-              ))}
-            </ol>
+            <LiveLeaderboard
+              key={`${plan.runId}:${playbackEpoch}`}
+              rows={rankingRows}
+              finishedSlotIds={finishedSlotIds}
+              activeLeaderSlotId={activeLeaderSlotId}
+              finishRecords={finishRecords}
+              reducedMotion={reducedMotion}
+            />
             <p className="camera-note">
               {courseProgress?.section.label ?? "START"} ·{" "}
               {closeRace
@@ -1455,7 +1687,7 @@ export function MarbleGame() {
         </a>
         <div className="product-header-actions">
           <MapThemeToggle mode={mapMode} onChange={setMapMode} />
-          <span className="prototype-badge">RACE · VERSION 1.2.1</span>
+          <span className="prototype-badge">RACE · VERSION 1.2.2</span>
         </div>
       </header>
 

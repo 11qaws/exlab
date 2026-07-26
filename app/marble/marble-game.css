@@ -940,6 +940,7 @@ summary {
   grid-template-columns: 25px 9px minmax(0, 1fr) auto;
   min-height: 38px;
   padding: 5px 8px;
+  position: relative;
   transition: background 180ms ease-out;
 }
 
@@ -964,12 +965,32 @@ summary {
 }
 
 .leaderboard li.is-leading > strong,
-.leaderboard li.is-leading > span {
+.leaderboard li.is-leading > span,
+.leaderboard li.is-leading .leaderboard-time {
   color: white;
 }
 
 .leaderboard li.is-qualified {
   border-left: 3px solid var(--participant-primary);
+}
+
+.leaderboard-time {
+  color: #bfa3ab;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  min-width: 55px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.leaderboard-time.is-finished {
+  color: var(--participant-primary);
+}
+
+.leaderboard-time.is-pending {
+  color: #80646d;
 }
 
 .leaderboard li em,
@@ -1487,6 +1508,22 @@ summary {
 
   .leaderboard li {
     display: none;
+    gap: 5px;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    padding-inline: 4px;
+  }
+
+  .leaderboard li > i {
+    display: none;
+  }
+
+  .leaderboard li > span {
+    font-size: 10px;
+  }
+
+  .leaderboard-time {
+    font-size: 8px;
+    min-width: 43px;
   }
 
   .leaderboard li:nth-child(-n + 3) {

@@ -6,6 +6,7 @@ import {
   PHOTO_FINISH_FRAMES,
   findFinalSectionOvertakes,
   findStableLeadChanges,
+  formatFinishTime,
   isCloseRace,
   isFinalApproach,
   isPhotoFinish,
@@ -13,6 +14,7 @@ import {
   resolveArrivalDelta,
   resolveCourseProgress,
   resolveFinishFrameIndex,
+  resolveFinishRecords,
 } from "../app/marble/race-presentation";
 import {
   COURSE_SECTIONS,
@@ -331,6 +333,33 @@ test("arrival delta is derived from cumulative physical finish frames", () => {
   assert.equal(resolveArrivalDelta(frames.slice(0, 4)), null);
 });
 
+test("finish records use each slot's first physical finish frame", () => {
+  const records = resolveFinishRecords(finishFrames(2, 5));
+  assert.deepEqual(records.get("a"), {
+    slotId: "a",
+    place: 1,
+    frameIndex: 2,
+    elapsedMs: 67,
+  });
+  assert.deepEqual(records.get("b"), {
+    slotId: "b",
+    place: 2,
+    frameIndex: 5,
+    elapsedMs: 167,
+  });
+  assert.equal(records.has("missing"), false);
+
+  const sameFrameRecords = resolveFinishRecords(finishFrames(2, 2));
+  assert.equal(sameFrameRecords.get("a")?.elapsedMs, 67);
+  assert.equal(sameFrameRecords.get("b")?.elapsedMs, 67);
+});
+
+test("finish times use a stable minute-second-hundredth format", () => {
+  assert.equal(formatFinishTime(0), "00:00.00");
+  assert.equal(formatFinishTime(30_530), "00:30.53");
+  assert.equal(formatFinishTime(90_127), "01:30.13");
+});
+
 test("photo finish uses the exported physical arrival-time window", () => {
   assert.equal(isPhotoFinish(finishFrames(1, 1 + PHOTO_FINISH_FRAMES)), true);
   assert.equal(
@@ -358,5 +387,7 @@ test("invalid thresholds fail explicitly", () => {
     () => resolveArrivalDelta([sample], 2, 1),
     RangeError,
   );
+  assert.throws(() => resolveFinishRecords([sample], 0), RangeError);
+  assert.throws(() => formatFinishTime(-1), RangeError);
   assert.throws(() => isPhotoFinish([sample], -1), RangeError);
 });

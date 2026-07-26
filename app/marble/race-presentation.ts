@@ -55,6 +55,13 @@ export type ArrivalDelta = {
   deltaSeconds: number;
 };
 
+export type FinishRecord = {
+  slotId: string;
+  place: number;
+  frameIndex: number;
+  elapsedMs: number;
+};
+
 function clamp(value: number, minimum = 0, maximum = 1): number {
   return Math.max(minimum, Math.min(maximum, value));
 }
@@ -334,6 +341,50 @@ export function resolveFinishFrameIndex(
     if (slotId) return frameIndex;
   }
   return null;
+}
+
+/**
+ * Resolves each marble's first physically captured finish frame. The complete
+ * simulation can be indexed once up front, while callers still gate visibility
+ * with the current frame's cumulative finishedSlotIds so future results never
+ * leak into live presentation.
+ */
+export function resolveFinishRecords(
+  frames: readonly RaceFrame[],
+  frameRate = RACE_FRAME_RATE,
+): ReadonlyMap<string, FinishRecord> {
+  if (!Number.isFinite(frameRate) || frameRate <= 0) {
+    throw new RangeError("frameRate must be a positive number.");
+  }
+
+  const records = new Map<string, FinishRecord>();
+  frames.forEach((frame, frameIndex) => {
+    frame.finishedSlotIds.forEach((slotId, placeIndex) => {
+      if (records.has(slotId)) return;
+      records.set(slotId, {
+        slotId,
+        place: placeIndex + 1,
+        frameIndex,
+        elapsedMs: Math.round((frameIndex / frameRate) * 1000),
+      });
+    });
+  });
+  return records;
+}
+
+export function formatFinishTime(elapsedMs: number): string {
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
+    throw new RangeError("elapsedMs must be a non-negative number.");
+  }
+
+  const totalHundredths = Math.round(elapsedMs / 10);
+  const minutes = Math.floor(totalHundredths / 6_000);
+  const seconds = Math.floor((totalHundredths % 6_000) / 100);
+  const hundredths = totalHundredths % 100;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
+    2,
+    "0",
+  )}.${String(hundredths).padStart(2, "0")}`;
 }
 
 function arrivalAtPlace(
