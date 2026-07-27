@@ -76,6 +76,7 @@ import {
 import {
   OFFSCREEN_PODIUM_MAX_SCALE,
   OFFSCREEN_PODIUM_MIN_SCALE,
+  resolveFinishFlagLayout,
   resolveOffscreenPodiumIndicators,
   resolveRaceFocusSlotId,
   resolveRaceFrame,
@@ -611,6 +612,16 @@ test("race frame selection survives preview plan transitions", () => {
   assert.equal(resolveRaceFrame([frame], Number.NaN), frame);
   assert.equal(resolveRaceFrame([frame], 999), frame);
   assert.equal(resolveRaceFrame([], 0), null);
+});
+
+test("finish flag sits beside the exact checker line and stays on canvas", () => {
+  const layout = resolveFinishFlagLayout(420, 60, 300, 1, 900);
+
+  assert.equal(layout.connectorStartX, 480);
+  assert.ok(layout.connectorEndX > layout.connectorStartX);
+  assert.ok(layout.x >= layout.connectorEndX);
+  assert.ok(layout.x + layout.width <= 892);
+  assert.equal(layout.centerY, 307.5);
 });
 
 test("fractional race frames interpolate motion without revealing future results", () => {

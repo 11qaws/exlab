@@ -530,6 +530,7 @@ export function ExlabApp() {
                   <GameSurface
                     embedded
                     active={isActiveGame}
+                    streamerThemeId={streamerThemeId}
                     rosterText={rosterText}
                     onRosterTextChange={setRosterText}
                     allowDuplicateNames={allowDuplicateNames}

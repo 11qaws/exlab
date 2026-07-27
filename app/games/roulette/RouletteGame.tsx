@@ -10,6 +10,7 @@ import type { CSSProperties } from 'react';
 
 import { SetupWorkspace } from '../../_platform/components/SetupWorkspace';
 import { SharedSetupSummary } from '../../_platform/components/SharedSetupSummary';
+import type { StreamerThemeId } from '../../_platform/theme';
 import {
   createResultPresentationProjection,
   createResultPresentationState,
@@ -393,6 +394,7 @@ function attachLockedResult(
 export interface RouletteGameProps {
   embedded?: boolean;
   active?: boolean;
+  streamerThemeId?: StreamerThemeId;
   rosterText?: string;
   onRosterTextChange?: (text: string) => void;
   allowDuplicateNames?: boolean;

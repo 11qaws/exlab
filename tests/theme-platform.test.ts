@@ -157,6 +157,7 @@ test("the first visit reuses profile cards and Showdown consumes stage tokens", 
     appSource,
     /hasStoredStreamerThemeChoice\(\s*window\.localStorage/,
   );
+  assert.match(appSource, /streamerThemeId=\{streamerThemeId\}/);
   assert.match(
     appSource,
     /className="exlab-onboarding-theme-picker"/,

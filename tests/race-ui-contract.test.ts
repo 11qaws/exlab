@@ -218,7 +218,25 @@ test("final overtakes use one hidden live announcement and a visual cue", () => 
     gameSource,
     /final-overtake-cue" aria-live=/,
   );
+  assert.doesNotMatch(gameSource, /0\.5× SLOW/);
   assert.doesNotMatch(canvasSource, /cinematicHandoffRef/);
+});
+
+test("the exact finish marker is rendered beside the line above race objects", () => {
+  const marbleLayerIndex = canvasSource.indexOf(
+    "frame.poses.forEach((pose) => {",
+    canvasSource.indexOf("const topSlots"),
+  );
+  const finishOverlayIndex = canvasSource.lastIndexOf("drawFinishFlag(");
+
+  assert.ok(marbleLayerIndex >= 0);
+  assert.ok(finishOverlayIndex > marbleLayerIndex);
+  assert.match(canvasSource, /resolveFinishFlagLayout/);
+  assert.doesNotMatch(
+    canvasSource,
+    /context\.fillText\(\s*"FINISH",\s*startX/,
+  );
+  assert.match(gameSource, /className="preview-finish-flag"/);
 });
 
 test("result presentation waits three visible seconds after the full result gate", () => {

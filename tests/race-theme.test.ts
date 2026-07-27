@@ -4,10 +4,15 @@ import {
   DEFAULT_RACE_MAP_MODE,
   obstacleColor,
   obstaclePaletteEntry,
+  raceMapTheme,
   RACE_MAP_THEMES,
   RACE_OBSTACLE_PALETTE,
   RACE_OBSTACLE_ROLE_COLORS,
 } from "../app/marble/race-theme";
+import {
+  getStreamerThemeTokens,
+  STREAMER_THEMES,
+} from "../app/_platform/theme/streamerThemes";
 
 function relativeLuminance(color: string): number {
   const channels = [1, 3, 5].map((offset) =>
@@ -76,4 +81,20 @@ test("light and dark map labels and primary text meet contrast targets", () => {
     assert.ok(contrastRatio(theme.labelText, theme.label) >= 6.5);
     assert.ok(contrastRatio(theme.outline, theme.track) >= 3);
   }
+});
+
+test("every streamer supplies a distinct high-contrast Showdown wall color", () => {
+  const lightWalls = STREAMER_THEMES.map((streamer) => {
+    const wall = getStreamerThemeTokens(streamer, "light").accentInk;
+    assert.equal(raceMapTheme("light", wall).wall, wall);
+    return wall;
+  });
+  const darkWalls = STREAMER_THEMES.map((streamer) => {
+    const wall = getStreamerThemeTokens(streamer, "dark").accentInk;
+    assert.equal(raceMapTheme("dark", wall).wall, wall);
+    return wall;
+  });
+
+  assert.equal(new Set(lightWalls).size, STREAMER_THEMES.length);
+  assert.equal(new Set(darkWalls).size, STREAMER_THEMES.length);
 });

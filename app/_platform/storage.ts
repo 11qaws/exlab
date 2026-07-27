@@ -16,7 +16,7 @@ export const PLATFORM_STORAGE_KEYS = {
   lastGame: "exlab:last-game:v1",
   allowDuplicateNames: "exlab:allow-duplicate-names:v1",
   streamerTheme: "exlab:theme:v1",
-  streamerThemeChoice: "exlab:theme-choice:v1",
+  streamerThemeChoice: "exlab:theme-choice:v2",
 } as const;
 
 export const LEGACY_PLATFORM_STORAGE_KEYS = {
@@ -132,16 +132,13 @@ export function writeStreamerTheme(
 }
 
 /**
- * A valid stored theme means an existing user has already made a deliberate
- * choice, including choices saved before the first-visit screen was added.
+ * Theme persistence and onboarding completion are deliberately separate.
+ * A stored theme may have been written by an older shell before the profile
+ * chooser existed, so only this versioned acknowledgement closes the gate.
  */
 export function hasStoredStreamerThemeChoice(storage: Storage): boolean {
-  const storedTheme =
-    storage.getItem(PLATFORM_STORAGE_KEYS.streamerTheme)
-    ?? storage.getItem(LEGACY_PLATFORM_STORAGE_KEYS.streamerTheme);
   return (
-    isStreamerThemeId(storedTheme)
-    || storage.getItem(PLATFORM_STORAGE_KEYS.streamerThemeChoice) === "1"
+    storage.getItem(PLATFORM_STORAGE_KEYS.streamerThemeChoice) === "1"
   );
 }
 

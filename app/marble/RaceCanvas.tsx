@@ -46,6 +46,7 @@ type RaceCanvasProps = {
   frameIndex: number;
   reducedMotion: boolean;
   mapMode: RaceMapMode;
+  wallColor?: string;
   playbackEpoch?: number;
   finalOvertake?: {
     fromSlotId: string;
@@ -333,11 +334,105 @@ function drawBumperFlash(
   context.restore();
 }
 
+export type FinishFlagLayout = {
+  connectorStartX: number;
+  connectorEndX: number;
+  centerY: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export function resolveFinishFlagLayout(
+  startX: number,
+  finishWidth: number,
+  finishScreenY: number,
+  scale: number,
+  logicalWidth: number,
+): FinishFlagLayout {
+  const checkerCell = (FINISH_LINE_WIDTH / 8) * scale;
+  const centerY = finishScreenY + checkerCell;
+  const width = Math.max(72, 92 * scale);
+  const height = Math.max(24, 30 * scale);
+  const gap = Math.max(9, 14 * scale);
+  const x = Math.min(
+    logicalWidth - width - 8,
+    Math.max(8, startX + finishWidth + gap),
+  );
+
+  return {
+    connectorStartX: startX + finishWidth,
+    connectorEndX: x,
+    centerY,
+    x,
+    y: centerY - height / 2,
+    width,
+    height,
+  };
+}
+
+function drawFinishFlag(
+  context: CanvasRenderingContext2D,
+  startX: number,
+  finishWidth: number,
+  finishScreenY: number,
+  scale: number,
+  logicalWidth: number,
+  theme: RaceMapTheme,
+) {
+  const layout = resolveFinishFlagLayout(
+    startX,
+    finishWidth,
+    finishScreenY,
+    scale,
+    logicalWidth,
+  );
+
+  context.save();
+  context.strokeStyle = theme.wall;
+  context.lineWidth = Math.max(2, 3 * scale);
+  context.lineCap = "round";
+  context.beginPath();
+  context.moveTo(layout.connectorStartX, layout.centerY);
+  context.lineTo(layout.connectorEndX, layout.centerY);
+  context.stroke();
+
+  context.shadowColor = theme.shadow;
+  context.shadowBlur = Math.max(4, 9 * scale);
+  context.fillStyle = theme.wall;
+  context.strokeStyle = theme.outline;
+  context.lineWidth = Math.max(1.5, 2 * scale);
+  context.beginPath();
+  context.roundRect(
+    layout.x,
+    layout.y,
+    layout.width,
+    layout.height,
+    Math.min(layout.height / 2, 9 * scale),
+  );
+  context.fill();
+  context.shadowBlur = 0;
+  context.stroke();
+
+  context.fillStyle = theme.finishAlternate;
+  context.font = `900 ${Math.max(11, 14 * scale)}px Inter, Pretendard, system-ui, sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(
+    "FINISH",
+    layout.x + layout.width / 2,
+    layout.centerY + 0.5,
+  );
+  context.restore();
+}
+
 export function RaceCanvas({
   plan,
   frameIndex,
   reducedMotion,
   mapMode,
+  wallColor,
   playbackEpoch = 0,
   finalOvertake = null,
 }: RaceCanvasProps) {
@@ -375,7 +470,10 @@ export function RaceCanvas({
   const activeRunnerUpPose = frame?.poses.find(
     (pose) => pose.slotId === activeRankedSlotIds[1],
   );
-  const theme = raceMapTheme(mapMode);
+  const theme = useMemo(
+    () => raceMapTheme(mapMode, wallColor),
+    [mapMode, wallColor],
+  );
   const stableLeadChanges = useMemo(
     () =>
       findStableLeadChanges(plan.simulation.frames, {
@@ -712,13 +810,6 @@ export function RaceCanvas({
           );
         }
       }
-      context.fillStyle = theme.text;
-      context.font = `800 ${Math.max(11, 17 * scale)}px Inter, Pretendard, system-ui, sans-serif`;
-      context.fillText(
-        "FINISH",
-        startX,
-        finishScreenY - Math.max(8, 12 * scale),
-      );
       context.restore();
     }
 
@@ -951,6 +1042,18 @@ export function RaceCanvas({
         logicalHeight - 4 * scale,
       );
       context.restore();
+    }
+
+    if (finishScreenY > -20 && finishScreenY < logicalHeight + 20) {
+      drawFinishFlag(
+        context,
+        offsetX + FINISH_LINE_X * scale,
+        FINISH_LINE_WIDTH * scale,
+        finishScreenY,
+        scale,
+        logicalWidth,
+        theme,
+      );
     }
   }, [
     activeLeadChange,

@@ -99,8 +99,13 @@ export const RACE_MAP_THEMES = {
   },
 } as const satisfies Record<RaceMapMode, RaceMapTheme>;
 
-export function raceMapTheme(mode: RaceMapMode): RaceMapTheme {
-  return RACE_MAP_THEMES[mode];
+export function raceMapTheme(
+  mode: RaceMapMode,
+  wallColor?: string,
+): RaceMapTheme {
+  const theme = RACE_MAP_THEMES[mode];
+  if (!wallColor || wallColor === theme.wall) return theme;
+  return { ...theme, wall: wallColor };
 }
 
 export function obstaclePaletteEntry(index: number): RaceObstacleColor {

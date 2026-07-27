@@ -184,9 +184,12 @@ test("first-visit theme choice distinguishes new and returning users", () => {
   assert.equal(hasStoredStreamerThemeChoice(storage), false);
 
   writeStreamerTheme(storage, "sena");
-  assert.equal(hasStoredStreamerThemeChoice(storage), true);
+  assert.equal(
+    hasStoredStreamerThemeChoice(storage),
+    false,
+    "an older persisted theme is not proof that onboarding was shown",
+  );
 
-  storage.clear();
   writeStreamerThemeChoice(storage);
   assert.equal(hasStoredStreamerThemeChoice(storage), true);
   assert.equal(

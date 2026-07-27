@@ -13,6 +13,11 @@ import {
 import { SetupWorkspace } from "../_platform/components/SetupWorkspace";
 import { SharedSetupSummary } from "../_platform/components/SharedSetupSummary";
 import {
+  DEFAULT_STREAMER_THEME_ID,
+  getStreamerThemeTokens,
+  type StreamerThemeId,
+} from "../_platform/theme";
+import {
   createResultPresentationProjection,
   createResultPresentationState,
   createStagePresentationAnchor,
@@ -133,6 +138,7 @@ type Phase =
 export type ShowdownGameProps = {
   embedded?: boolean;
   active?: boolean;
+  streamerThemeId?: StreamerThemeId;
   rosterText?: string;
   onRosterTextChange?: (text: string) => void;
   allowDuplicateNames?: boolean;
@@ -616,12 +622,14 @@ function StartPreview({
   candidates,
   layoutSeed,
   mapMode,
+  wallColor,
 }: {
   candidates: Candidate[];
   layoutSeed: string;
   mapMode: RaceMapMode;
+  wallColor: string;
 }) {
-  const theme = raceMapTheme(mapMode);
+  const theme = raceMapTheme(mapMode, wallColor);
   const shift = ((layoutSeed.length * 17) % 17) - 8;
   const previewScaleY = 468 / WORLD_HEIGHT;
   const previewY = (worldY: number) => 42 + worldY * previewScaleY;
@@ -812,13 +820,35 @@ function StartPreview({
           height="9"
           fill="url(#preview-checker)"
         />
-        <text
-          x="450"
-          y={previewY(FINISH_Y) - 7}
-          textAnchor="middle"
-        >
-          FINISH
-        </text>
+        <g className="preview-finish-flag">
+          <line
+            x1={FINISH_LINE_X + FINISH_LINE_WIDTH}
+            x2={500}
+            y1={previewY(FINISH_Y) + 4.5}
+            y2={previewY(FINISH_Y) + 4.5}
+            stroke={theme.wall}
+            strokeWidth="3"
+          />
+          <rect
+            x="500"
+            y={previewY(FINISH_Y) - 9}
+            width="82"
+            height="27"
+            rx="9"
+            fill={theme.wall}
+            stroke={theme.outline}
+            strokeWidth="2"
+          />
+          <text
+            x="541"
+            y={previewY(FINISH_Y) + 4.5}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill={theme.finishAlternate}
+          >
+            FINISH
+          </text>
+        </g>
       </svg>
     </div>
   );
@@ -829,12 +859,14 @@ function LiveRacePreview({
   layoutSeed,
   reducedMotion,
   mapMode,
+  wallColor,
   active,
 }: {
   candidates: Candidate[];
   layoutSeed: string;
   reducedMotion: boolean;
   mapMode: RaceMapMode;
+  wallColor: string;
   active: boolean;
 }) {
   const [previewCycle, setPreviewCycle] = useState(0);
@@ -928,6 +960,7 @@ function LiveRacePreview({
         candidates={candidates}
         layoutSeed={layoutSeed}
         mapMode={mapMode}
+        wallColor={wallColor}
       />
     );
   }
@@ -943,6 +976,7 @@ function LiveRacePreview({
         frameIndex={previewFrameIndex}
         reducedMotion={reducedMotion}
         mapMode={mapMode}
+        wallColor={wallColor}
       />
       <div className="preview-hud">
         <div>
@@ -977,6 +1011,7 @@ function LiveRacePreview({
 export function ShowdownGame({
   embedded = false,
   active = true,
+  streamerThemeId = DEFAULT_STREAMER_THEME_ID,
   rosterText: controlledRosterText,
   onRosterTextChange,
   allowDuplicateNames: controlledAllowDuplicateNames,
@@ -990,6 +1025,10 @@ export function ShowdownGame({
   const [isEditingRoster, setIsEditingRoster] = useState(false);
   const [mapMode, setMapMode] = useState<RaceMapMode>(
     DEFAULT_RACE_MAP_MODE,
+  );
+  const wallColor = useMemo(
+    () => getStreamerThemeTokens(streamerThemeId, mapMode).accentInk,
+    [mapMode, streamerThemeId],
   );
   const [internalAllowDuplicateNames, setInternalAllowDuplicateNames] =
     useState(false);
@@ -1784,6 +1823,7 @@ export function ShowdownGame({
               frameIndex={renderFrameIndex}
               reducedMotion={reducedMotion}
               mapMode={mapMode}
+              wallColor={wallColor}
               playbackEpoch={playbackEpoch}
               finalOvertake={finalOvertakeCue}
             />
@@ -1795,7 +1835,6 @@ export function ShowdownGame({
                     : "FINAL DUEL"}
                 </span>
                 <strong>
-                  {reducedMotion ? "" : "0.5× SLOW · "}
                   {shortName(finalOvertakeCandidate.name, 9)}{" "}
                   {finalOvertakeCue.hasOvertaken
                     ? "선두 교체"
@@ -2238,6 +2277,7 @@ export function ShowdownGame({
               layoutSeed={layoutSeed}
               reducedMotion={reducedMotion}
               mapMode={mapMode}
+              wallColor={wallColor}
             />
           )}
           previewFooter={(
@@ -2320,7 +2360,7 @@ export function ShowdownGame({
             exlab
           </a>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.8</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.9</span>
           </div>
         </header>
       )}
@@ -2548,6 +2588,7 @@ export function ShowdownGame({
             layoutSeed={layoutSeed}
             reducedMotion={reducedMotion}
             mapMode={mapMode}
+            wallColor={wallColor}
           />
           <div className="venue-meta">
             <div>
