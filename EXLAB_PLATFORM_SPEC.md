@@ -1,6 +1,6 @@
 # exlab 통합 플랫폼 명세
 
-버전 기준: 1.3.2
+버전 기준: 1.3.3
 
 ## 1. 목적과 경계
 
@@ -36,6 +36,36 @@ exlab은 하나의 공유 명단으로 여러 게임을 준비하고 실행하�
 
 - Showdown: `countdown → running → result-delay → result`
 - Roulette: `ready → locking → presenting → completed`
+
+### 2.1 결과 표현 상태
+
+게임 결과 생애주기와 결과를 보여 주는 표현 생애주기는 직교 상태로 분리한다.
+표현 실패, 재연출 또는 모션 감소 설정은 이미 확정된 결과와 게임 상태를
+변경하지 않는다.
+
+```text
+live → evidence → hero → docking → settled
+```
+
+| 현재 표현 상태 | 이벤트 | 다음 상태 | 화면 계약 |
+|---|---|---|---|
+| `live` | `result-committed` | `evidence` | 게임별 물리 근거를 계속 표시 |
+| `evidence` | `evidence-complete` | `hero` | 게임 무대 기준점에서 결과 Hero 생성 |
+| `hero` | `hero-complete` | `docking` | Hero와 결과 레일을 동시에 유지 |
+| `docking` | `docking-complete` | `settled` | Hero를 결과 행에 결합하고 행동 활성화 |
+| `settled` | `presentation-restarted` | `evidence` | 같은 결과·`runId`, 새 `presentationId` |
+| 모든 상태 | 다른 실행 식별자의 이벤트 | 현재 상태 | 오래된 이벤트 폐기 |
+
+- `runId`는 게임 실행을, `presentationId`는 같은 결과의 공개 시도를 식별한다.
+- 표현 이벤트는 두 식별자가 모두 현재 값과 일치할 때만 반영한다.
+- 결과 투영은 확정 시각, 승자, 공개 가능한 순위 행과 무대 내부 정규화
+  기준점만 포함하는 불변 데이터다. 물리 계획의 미래 순위를 공개하지 않는다.
+- 무대 기준점은 viewport 픽셀이 아니라 `{xRatio, yRatio}`로 저장하거나
+  현재 카메라를 거친 화면 좌표에서 계산한다.
+- 게임 Canvas·원판과 결과 레일 DOM은 `hero`, `docking`, `settled` 전환에서
+  언마운트하거나 크기를 다시 계산하지 않는다.
+- 공통 표현 계층은 결과를 계산하지 않고 게임 adapter가 제공한 Hero,
+  순위 행, 기준점과 행동만 렌더한다.
 
 ## 3. 불변식
 
@@ -158,6 +188,9 @@ Showdown 준비 화면의 홍보형 제목과 장문 소개는 제거한다. 게
 - 세부 설정: 180~240ms
 - 보조 시트: 220~280ms
 - `prefers-reduced-motion`에서는 위치 이동과 scale을 제거한다.
+- 결과 Hero는 220~280ms에 나타나고 읽기 시간을 보장한 뒤 280~400ms에
+  결과 레일로 결합한다. 모션 감소 설정에서는 같은 정보 순서를 유지하고
+  짧은 fade만 사용한다.
 - 매 프레임 갱신되는 Showdown 시계는 `aria-live`에서 제외한다.
 - 결과 확정, 골인과 실행 오류만 비차단 상태 메시지로 알린다.
 - 참가자 구분은 색상 외에 번호와 이름을 항상 함께 사용한다.
@@ -186,6 +219,12 @@ Showdown 준비 화면의 홍보형 제목과 장문 소개는 제거한다. 게
 - Showdown 이력의 손상 행 제거와 구형 우승자 필드 이관이 기존 저장소에서도
   안전하게 동작한다.
 - Roulette pending 결과 복구와 오래된 콜백 차단이 유지된다.
+- 결과 전환 전후 Showdown `RaceCanvas`와 Roulette 원판 DOM 인스턴스가
+  유지되고 장면 크기나 카메라 위치가 순간 이동하지 않는다.
+- Showdown 결과 공개 뒤에도 미도착 마블과 통합 순위 레일이 같은 화면에서
+  계속 갱신된다.
+- Roulette Hero는 `docking`이 끝날 때까지 유지되고 최신 결과 행이 이를
+  받아 표시한다.
 - 상위 Roulette Vitest는 `Codex/workspace/**`를 제외해 통합 작업공간의 Node
   테스트를 수집하지 않는다.
 - 큰 홍보 문구 없이 첫 화면에서 게임, 명단, 설정, 미리보기와 주 행동을

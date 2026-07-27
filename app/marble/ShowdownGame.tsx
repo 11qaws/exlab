@@ -2,14 +2,26 @@
 
 import {
   Component,
+  useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type CSSProperties,
 } from "react";
 import { SetupWorkspace } from "../_platform/components/SetupWorkspace";
 import { SharedSetupSummary } from "../_platform/components/SharedSetupSummary";
+import {
+  createResultPresentationProjection,
+  createResultPresentationState,
+  createStagePresentationAnchor,
+  reduceResultPresentation,
+  resultPresentationToken,
+  type ResultPresentationEvent,
+  type ResultPresentationState,
+  type ResultPresentationToken,
+} from "../_platform/presentation";
 import {
   DEFAULT_STREAMER_THEME_ID,
   type StreamerThemeId,
@@ -42,6 +54,7 @@ import {
   FINISH_Y,
   ROTATING_BARS,
   WORLD_HEIGHT,
+  WORLD_WIDTH,
 } from "./course";
 import {
   CHASE_ASSIST_TARGET_GAP,
@@ -109,6 +122,8 @@ const DEFAULT_ROSTER = [
 const ROSTER_KEY = "marble-game:roster";
 const PREVIEW_DURATION_MS = 10_000;
 const MAX_PRESENTATION_DELTA_MS = 100;
+const RESULT_HERO_HOLD_MS = 2_200;
+const RESULT_DOCK_DURATION_MS = 400;
 
 type Phase =
   | "ready"
@@ -172,12 +187,115 @@ type LiveLeaderboardRow = {
   candidate: Candidate;
 };
 
+type ShowdownPresentationWinner = Readonly<{
+  slotId: string;
+  candidateId: string;
+  name: string;
+  elapsedMs?: number;
+}>;
+
+type ShowdownPresentationRow = Readonly<{
+  rank: number;
+  slotId: string;
+  candidateId: string;
+  name: string;
+}>;
+
+type ShowdownPresentationSummary = Readonly<{
+  winnerCount: number;
+  arrivedCount: number;
+  participantCount: number;
+}>;
+
+type ShowdownResultPresentationState = ResultPresentationState<
+  ShowdownPresentationWinner,
+  ShowdownPresentationRow,
+  ShowdownPresentationSummary
+>;
+
+type ShowdownResultPresentationEvent = ResultPresentationEvent<
+  ShowdownPresentationWinner,
+  ShowdownPresentationRow,
+  ShowdownPresentationSummary
+>;
+
+function showdownResultPresentationReducer(
+  state: ShowdownResultPresentationState,
+  event: ShowdownResultPresentationEvent,
+) {
+  return reduceResultPresentation(state, event);
+}
+
+function showdownPresentationIdentity(
+  runId: string,
+  playbackEpoch: number,
+): ResultPresentationToken {
+  return {
+    runId: `showdown:${runId}`,
+    presentationId: `showdown-reveal:${runId}:${playbackEpoch}`,
+  };
+}
+
+function createShowdownResultProjection(
+  plan: RacePlan,
+  frameIndex: number,
+  playbackEpoch: number,
+) {
+  const frame =
+    plan.simulation.frames[
+      Math.min(frameIndex, plan.simulation.frames.length - 1)
+    ];
+  const finishRecords = resolveFinishRecords(plan.simulation.frames);
+  const arrivedRows = frame.finishedSlotIds.flatMap((slotId, index) => {
+    const candidate = candidateForSlot(plan, slotId);
+    if (!candidate) return [];
+    return [{
+      rank: index + 1,
+      slotId,
+      candidateId: candidate.id,
+      name: candidate.name,
+    }];
+  });
+  const token = showdownPresentationIdentity(plan.runId, playbackEpoch);
+
+  return createResultPresentationProjection({
+    gameId: "showdown",
+    runId: token.runId,
+    presentationId: token.presentationId,
+    committedAt: new Date().toISOString(),
+    anchor: createStagePresentationAnchor({
+      xRatio:
+        (FINISH_LINE_X + FINISH_LINE_WIDTH / 2) / WORLD_WIDTH,
+      yRatio: FINISH_Y / WORLD_HEIGHT,
+      sourceId: "finish-line",
+    }),
+    primaryWinners: arrivedRows
+      .slice(0, plan.winnerCount)
+      .map((row) => ({
+        slotId: row.slotId,
+        candidateId: row.candidateId,
+        name: row.name,
+        elapsedMs: finishRecords.get(row.slotId)?.elapsedMs,
+      })),
+    rankingRows: arrivedRows,
+    summary: {
+      winnerCount: plan.winnerCount,
+      arrivedCount: arrivedRows.length,
+      participantCount: plan.candidates.length,
+    },
+  });
+}
+
+type StandingsRow = LiveLeaderboardRow | null;
+
 type LiveLeaderboardProps = {
-  rows: LiveLeaderboardRow[];
+  rows: StandingsRow[];
   finishedSlotIds: ReadonlySet<string>;
   activeLeaderSlotId?: string;
   finishRecords: ReadonlyMap<string, FinishRecord>;
   reducedMotion: boolean;
+  resultMode?: boolean;
+  winnerCount?: number;
 };
 
 type LeaderboardPositionSnapshot = ReadonlyMap<
@@ -186,13 +304,15 @@ type LeaderboardPositionSnapshot = ReadonlyMap<
 >;
 
 function sameLeaderboardOrder(
-  previousRows: readonly LiveLeaderboardRow[],
-  nextRows: readonly LiveLeaderboardRow[],
+  previousRows: readonly StandingsRow[],
+  nextRows: readonly StandingsRow[],
 ): boolean {
   return (
     previousRows.length === nextRows.length &&
     previousRows.every(
-      (row, index) => row.slotId === nextRows[index]?.slotId,
+      (row, index) =>
+        (row?.slotId ?? `pending-${index}`) ===
+        (nextRows[index]?.slotId ?? `pending-${index}`),
     )
   );
 }
@@ -256,6 +376,7 @@ class LiveLeaderboard extends Component<LiveLeaderboardProps> {
 
     return new Map(
       previousProps.rows.flatMap((row) => {
+        if (!row) return [];
         const element = this.rowElements.get(row.slotId);
         if (!element) return [];
         const rect = element.getBoundingClientRect();
@@ -277,6 +398,7 @@ class LiveLeaderboard extends Component<LiveLeaderboardProps> {
     if (!snapshot) return;
 
     this.props.rows.forEach((row) => {
+      if (!row) return;
       const element = this.rowElements.get(row.slotId);
       const previousPosition = snapshot.get(row.slotId);
       if (!element || !previousPosition) return;
@@ -348,11 +470,33 @@ class LiveLeaderboard extends Component<LiveLeaderboardProps> {
       finishedSlotIds,
       activeLeaderSlotId,
       finishRecords,
+      resultMode = false,
+      winnerCount = 0,
     } = this.props;
 
     return (
       <ol>
-        {rows.map(({ slotId, candidate }, index) => {
+        {rows.map((row, index) => {
+          if (!row) {
+            return (
+              <li
+                key={`pending-${index}`}
+                className="is-result-row is-pending"
+                aria-label={`${index + 1}위 도착 대기`}
+              >
+                <strong aria-hidden="true">{index + 1}</strong>
+                <i aria-hidden="true" />
+                <span aria-hidden="true">{"\u00a0"}</span>
+                <time
+                  className="leaderboard-time is-pending"
+                  aria-hidden="true"
+                >
+                  —
+                </time>
+              </li>
+            );
+          }
+          const { slotId, candidate } = row;
           const finished = finishedSlotIds.has(slotId);
           const finishRecord = finished
             ? finishRecords.get(slotId)
@@ -368,8 +512,10 @@ class LiveLeaderboard extends Component<LiveLeaderboardProps> {
               data-rank-slot-id={slotId}
               data-live-rank={index + 1}
               className={[
-                index === 0 ? "is-leading" : "",
+                !resultMode && index === 0 ? "is-leading" : "",
                 finished ? "is-qualified" : "",
+                resultMode ? "is-result-row" : "",
+                resultMode && index < winnerCount ? "is-winner" : "",
                 slotId === activeLeaderSlotId
                   ? "is-active-contender"
                   : "",
@@ -377,30 +523,32 @@ class LiveLeaderboard extends Component<LiveLeaderboardProps> {
                 .filter(Boolean)
                 .join(" ")}
               style={participantStyle(candidate)}
-              aria-label={`${index + 1}위 ${candidate.name}, ${
-                finishRecord ? `골인 ${finishTime}` : "경기 중"
-              }`}
+              aria-label={`${index + 1}위 ${candidate.name}${
+                resultMode && index < winnerCount ? ", 당첨" : ""
+              }, ${finishRecord ? `골인 ${finishTime}` : "경기 중"}`}
             >
               <strong aria-hidden="true">{index + 1}</strong>
               <i aria-hidden="true" />
               <span title={candidate.name} aria-hidden="true">
                 {shortName(candidate.name)}
               </span>
-              <time
-                className={[
-                  "leaderboard-time",
-                  finishRecord ? "is-finished" : "is-pending",
-                ].join(" ")}
-                dateTime={
-                  finishRecord
-                    ? `PT${(finishRecord.elapsedMs / 1000).toFixed(3)}S`
-                    : undefined
-                }
-                title={finishRecord ? "골인 시간" : "골인 전"}
-                aria-hidden="true"
-              >
-                {finishTime}
-              </time>
+              <span className="leaderboard-result-meta" aria-hidden="true">
+                {resultMode && index < winnerCount && <em>당첨</em>}
+                <time
+                  className={[
+                    "leaderboard-time",
+                    finishRecord ? "is-finished" : "is-pending",
+                  ].join(" ")}
+                  dateTime={
+                    finishRecord
+                      ? `PT${(finishRecord.elapsedMs / 1000).toFixed(3)}S`
+                      : undefined
+                  }
+                  title={finishRecord ? "골인 시간" : "골인 전"}
+                >
+                  {finishTime}
+                </time>
+              </span>
             </li>
           );
         })}
@@ -859,6 +1007,12 @@ export function ShowdownGame({
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [layoutSeed, setLayoutSeed] = useState(() => createSeed("layout"));
   const [phase, setPhase] = useState<Phase>("ready");
+  const [resultPresentation, dispatchResultPresentationState] =
+    useReducer(
+      showdownResultPresentationReducer,
+      undefined,
+      () => createResultPresentationState("showdown:idle:0"),
+    );
   const [plan, setPlan] = useState<RacePlan | null>(null);
   const [frameIndex, setFrameIndex] = useState(0);
   const [renderFrameIndex, setRenderFrameIndex] = useState(0);
@@ -875,6 +1029,10 @@ export function ShowdownGame({
   );
   const generationKey = useRef(0);
   const audioContext = useRef<AudioContext | null>(null);
+  const resultPresentationRef =
+    useRef<ShowdownResultPresentationState>(resultPresentation);
+  const resultHeroTimerRef = useRef<number | null>(null);
+  const resultDockTimerRef = useRef<number | null>(null);
   const historyRef = useRef<StoredRaceResult[]>([]);
   const resultHistoryCheckpoint = useRef<RaceHistoryCheckpoint | null>(
     null,
@@ -884,6 +1042,27 @@ export function ShowdownGame({
   );
   const lastPlaybackTimestamp = useRef<number | null>(null);
   const activityChangeRef = useRef(onActivityChange);
+  const dispatchResultPresentation = useCallback(
+    (event: ShowdownResultPresentationEvent) => {
+      resultPresentationRef.current =
+        showdownResultPresentationReducer(
+          resultPresentationRef.current,
+          event,
+        );
+      dispatchResultPresentationState(event);
+    },
+    [],
+  );
+  const cancelResultPresentationTimers = useCallback(() => {
+    if (resultHeroTimerRef.current !== null) {
+      window.clearTimeout(resultHeroTimerRef.current);
+      resultHeroTimerRef.current = null;
+    }
+    if (resultDockTimerRef.current !== null) {
+      window.clearTimeout(resultDockTimerRef.current);
+      resultDockTimerRef.current = null;
+    }
+  }, []);
   const reducedMotion = useReducedMotion();
   const hasControlledRoster = controlledRosterText !== undefined;
   const rosterText = controlledRosterText ?? internalRosterText;
@@ -972,9 +1151,10 @@ export function ShowdownGame({
 
   useEffect(
     () => () => {
+      cancelResultPresentationTimers();
       activityChangeRef.current?.(false);
     },
-    [],
+    [cancelResultPresentationTimers],
   );
 
   useEffect(() => {
@@ -1161,6 +1341,63 @@ export function ShowdownGame({
           RESULT_HOLD_DURATION_MS &&
         winnerThresholdReached
       ) {
+        cancelResultPresentationTimers();
+        const projection = createShowdownResultProjection(
+          plan,
+          nextFrame,
+          playbackEpoch,
+        );
+        const presentationToken: ResultPresentationToken = {
+          runId: projection.runId,
+          presentationId: projection.presentationId,
+        };
+        const currentPresentation = resultPresentationRef.current;
+
+        if (
+          currentPresentation.phase === "settled" &&
+          currentPresentation.runId === projection.runId
+        ) {
+          const currentToken =
+            resultPresentationToken(currentPresentation);
+          if (currentToken) {
+            dispatchResultPresentation({
+              type: "presentation-restarted",
+              token: currentToken,
+              projection,
+            });
+          }
+        } else {
+          if (currentPresentation.runId !== projection.runId) {
+            dispatchResultPresentation({
+              type: "run-started",
+              previousRunId: currentPresentation.runId,
+              runId: projection.runId,
+            });
+          }
+          dispatchResultPresentation({
+            type: "result-committed",
+            projection,
+          });
+        }
+
+        dispatchResultPresentation({
+          type: "evidence-complete",
+          token: presentationToken,
+        });
+        resultHeroTimerRef.current = window.setTimeout(() => {
+          resultHeroTimerRef.current = null;
+          dispatchResultPresentation({
+            type: "hero-complete",
+            token: presentationToken,
+          });
+          resultDockTimerRef.current = window.setTimeout(() => {
+            resultDockTimerRef.current = null;
+            dispatchResultPresentation({
+              type: "docking-complete",
+              token: presentationToken,
+            });
+          }, RESULT_DOCK_DURATION_MS);
+        }, RESULT_HERO_HOLD_MS);
         playTone(880, 0.42);
         setPhase("result");
         return;
@@ -1179,9 +1416,12 @@ export function ShowdownGame({
     // playTone intentionally reads the latest sound preference.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    cancelResultPresentationTimers,
+    dispatchResultPresentation,
     finalOvertakeEvents,
     phase,
     plan,
+    playbackEpoch,
     reducedMotion,
   ]);
 
@@ -1259,6 +1499,7 @@ export function ShowdownGame({
     }
     const currentGeneration = generationKey.current + 1;
     generationKey.current = currentGeneration;
+    cancelResultPresentationTimers();
     setPhase("generating");
     setErrorMessage("");
     setIsReplay(false);
@@ -1287,6 +1528,12 @@ export function ShowdownGame({
           { raceSeed, layoutSeed },
           effectiveWinnerCount,
         );
+        const previousRunId = resultPresentationRef.current.runId;
+        dispatchResultPresentation({
+          type: "run-started",
+          previousRunId,
+          runId: `showdown:${nextPlan.runId}`,
+        });
         setPlan(nextPlan);
         setFrameIndex(0);
         setRenderFrameIndex(0);
@@ -1323,6 +1570,7 @@ export function ShowdownGame({
 
   const handleReplay = () => {
     if (!plan) return;
+    cancelResultPresentationTimers();
     setIsReplay(true);
     setFrameIndex(0);
     setRenderFrameIndex(0);
@@ -1337,6 +1585,13 @@ export function ShowdownGame({
 
   const handleNewRace = () => {
     generationKey.current += 1;
+    cancelResultPresentationTimers();
+    const previousRunId = resultPresentationRef.current.runId;
+    dispatchResultPresentation({
+      type: "run-started",
+      previousRunId,
+      runId: `showdown:idle:${generationKey.current}`,
+    });
     setPlan(null);
     setFrameIndex(0);
     setRenderFrameIndex(0);
@@ -1455,195 +1710,37 @@ export function ShowdownGame({
         : closeRace
           ? "초접전"
           : courseProgress?.section.label ?? "경기 진행 중";
-
-    if (phase === "result") {
-      return (
-        <main
-          className={`showdown-game result-screen${
-            embedded ? " is-embedded" : ""
-          }`}
-        >
-          <div className="result-glow" aria-hidden="true" />
-          <header className="result-header">
-            <p className="eyebrow">SHOWDOWN RESULTS</p>
-            <span>
-              도착 {arrivedRows.length}/{plan.candidates.length} ·
-              미도착 순위는 공란
-            </span>
-          </header>
-          <section
-            className={`winner-reveal ${
-              winnerRows.length > 1 ? "is-multiple" : ""
-            }`}
-            aria-labelledby="winner-title"
-          >
-            <p id="winner-title">
-              Showdown 당첨자 {plan.winnerCount}명
-            </p>
-            <div className="winner-list">
-              {winnerRows.map(({ slotId, candidate }, index) => {
-                const finishRecord = finishRecords.get(slotId);
-                const finishTime = finishRecord
-                  ? formatFinishTime(finishRecord.elapsedMs)
-                  : "—";
-                return (
-                  <article
-                    className="winner-card"
-                    key={slotId}
-                    style={participantStyle(candidate)}
-                  >
-                    <div className="winner-marble" aria-hidden="true">
-                      {candidate.number}
-                    </div>
-                    <span>{index + 1}위</span>
-                    <h1>{shortName(candidate.name, 10)}</h1>
-                    <time
-                      className="winner-finish-time"
-                      dateTime={
-                        finishRecord
-                          ? `PT${(
-                              finishRecord.elapsedMs / 1000
-                            ).toFixed(3)}S`
-                          : undefined
-                      }
-                    >
-                      골인 {finishTime}
-                    </time>
-                  </article>
-                );
-              })}
-            </div>
-            <span>
-              {plan.candidates.length}명 중 {plan.winnerCount}명 당첨
-            </span>
-          </section>
-          <section className="result-ranking" aria-labelledby="ranking-title">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">ARRIVAL ORDER</p>
-                <h2 id="ranking-title">실시간 도착 순위</h2>
-              </div>
-              <span aria-live="polite">
-                {arrivedRows.length === plan.candidates.length
-                  ? "전원 도착"
-                  : `${plan.candidates.length - arrivedRows.length}명 경기 중`}
-              </span>
-            </div>
-            <ol>
-              {resultRows.map((row, index) => {
-                const finishRecord = row
-                  ? finishRecords.get(row.slotId)
-                  : undefined;
-                const finishTime = finishRecord
-                  ? formatFinishTime(finishRecord.elapsedMs)
-                  : "";
-                return (
-                  <li
-                    key={row?.slotId ?? `pending-${index}`}
-                    className={[
-                      row && index < plan.winnerCount ? "is-winner" : "",
-                      row ? "" : "is-pending",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    style={
-                      row ? participantStyle(row.candidate) : undefined
-                    }
-                    aria-label={
-                      row
-                        ? `${index + 1}위 ${row.candidate.name}, 골인 ${finishTime}${
-                            index < plan.winnerCount ? ", 당첨" : ""
-                          }`
-                        : `${index + 1}위 도착 대기`
-                    }
-                  >
-                    <strong aria-hidden="true">{index + 1}</strong>
-                    <i aria-hidden="true" />
-                    <span
-                      title={row?.candidate.name}
-                      aria-hidden="true"
-                    >
-                      {row
-                        ? shortName(row.candidate.name)
-                        : "\u00a0"}
-                    </span>
-                    <span className="result-rank-meta" aria-hidden="true">
-                      {row && index < plan.winnerCount && <em>당첨</em>}
-                      <time
-                        className="result-finish-time"
-                        dateTime={
-                          finishRecord
-                            ? `PT${(
-                                finishRecord.elapsedMs / 1000
-                              ).toFixed(3)}S`
-                            : undefined
-                        }
-                      >
-                        {row ? finishTime : "\u00a0"}
-                      </time>
-                    </span>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-          <div className="result-actions">
-            <button className="secondary-button" onClick={handleReplay}>
-              같은 경기 다시 보기
-            </button>
-            <button className="primary-button" onClick={handleNewRace}>
-              새 경기 준비
-            </button>
-          </div>
-          <details className="run-details">
-            <summary>실행 정보</summary>
-            <dl>
-              <div>
-                <dt>경기 시드</dt>
-                <dd>{plan.raceSeed}</dd>
-              </div>
-              <div>
-                <dt>출발 배치</dt>
-                <dd>
-                  중심 {plan.simulation.layoutShift}px · 슬롯 지터 ±
-                  {START_MAX_HORIZONTAL_JITTER}px
-                </dd>
-              </div>
-              <div>
-                <dt>물리 변형</dt>
-                <dd>{plan.simulation.dynamics.fingerprint}</dd>
-              </div>
-              <div>
-                <dt>추격 보정</dt>
-                <dd>
-                  거리·순위 기반 · {CHASE_ASSIST_TARGET_GAP}px 목표
-                </dd>
-              </div>
-              <div>
-                <dt>결과 전환</dt>
-                <dd>
-                  최소 {podiumFinishCount}위 표시 후 3초
-                </dd>
-              </div>
-              <div>
-                <dt>물리 완주</dt>
-                <dd>
-                  {arrivedRows.length}/{plan.candidates.length}
-                  {frameIndex >= plan.simulation.frames.length - 1 &&
-                  plan.simulation.timedOut
-                    ? " · 미도착 순위 공란 유지"
-                    : ""}
-                </dd>
-              </div>
-            </dl>
-          </details>
-        </main>
-      );
-    }
+    const showResultHero =
+      phase === "result" &&
+      (resultPresentation.phase === "hero" ||
+        resultPresentation.phase === "docking");
+    const resultPresentationSettled =
+      phase === "result" &&
+      resultPresentation.phase === "settled";
+    const latestArrivedRow = arrivedRows[arrivedRows.length - 1];
+    const latestArrivalRecord = latestArrivedRow
+      ? finishRecords.get(latestArrivedRow.slotId)
+      : undefined;
+    const resultArrivalAnnouncement =
+      phase === "result" && latestArrivedRow
+        ? `${arrivedRows.length}위 ${latestArrivedRow.candidate.name}${
+            arrivedRows.length <= plan.winnerCount ? ", 당첨" : ""
+          }, 골인 ${
+            latestArrivalRecord
+              ? formatFinishTime(latestArrivalRecord.elapsedMs)
+              : ""
+          }`
+        : "";
 
     return (
       <main
         className={`showdown-game race-screen${
+          phase === "result" ? " is-results" : ""
+        }${
+          resultPresentation.phase === "docking"
+            ? " is-result-docking"
+            : ""
+        }${
           embedded ? " is-embedded" : ""
         }`}
       >
@@ -1660,7 +1757,9 @@ export function ShowdownGame({
             />
             <div className="race-status" aria-label="경기 진행 상태">
               <span>
-                {phase === "waiting"
+                {phase === "result"
+                  ? "결과 공개"
+                  : phase === "waiting"
                   ? "방송 대기"
                   : phase === "countdown"
                     ? "출발 준비"
@@ -1671,7 +1770,9 @@ export function ShowdownGame({
                       : physicalMoment}
               </span>
               <strong>
-                {phase === "waiting"
+                {phase === "result"
+                  ? `도착 ${arrivedRows.length}/${plan.candidates.length} · 미도착 순위는 공란`
+                  : phase === "waiting"
                   ? `${plan.candidates.length}명 · ${plan.winnerCount}명 당첨`
                   : resultGateReached
                     ? `${plan.simulation.resultGateCount}위 도착 · 결과까지 ${resultHoldSeconds}초`
@@ -1767,13 +1868,68 @@ export function ShowdownGame({
                         : `${confirmedWinnerCount}번째 당첨 확정 · ${
                             plan.winnerCount - confirmedWinnerCount
                           }명 남음`}
-              </div>
+                </div>
+              )}
+            {showResultHero && winnerRows[0] && (
+              <section
+                className={`showdown-result-hero${
+                  resultPresentation.phase === "docking"
+                    ? " is-docking"
+                    : ""
+                }`}
+                aria-labelledby="showdown-result-winner"
+                aria-live="polite"
+                aria-atomic="true"
+                style={participantStyle(winnerRows[0].candidate)}
+              >
+                <div className="showdown-result-marble" aria-hidden="true">
+                  {winnerRows[0].candidate.number}
+                </div>
+                <div>
+                  <p>SHOWDOWN WINNER</p>
+                  <h2 id="showdown-result-winner">
+                    {shortName(winnerRows[0].candidate.name, 12)}
+                  </h2>
+                  <time
+                    className="showdown-result-time"
+                    dateTime={
+                      finishRecords.get(winnerRows[0].slotId)
+                        ? `PT${(
+                            finishRecords.get(winnerRows[0].slotId)!
+                              .elapsedMs / 1000
+                          ).toFixed(3)}S`
+                        : undefined
+                    }
+                  >
+                    골인{" "}
+                    {finishRecords.get(winnerRows[0].slotId)
+                      ? formatFinishTime(
+                          finishRecords.get(winnerRows[0].slotId)!.elapsedMs,
+                        )
+                      : "—"}
+                  </time>
+                  {winnerRows.length > 1 && (
+                    <small>
+                      외 {winnerRows.length - 1}명 당첨 · 결과 순위에서 확인
+                    </small>
+                  )}
+                </div>
+              </section>
             )}
           </section>
-          <aside className="leaderboard" aria-label="실시간 전체 순위">
+          <aside
+            className={`leaderboard${
+              phase === "result" ? " is-results" : ""
+            }`}
+            aria-label={
+              phase === "result" ? "실시간 도착 결과" : "실시간 전체 순위"
+            }
+          >
             <div className="leaderboard-heading">
               <div className="leaderboard-title">
-                <span>LIVE ORDER</span>
+                <span>
+                  {phase === "result" ? "ARRIVAL RESULTS" : "LIVE ORDER"}
+                </span>
                 <time
                   className="race-clock"
                   dateTime={`PT${(raceElapsedMs / 1000).toFixed(3)}S`}
@@ -1793,25 +1949,89 @@ export function ShowdownGame({
             </div>
             <LiveLeaderboard
               key={`${plan.runId}:${playbackEpoch}`}
-              rows={rankingRows}
+              rows={phase === "result" ? resultRows : rankingRows}
               finishedSlotIds={finishedSlotIds}
               activeLeaderSlotId={activeLeaderSlotId}
               finishRecords={finishRecords}
               reducedMotion={reducedMotion}
+              resultMode={phase === "result"}
+              winnerCount={plan.winnerCount}
             />
             <p className="camera-note">
-              {courseProgress?.section.label ?? "START"} ·{" "}
-              {closeRace
-                ? "선두권 초접전"
-                : `선두 간격 ${leaderGap ?? "—"}px`}
+              {phase === "result"
+                ? arrivedRows.length === plan.candidates.length
+                  ? "전원 도착"
+                  : `${plan.candidates.length - arrivedRows.length}명 경기 중 · 순위 실시간 반영`
+                : `${courseProgress?.section.label ?? "START"} · ${
+                    closeRace
+                      ? "선두권 초접전"
+                      : `선두 간격 ${leaderGap ?? "—"}px`
+                  }`}
             </p>
+            {resultPresentationSettled && (
+              <>
+                <div className="result-actions">
+                  <button
+                    className="secondary-button"
+                    onClick={handleReplay}
+                  >
+                    같은 경기 다시 보기
+                  </button>
+                  <button className="primary-button" onClick={handleNewRace}>
+                    새 경기 준비
+                  </button>
+                </div>
+                <details className="result-run-details">
+                  <summary>실행 정보</summary>
+                  <dl>
+                    <div>
+                      <dt>경기 시드</dt>
+                      <dd>{plan.raceSeed}</dd>
+                    </div>
+                    <div>
+                      <dt>출발 배치</dt>
+                      <dd>
+                        중심 {plan.simulation.layoutShift}px · 슬롯 지터 ±
+                        {START_MAX_HORIZONTAL_JITTER}px
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>물리 변형</dt>
+                      <dd>{plan.simulation.dynamics.fingerprint}</dd>
+                    </div>
+                    <div>
+                      <dt>추격 보정</dt>
+                      <dd>
+                        거리·순위 기반 · {CHASE_ASSIST_TARGET_GAP}px 목표
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>결과 전환</dt>
+                      <dd>최소 {podiumFinishCount}위 표시 후 3초</dd>
+                    </div>
+                    <div>
+                      <dt>물리 완주</dt>
+                      <dd>
+                        {arrivedRows.length}/{plan.candidates.length}
+                        {frameIndex >=
+                          plan.simulation.frames.length - 1 &&
+                        plan.simulation.timedOut
+                          ? " · 미도착 순위 공란 유지"
+                          : ""}
+                      </dd>
+                    </div>
+                  </dl>
+                </details>
+              </>
+            )}
             <p className="visually-hidden" aria-live="polite">
-              {finalOvertakeCandidate &&
+              {resultArrivalAnnouncement ||
+              (finalOvertakeCandidate &&
               finalOvertakeCue?.hasOvertaken
                 ? `${finalOvertakeCandidate.name} 마지막 구간 선두 교체`
                 : leadChangeCandidate
                   ? `${leadChangeCandidate.name} 선두 교체`
-                : ""}
+                  : "")}
             </p>
           </aside>
         </div>
@@ -2112,7 +2332,7 @@ export function ShowdownGame({
             exlab
           </a>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.2</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.3</span>
           </div>
         </header>
       )}

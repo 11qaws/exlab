@@ -5,11 +5,21 @@
  * inside effects. Moving those transitions into render would make result
  * commitment and recovery ordering less safe. */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 
 import { SetupWorkspace } from '../../_platform/components/SetupWorkspace';
 import { SharedSetupSummary } from '../../_platform/components/SharedSetupSummary';
+import {
+  createResultPresentationProjection,
+  createResultPresentationState,
+  createStagePresentationAnchor,
+  reduceResultPresentation,
+  type ResultPresentationEvent,
+  type ResultPresentationPhase,
+  type ResultPresentationState,
+  type ResultPresentationToken,
+} from '../../_platform/presentation';
 import {
   DEFAULT_STREAMER_THEME_ID,
   type StreamerThemeId,
@@ -187,6 +197,61 @@ type WinnerHeroState = {
   revealId: number;
   result: DrawRecord;
 };
+
+type RoulettePresentationWinner = Readonly<{
+  id: string;
+  name: string;
+  target: DrawTarget;
+}>;
+
+type RoulettePresentationRow = Readonly<{
+  id: string;
+  name: string;
+}>;
+
+type RoulettePresentationSummary = Readonly<{
+  target: DrawTarget;
+  presentation?: WheelPresentation;
+}>;
+
+type RouletteResultPresentationState = ResultPresentationState<
+  RoulettePresentationWinner,
+  RoulettePresentationRow,
+  RoulettePresentationSummary
+>;
+
+type RouletteResultPresentationEvent = ResultPresentationEvent<
+  RoulettePresentationWinner,
+  RoulettePresentationRow,
+  RoulettePresentationSummary
+>;
+
+const WINNER_HERO_HOLD_MS = 2_200;
+const WINNER_DOCK_DURATION_MS = 400;
+
+function rouletteResultPresentationReducer(
+  state: RouletteResultPresentationState,
+  event: RouletteResultPresentationEvent,
+) {
+  return reduceResultPresentation(state, event);
+}
+
+function roulettePresentationBeat(phase: ResultPresentationPhase): PresentationBeat {
+  if (phase === 'evidence') return 'motion';
+  if (phase === 'hero') return 'hero';
+  if (phase === 'docking') return 'dock';
+  return 'idle';
+}
+
+function roulettePresentationIdentity(
+  resultId: string,
+  revealId: number,
+): ResultPresentationToken {
+  return {
+    runId: `roulette:${resultId}`,
+    presentationId: `roulette-reveal:${revealId}`,
+  };
+}
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -379,7 +444,12 @@ export function RouletteGame({
   const [spinKey, setSpinKey] = useState(0);
   const [presentedOptions, setPresentedOptions] = useState<DrawOption[]>([]);
   const [activePresentation, setActivePresentation] = useState<ActivePresentation | null>(null);
-  const [presentationBeat, setPresentationBeat] = useState<PresentationBeat>('idle');
+  const [resultPresentation, dispatchResultPresentationState] = useReducer(
+    rouletteResultPresentationReducer,
+    undefined,
+    () => createResultPresentationState('roulette:idle:0'),
+  );
+  const presentationBeat = roulettePresentationBeat(resultPresentation.phase);
   const [cinematicRevealPhase, setCinematicRevealPhase] = useState<CinematicRevealPhase>('idle');
   const [winnerHero, setWinnerHero] = useState<WinnerHeroState | null>(null);
   const [currentRound, setCurrentRound] = useState<CurrentRound | null>(null);
@@ -403,6 +473,7 @@ export function RouletteGame({
   const toolsDrawerRef = useRef<HTMLElement>(null);
   const rosterTriggerRef = useRef<HTMLElement | null>(null);
   const raffleStatusRef = useRef<RaffleStatus>('configuring');
+  const resultPresentationRef = useRef<RouletteResultPresentationState>(resultPresentation);
   const presentationRunRef = useRef(0);
   const spinKeyRef = useRef(0);
   const presentationStartTimerRef = useRef<number | null>(null);
@@ -420,6 +491,15 @@ export function RouletteGame({
   const normalizedExternalRoster = rosterText === undefined
     ? null
     : sharedRosterNames(rosterText).join('\n');
+  const dispatchResultPresentation = useCallback((
+    event: RouletteResultPresentationEvent,
+  ) => {
+    resultPresentationRef.current = rouletteResultPresentationReducer(
+      resultPresentationRef.current,
+      event,
+    );
+    dispatchResultPresentationState(event);
+  }, []);
 
   useEffect(() => {
     onActivityChange?.(
@@ -929,6 +1009,44 @@ export function RouletteGame({
     setWinnerHero(null);
     const revealId = presentationRunRef.current + 1;
     presentationRunRef.current = revealId;
+    const presentationToken = roulettePresentationIdentity(
+      presentation.lockedResult.id,
+      revealId,
+    );
+    const previousRunId = resultPresentationRef.current.runId;
+    dispatchResultPresentation({
+      type: 'run-started',
+      previousRunId,
+      runId: presentationToken.runId,
+    });
+    const resultAnchor = resolveDartImpactPoint(presentation.dartShot);
+    dispatchResultPresentation({
+      type: 'result-committed',
+      projection: createResultPresentationProjection({
+        gameId: 'roulette',
+        runId: presentationToken.runId,
+        presentationId: presentationToken.presentationId,
+        committedAt: presentation.lockedResult.createdAt,
+        anchor: createStagePresentationAnchor({
+          xRatio: resultAnchor.xPercent / 100,
+          yRatio: resultAnchor.yPercent / 100,
+          sourceId: presentation.lockedResult.id,
+        }),
+        primaryWinners: [{
+          id: presentation.lockedResult.id,
+          name: presentation.lockedResult.winner,
+          target: presentation.lockedResult.target,
+        }],
+        rankingRows: [{
+          id: presentation.lockedResult.id,
+          name: presentation.lockedResult.winner,
+        }],
+        summary: {
+          target: presentation.lockedResult.target,
+          presentation: presentation.lockedResult.presentation,
+        },
+      }),
+    });
     setActivePresentation({ ...presentation, revealId });
     setPresentedOptions(presentation.options);
     // Keep the committed winner out of the visual component until motion
@@ -936,7 +1054,6 @@ export function RouletteGame({
     // and prevents a one-frame winner highlight before the reveal.
     setWinnerIndex(null);
     setSpinning(false);
-    setPresentationBeat('motion');
     setCinematicRevealPhase('result-committed');
 
     // Keep one short, visible frame between "the result is fixed" and the
@@ -958,7 +1075,7 @@ export function RouletteGame({
     else presentationStartTimerRef.current = window.setTimeout(beginPresentation, 140);
 
     return true;
-  }, [cancelWinnerRevealTimers, transitionRaffle]);
+  }, [cancelWinnerRevealTimers, dispatchResultPresentation, transitionRaffle]);
 
   const clearStagePresentation = () => {
     cancelWinnerRevealTimers();
@@ -966,7 +1083,12 @@ export function RouletteGame({
     setPresentedOptions([]);
     setActivePresentation(null);
     setWinnerHero(null);
-    setPresentationBeat('idle');
+    const previousRunId = resultPresentationRef.current.runId;
+    dispatchResultPresentation({
+      type: 'run-started',
+      previousRunId,
+      runId: `roulette:idle:${presentationRunRef.current + 1}`,
+    });
     setCinematicRevealPhase('idle');
   };
 
@@ -1061,7 +1183,14 @@ export function RouletteGame({
 
     setSpinning(false);
     cancelWinnerRevealTimers();
-    setPresentationBeat('hero');
+    const presentationToken = roulettePresentationIdentity(
+      result.id,
+      presentation.revealId,
+    );
+    dispatchResultPresentation({
+      type: 'evidence-complete',
+      token: presentationToken,
+    });
     setWinnerHero({
       revealId: presentation.revealId,
       result,
@@ -1071,17 +1200,23 @@ export function RouletteGame({
       if (presentationRunRef.current !== presentation.revealId) return;
 
       winnerHeroTimerRef.current = null;
-      setPresentationBeat('dock');
+      dispatchResultPresentation({
+        type: 'hero-complete',
+        token: presentationToken,
+      });
       winnerDockTimerRef.current = window.setTimeout(() => {
         if (presentationRunRef.current !== presentation.revealId) return;
 
         winnerDockTimerRef.current = null;
         setWinnerHero(null);
-        setPresentationBeat('idle');
+        dispatchResultPresentation({
+          type: 'docking-complete',
+          token: presentationToken,
+        });
         setCinematicRevealPhase('idle');
         transitionRaffle('complete-round');
-      }, 760);
-    }, 2_200);
+      }, WINNER_DOCK_DURATION_MS);
+    }, WINNER_HERO_HOLD_MS);
   };
 
   const freezePhysicalDart = () => {
@@ -1756,8 +1891,10 @@ export function RouletteGame({
       : upcomingDrawLabel;
   const isStageOnly =
     raffleStatus === 'locking' || presentationBeat === 'motion';
-  const showWinnerHeroPanel = presentationBeat === 'hero' && winnerHero !== null;
-  const showResultsPanel = !isStageOnly && !showWinnerHeroPanel && (
+  const showWinnerHeroPanel = (
+    presentationBeat === 'hero' || presentationBeat === 'dock'
+  ) && winnerHero !== null;
+  const showResultsPanel = !isStageOnly && (
     visibleSessionResults.length > 0 ||
     raffleStatus === 'completed' ||
     presentationBeat === 'dock'
@@ -1785,7 +1922,6 @@ export function RouletteGame({
     `reveal-phase--${cinematicRevealPhase}`,
     isStageOnly ? 'is-stage-only' : '',
     showResultsPanel || showWinnerHeroPanel ? 'has-results-panel' : 'has-no-results-panel',
-    showWinnerHeroPanel ? 'has-hero-panel' : '',
     presentationBeat === 'hero' ? 'is-winner-hero' : '',
     presentationBeat === 'dock' ? 'is-result-docking' : '',
     raffleStatus === 'completed' ? 'is-completed' : '',
@@ -2511,27 +2647,27 @@ export function RouletteGame({
         <section className="broadcast-focus__stage" aria-labelledby="stage-title">
           <p className="broadcast-focus__fairness">{fairnessLabel}</p>
 
-          <div className={broadcastVisualClassName}>
-            <div className="broadcast-focus__camera" style={cinematicCameraStyle}>
+          <div className={broadcastVisualClassName} style={cinematicCameraStyle}>
+            <div className="broadcast-focus__camera">
               {renderDrawVisual('live')}
             </div>
+            {showWinnerHeroPanel && winnerHero && (
+              <>
+                <span className="broadcast-focus__result-anchor" aria-hidden="true" />
+                <WinnerHero
+                  key={winnerHero.revealId}
+                  className="broadcast-focus__winner-hero"
+                  winnerName={winnerHero.result.winner}
+                  targetLabel={winnerHero.result.target === 'people' ? '당첨자' : '당첨 상품'}
+                  recipient={winnerHero.result.recipient}
+                  product={winnerHero.result.target === 'people' ? winnerHero.result.rewardLabel : undefined}
+                />
+              </>
+            )}
           </div>
 
           <p className="broadcast-focus__prompt">{stagePrompt}</p>
         </section>
-
-        {showWinnerHeroPanel && winnerHero && (
-          <aside className="broadcast-focus__hero" aria-label="이번 당첨 결과">
-            <WinnerHero
-              key={winnerHero.revealId}
-              className="broadcast-focus__hero-card"
-              winnerName={winnerHero.result.winner}
-              targetLabel={winnerHero.result.target === 'people' ? '당첨자' : '당첨 상품'}
-              recipient={winnerHero.result.recipient}
-              product={winnerHero.result.target === 'people' ? winnerHero.result.rewardLabel : undefined}
-            />
-          </aside>
-        )}
 
         {showResultsPanel && (
           <aside className={`broadcast-focus__results${visibleSessionResults.length === 0 ? ' is-empty' : ''}`} aria-label="이 방송의 전체 추첨 결과">
@@ -2547,7 +2683,9 @@ export function RouletteGame({
               unit={resultUnit}
               latestWinnerId={latestVisibleSessionResult?.id}
               title={resultTitle}
-              announcement={visibleSessionResults.length > 0
+              announcement={presentationBeat === 'hero'
+                ? ''
+                : visibleSessionResults.length > 0
                 ? raffleStatus === 'presenting'
                   ? `${resultTitle} 누적 ${visibleSessionResults.length}${resultUnit}${resultUnitSubjectParticle} 확정되었습니다.`
                   : `${resultTitle} 누적 ${visibleSessionResults.length}${resultUnit}${resultUnitSubjectParticle} 발표되었습니다.`

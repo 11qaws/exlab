@@ -84,23 +84,16 @@ test("scoped Showdown roots retain their intended frame colors and sizing", () =
     cssSource,
     /:scope\.preparation-screen\.is-embedded\s*\{[\s\S]*?min-height:\s*0;[\s\S]*?padding:\s*0;/,
   );
-  assert.match(
-    cssSource,
-    /:scope\.result-screen\s*\{[\s\S]*?background:\s*var\(--stage\);[\s\S]*?color:\s*var\(--stage-ink\);/,
-  );
   assert.doesNotMatch(cssSource, /^\.race-screen\s*\{/m);
-  assert.doesNotMatch(cssSource, /^\.result-screen\s*\{/m);
+  assert.doesNotMatch(cssSource, /result-screen/);
   assert.match(
     gameSource,
-    /className=\{`showdown-game race-screen\$\{[\s\S]*?embedded \? " is-embedded" : ""[\s\S]*?\}`\}/,
+    /className=\{`showdown-game race-screen\$\{[\s\S]*?phase === "result" \? " is-results" : ""[\s\S]*?embedded \? " is-embedded" : ""[\s\S]*?\}`\}/,
   );
-  assert.match(
-    gameSource,
-    /className=\{`showdown-game result-screen\$\{[\s\S]*?embedded \? " is-embedded" : ""[\s\S]*?\}`\}/,
-  );
+  assert.doesNotMatch(gameSource, /showdown-game result-screen/);
   assert.match(
     cssSource,
-    /:scope\.race-screen\.is-embedded,\s*:scope\.result-screen\.is-embedded\s*\{[\s\S]*?100dvh\s*-\s*var\(--exlab-header-height,\s*58px\)[\s\S]*?min-height:\s*0;/,
+    /:scope\.race-screen\.is-embedded\s*\{[\s\S]*?100dvh\s*-\s*var\(--exlab-header-height,\s*58px\)[\s\S]*?min-height:\s*0;/,
   );
 });
 
@@ -179,11 +172,11 @@ test("live race clock and result announcement share physical finish time", () =>
     gameSource,
     /const winnerRows = arrivedRows\.slice\(0, plan\.winnerCount\)/,
   );
-  assert.match(gameSource, /className="winner-finish-time"/);
-  assert.match(gameSource, /className="result-finish-time"/);
+  assert.match(gameSource, /className="showdown-result-time"/);
+  assert.match(gameSource, /"leaderboard-time"/);
   assert.match(
     gameSource,
-    /const finishRecord = finishRecords\.get\(slotId\)/,
+    /const finishRecord = finished\s*\?\s*finishRecords\.get\(slotId\)/,
   );
   assert.match(
     cssSource,
@@ -191,7 +184,7 @@ test("live race clock and result announcement share physical finish time", () =>
   );
   assert.match(
     cssSource,
-    /\.winner-finish-time\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums;/,
+    /\.showdown-result-time\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums;/,
   );
 });
 
