@@ -33,6 +33,7 @@ export const MINIMUM_RESULT_FINISHERS = 3;
 export const START_MAX_HORIZONTAL_JITTER = 12;
 export const START_MIN_CENTER_GAP = MARBLE_RADIUS * 2 + 6;
 export const MARBLE_START_Y = scaleCourseY(145);
+export const START_PIN_ALIGNMENT_CLEARANCE = MARBLE_RADIUS * 0.5;
 export const CHASE_ASSIST_TARGET_GAP = 1_000;
 export const CHASE_ASSIST_START_GAP = 600;
 export const CHASE_ASSIST_FULL_GAP = CHASE_ASSIST_TARGET_GAP;
@@ -41,6 +42,11 @@ export const CHASE_ASSIST_LAST_PLACE_MAX_BONUS = 0.32;
 export const CHASE_ASSIST_CLOSING_SPEED_LIMIT = 600;
 export const FIXED_GUIDE_FRICTION = 0;
 const START_WALL_CLEARANCE = 6;
+const START_LAYOUT_ATTEMPTS = 64;
+const FIRST_PIN_ROW_Y = Math.min(...COURSE_PINS.map((pin) => pin.y));
+const FIRST_PIN_ROW_XS = COURSE_PINS.filter(
+  (pin) => pin.y === FIRST_PIN_ROW_Y,
+).map((pin) => pin.x);
 export type StaticCollisionMaterial = {
   friction: number;
   frictionStatic: number;
@@ -335,15 +341,16 @@ export type MarbleStartLayout = {
   positions: { x: number; y: number }[];
 };
 
-export function createMarbleStartLayout(
+function createMarbleStartLayoutCandidate(
   count: number,
   layoutSeed: string,
+  attempt: number,
 ): MarbleStartLayout {
-  if (!Number.isInteger(count) || count < 2 || count > 10) {
-    throw new RangeError("count must be an integer between 2 and 10.");
-  }
-  const shiftRandom = createPrng(layoutSeed);
-  const jitterRandom = createPrng(`${layoutSeed}:start-jitter-v1`);
+  const attemptSuffix = attempt === 0 ? "" : `:pin-safe-${attempt}`;
+  const shiftRandom = createPrng(`${layoutSeed}${attemptSuffix}`);
+  const jitterRandom = createPrng(
+    `${layoutSeed}:start-jitter-v1${attemptSuffix}`,
+  );
   const maxShift = count >= 9 ? 18 : 52;
   const layoutShift = Math.round(
     (shiftRandom() * 2 - 1) * maxShift,
@@ -393,6 +400,43 @@ export function createMarbleStartLayout(
       y: MARBLE_START_Y,
     })),
   };
+}
+
+function minimumFirstPinAlignmentDistance(
+  positions: MarbleStartLayout["positions"],
+): number {
+  return Math.min(
+    ...positions.flatMap((position) =>
+      FIRST_PIN_ROW_XS.map((pinX) => Math.abs(position.x - pinX)),
+    ),
+  );
+}
+
+export function createMarbleStartLayout(
+  count: number,
+  layoutSeed: string,
+): MarbleStartLayout {
+  if (!Number.isInteger(count) || count < 2 || count > 10) {
+    throw new RangeError("count must be an integer between 2 and 10.");
+  }
+
+  for (let attempt = 0; attempt < START_LAYOUT_ATTEMPTS; attempt += 1) {
+    const layout = createMarbleStartLayoutCandidate(
+      count,
+      layoutSeed,
+      attempt,
+    );
+    const alignmentDistance = minimumFirstPinAlignmentDistance(
+      layout.positions,
+    );
+    if (alignmentDistance >= START_PIN_ALIGNMENT_CLEARANCE) {
+      return layout;
+    }
+  }
+
+  throw new Error(
+    "Unable to create a start layout with first-pin alignment clearance.",
+  );
 }
 
 function addMarbles(

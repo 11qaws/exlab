@@ -132,6 +132,74 @@ export function resolveRaceFocusSlotId(
   return frame.rankedSlotIds[0];
 }
 
+export const OFFSCREEN_PODIUM_MIN_SCALE = 0.82;
+export const OFFSCREEN_PODIUM_MAX_SCALE = 1.12;
+export const OFFSCREEN_PODIUM_FAR_DISTANCE = VIEW_HEIGHT * 0.68;
+
+export type OffscreenPodiumIndicator = {
+  slotId: string;
+  rank: 2 | 3;
+  x: number;
+  proximity: number;
+  emphasisScale: number;
+};
+
+export function resolveOffscreenPodiumIndicators(
+  frame: RaceFrame,
+  viewportTopY: number,
+  viewportBottomY: number,
+  reducedMotion: boolean,
+): OffscreenPodiumIndicator[] {
+  if (frame.finishedSlotIds.length > 0) return [];
+  const poseBySlot = new Map(
+    frame.poses.map((pose) => [pose.slotId, pose]),
+  );
+  const leaderPose = poseBySlot.get(frame.rankedSlotIds[0]);
+  if (
+    !leaderPose ||
+    leaderPose.y + MARBLE_RADIUS < viewportTopY ||
+    leaderPose.y - MARBLE_RADIUS > viewportBottomY
+  ) {
+    return [];
+  }
+
+  return frame.rankedSlotIds.slice(1, 3).flatMap(
+    (slotId, index): OffscreenPodiumIndicator[] => {
+      const pose = poseBySlot.get(slotId);
+      if (!pose || pose.y + MARBLE_RADIUS >= viewportTopY) {
+        return [];
+      }
+      const distanceAboveViewport =
+        viewportTopY - (pose.y + MARBLE_RADIUS);
+      const linearProximity =
+        1 -
+        Math.min(
+          1,
+          distanceAboveViewport / OFFSCREEN_PODIUM_FAR_DISTANCE,
+        );
+      const proximity =
+        linearProximity *
+        linearProximity *
+        (3 - 2 * linearProximity);
+
+      return [
+        {
+          slotId,
+          rank: (index + 2) as 2 | 3,
+          x: pose.x,
+          proximity,
+          emphasisScale: reducedMotion
+            ? 1
+            : OFFSCREEN_PODIUM_MIN_SCALE +
+              (OFFSCREEN_PODIUM_MAX_SCALE -
+                OFFSCREEN_PODIUM_MIN_SCALE) *
+                proximity,
+        },
+      ];
+    },
+  );
+}
+
 function roundedRect(
   context: CanvasRenderingContext2D,
   shape: CourseRect,
@@ -766,6 +834,110 @@ export function RaceCanvas({
         context.fillText("↑", x, y + MARBLE_RADIUS * scale + 18);
         context.restore();
       }
+    });
+
+    const viewportTopY = cameraY - offsetY / scale;
+    const viewportBottomY =
+      cameraY + (logicalHeight - offsetY) / scale;
+    const offscreenPodiumIndicators =
+      resolveOffscreenPodiumIndicators(
+        frame,
+        viewportTopY,
+        viewportBottomY,
+        reducedMotion,
+      );
+    const indicatorLayouts = offscreenPodiumIndicators
+      .map((indicator) => {
+        const candidate = candidateById.get(
+          plan.slotToCandidateId[indicator.slotId],
+        );
+        if (!candidate) return null;
+        const label = `${indicator.rank}위 ${shortName(candidate.name, 7)} ↑`;
+        const fontSize = 12 * indicator.emphasisScale;
+        context.font = `850 ${fontSize}px Inter, Pretendard, system-ui, sans-serif`;
+        const width = context.measureText(label).width + 22;
+        return {
+          ...indicator,
+          candidate,
+          label,
+          fontSize,
+          width,
+          centerX: Math.max(
+            offsetX + width / 2 + 8,
+            Math.min(
+              offsetX + WORLD_WIDTH * scale - width / 2 - 8,
+              offsetX + indicator.x * scale,
+            ),
+          ),
+        };
+      })
+      .filter((layout) => layout !== null)
+      .sort((left, right) => left.centerX - right.centerX);
+
+    if (indicatorLayouts.length === 2) {
+      const [left, right] = indicatorLayouts;
+      const minimumCenterGap =
+        left.width / 2 + right.width / 2 + 8;
+      if (right.centerX - left.centerX < minimumCenterGap) {
+        const midpoint = (left.centerX + right.centerX) / 2;
+        left.centerX = midpoint - minimumCenterGap / 2;
+        right.centerX = midpoint + minimumCenterGap / 2;
+      }
+      const leftEdge = offsetX + 8;
+      const rightEdge = offsetX + WORLD_WIDTH * scale - 8;
+      if (left.centerX - left.width / 2 < leftEdge) {
+        const shift =
+          leftEdge - (left.centerX - left.width / 2);
+        left.centerX += shift;
+        right.centerX += shift;
+      }
+      if (right.centerX + right.width / 2 > rightEdge) {
+        const shift =
+          right.centerX + right.width / 2 - rightEdge;
+        left.centerX -= shift;
+        right.centerX -= shift;
+      }
+    }
+
+    indicatorLayouts.forEach((indicator) => {
+      const height = 25 * indicator.emphasisScale;
+      const centerY = 10 + height / 2;
+      context.save();
+      context.globalAlpha = 0.76 + indicator.proximity * 0.24;
+      context.shadowColor = colorWithAlpha(
+        indicator.candidate.theme.primary,
+        0.3 + indicator.proximity * 0.42,
+      );
+      context.shadowBlur = reducedMotion
+        ? 0
+        : 4 + indicator.proximity * 10;
+      context.fillStyle = theme.label;
+      context.strokeStyle = indicator.candidate.theme.primary;
+      context.lineWidth = Math.max(
+        2,
+        2.5 * indicator.emphasisScale,
+      );
+      context.beginPath();
+      context.roundRect(
+        indicator.centerX - indicator.width / 2,
+        centerY - height / 2,
+        indicator.width,
+        height,
+        height / 2,
+      );
+      context.fill();
+      context.stroke();
+      context.shadowBlur = 0;
+      context.fillStyle = theme.labelText;
+      context.font = `850 ${indicator.fontSize}px Inter, Pretendard, system-ui, sans-serif`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(
+        indicator.label,
+        indicator.centerX,
+        centerY + 0.5,
+      );
+      context.restore();
     });
 
     if (finalApproach) {

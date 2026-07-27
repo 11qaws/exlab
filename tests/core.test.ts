@@ -65,6 +65,7 @@ import {
   CHASE_ASSIST_TARGET_GAP,
   MARBLE_START_Y,
   PHYSICS_SUBSTEPS,
+  START_PIN_ALIGNMENT_CLEARANCE,
   START_MIN_CENTER_GAP,
   chaseAssistGravityBonus,
   createMarbleStartLayout,
@@ -73,6 +74,9 @@ import {
   simulateRace,
 } from "../app/marble/simulation";
 import {
+  OFFSCREEN_PODIUM_MAX_SCALE,
+  OFFSCREEN_PODIUM_MIN_SCALE,
+  resolveOffscreenPodiumIndicators,
   resolveRaceFocusSlotId,
   resolveRaceFrame,
 } from "../app/marble/RaceCanvas";
@@ -186,6 +190,31 @@ test("layout seed creates a centered, irregular, non-overlapping start row", () 
         START_MIN_CENTER_GAP,
     );
   });
+});
+
+test("seeded start layouts avoid direct alignment with the first pin row", () => {
+  const firstPinY = Math.min(...COURSE_PINS.map((pin) => pin.y));
+  const firstPinRowXs = COURSE_PINS.filter(
+    (pin) => pin.y === firstPinY,
+  ).map((pin) => pin.x);
+
+  for (let count = 2; count <= 10; count += 1) {
+    for (let seedIndex = 0; seedIndex < 300; seedIndex += 1) {
+      const layout = createMarbleStartLayout(
+        count,
+        `pin-alignment-${count}-${seedIndex}`,
+      );
+      for (const position of layout.positions) {
+        const closestPinDistance = Math.min(
+          ...firstPinRowXs.map((pinX) => Math.abs(position.x - pinX)),
+        );
+        assert.ok(
+          closestPinDistance >= START_PIN_ALIGNMENT_CLEARANCE,
+          `${count}명 시드 ${seedIndex}의 x=${position.x}가 첫 핀 열과 ${closestPinDistance}px만 떨어졌습니다.`,
+        );
+      }
+    }
+  }
 });
 
 test("distance and live rank bound the transparent chase acceleration", () => {
@@ -678,6 +707,66 @@ test("camera follows the next active contender until all winners arrive", () => 
   };
   assert.equal(resolveRaceFocusSlotId(frame, 2), "slot-2");
   assert.equal(resolveRaceFocusSlotId(frame, 1), "slot-1");
+});
+
+test("top-edge podium markers grow as offscreen challengers approach the leader view", () => {
+  const frame = {
+    poses: [
+      { slotId: "slot-1", x: 480, y: 500, angle: 0 },
+      { slotId: "slot-2", x: 320, y: -1000, angle: 0 },
+      { slotId: "slot-3", x: 680, y: -30, angle: 0 },
+    ],
+    rankedSlotIds: ["slot-1", "slot-2", "slot-3"],
+    finishedSlotIds: [],
+    rotatingBarAngles: [],
+    bumperFlashes: [],
+  };
+
+  const indicators = resolveOffscreenPodiumIndicators(
+    frame,
+    0,
+    1000,
+    false,
+  );
+  assert.deepEqual(
+    indicators.map(({ slotId, rank }) => ({ slotId, rank })),
+    [
+      { slotId: "slot-2", rank: 2 },
+      { slotId: "slot-3", rank: 3 },
+    ],
+  );
+  assert.equal(indicators[0].emphasisScale, OFFSCREEN_PODIUM_MIN_SCALE);
+  assert.ok(indicators[1].emphasisScale > indicators[0].emphasisScale);
+  assert.ok(indicators[1].emphasisScale <= OFFSCREEN_PODIUM_MAX_SCALE);
+
+  assert.deepEqual(
+    resolveOffscreenPodiumIndicators(
+      {
+        ...frame,
+        poses: frame.poses.map((pose) =>
+          pose.slotId === "slot-3" ? { ...pose, y: 0 } : pose,
+        ),
+      },
+      0,
+      1000,
+      false,
+    ).map(({ slotId }) => slotId),
+    ["slot-2"],
+  );
+  assert.ok(
+    resolveOffscreenPodiumIndicators(frame, 0, 1000, true).every(
+      ({ emphasisScale }) => emphasisScale === 1,
+    ),
+  );
+  assert.deepEqual(
+    resolveOffscreenPodiumIndicators(
+      { ...frame, finishedSlotIds: ["slot-1"] },
+      0,
+      1000,
+      false,
+    ),
+    [],
+  );
 });
 
 test("race dynamics contain only shared physical material variation", () => {
