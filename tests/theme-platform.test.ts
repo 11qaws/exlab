@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -66,4 +66,52 @@ test("every light streamer theme keeps labels and text contrast-safe", () => {
       `${theme.id} body text`,
     );
   }
+});
+
+test("the shell owns one compact theme picker beside the game selector", async () => {
+  const [appSource, sharedSetupSource, pickerSource, globalsSource] =
+    await Promise.all([
+      readFile(
+        new URL("../app/ExlabApp.tsx", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/_platform/components/SharedSetupSummary.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/_platform/theme/StreamerThemePicker.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(
+        new URL("../app/globals.css", import.meta.url),
+        "utf8",
+      ),
+    ]);
+
+  const pickerIndex = appSource.indexOf(
+    'className="exlab-toolbar-theme-picker"',
+  );
+  const gameSelectorIndex = appSource.indexOf(
+    'className="exlab-select-field"',
+  );
+
+  assert.ok(pickerIndex >= 0);
+  assert.ok(gameSelectorIndex > pickerIndex);
+  assert.doesNotMatch(sharedSetupSource, /StreamerThemePicker/);
+  assert.match(pickerSource, /aria-label=\{theme\.name\}/);
+  assert.match(
+    globalsSource,
+    /\.exlab-toolbar-theme-picker \.exlab-theme-card\s*\{[\s\S]*?block-size: 32px;/,
+  );
+  assert.match(
+    globalsSource,
+    /@media \(max-width: 640px\)[\s\S]*?\.exlab-toolbar-theme-picker \.exlab-theme-card\s*\{[\s\S]*?block-size: 24px;/,
+  );
 });

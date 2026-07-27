@@ -52,10 +52,10 @@ export type SetupWorkspaceProps = SetupWorkspaceBaseProps
 /**
  * Shared exlab setup frame.
  *
- * The host owns shared roster/theme state, while each game supplies its own
- * settings, preview and start action through the slots below. This component
- * intentionally provides layout and semantics only; it never copies or owns
- * game state.
+ * The host owns shared roster state and exposes the global theme in the shell
+ * header, while each game supplies its own settings, preview and start action
+ * through the slots below. This component intentionally provides layout and
+ * semantics only; it never copies or owns game state.
  */
 export function SetupWorkspace({
   className,

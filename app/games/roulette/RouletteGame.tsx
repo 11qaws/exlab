@@ -20,10 +20,6 @@ import {
   type ResultPresentationState,
   type ResultPresentationToken,
 } from '../../_platform/presentation';
-import {
-  DEFAULT_STREAMER_THEME_ID,
-  type StreamerThemeId,
-} from '../../_platform/theme';
 import BroadcastActionDock, { type BroadcastDockAction } from './components/BroadcastActionDock';
 import BroadcastCandidateRoster from './components/BroadcastCandidateRoster';
 import CurrentRoundWinners from './components/CurrentRoundWinners';
@@ -401,8 +397,6 @@ export interface RouletteGameProps {
   onRosterTextChange?: (text: string) => void;
   allowDuplicateNames?: boolean;
   onAllowDuplicateNamesChange?: (allow: boolean) => void;
-  streamerThemeId?: StreamerThemeId;
-  onStreamerThemeChange?: (themeId: StreamerThemeId) => void;
   onRequestRosterEdit?: () => void;
   onActivityChange?: (active: boolean) => void;
 }
@@ -413,8 +407,6 @@ export function RouletteGame({
   rosterText,
   onRosterTextChange,
   allowDuplicateNames = false,
-  streamerThemeId = DEFAULT_STREAMER_THEME_ID,
-  onStreamerThemeChange,
   onRequestRosterEdit,
   onActivityChange,
 }: RouletteGameProps) {
@@ -2344,10 +2336,6 @@ export function RouletteGame({
                   <SharedSetupSummary
                     rosterCount={participants.length}
                     allowDuplicateNames={allowDuplicateNames}
-                    streamerThemeId={streamerThemeId}
-                    onStreamerThemeChange={(themeId) =>
-                      onStreamerThemeChange?.(themeId)
-                    }
                     onRequestRosterEdit={requestPreparationRosterEdit}
                     disabled={editorOpen || !isConfigurationEditable}
                   />

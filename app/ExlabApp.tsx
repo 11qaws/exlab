@@ -28,6 +28,7 @@ import {
 import { validateSharedRosterDraft } from "./_platform/roster";
 import {
   DEFAULT_STREAMER_THEME_ID,
+  StreamerThemePicker,
   streamerThemeCssVariables,
   type StreamerThemeId,
 } from "./_platform/theme";
@@ -337,6 +338,20 @@ export function ExlabApp() {
         </span>
 
         <div className="exlab-toolbar">
+          <div className="exlab-theme-field">
+            <span className="exlab-field-caption" aria-hidden="true">
+              테마
+            </span>
+            <StreamerThemePicker
+              className="exlab-toolbar-theme-picker"
+              value={streamerThemeId}
+              onChange={setStreamerThemeId}
+              disabled={navigationLocked || !preferencesReady}
+              legend="스트리머 테마"
+              description=""
+            />
+          </div>
+
           <label className="exlab-select-field">
             <span className="exlab-field-caption">게임</span>
             <select
@@ -402,8 +417,6 @@ export function ExlabApp() {
                     onRosterTextChange={setRosterText}
                     allowDuplicateNames={allowDuplicateNames}
                     onAllowDuplicateNamesChange={setAllowDuplicateNames}
-                    streamerThemeId={streamerThemeId}
-                    onStreamerThemeChange={setStreamerThemeId}
                     onRequestRosterEdit={openRosterEditor}
                     onActivityChange={activityHandlers[game.id]}
                   />

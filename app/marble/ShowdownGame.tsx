@@ -23,10 +23,6 @@ import {
   type ResultPresentationToken,
 } from "../_platform/presentation";
 import {
-  DEFAULT_STREAMER_THEME_ID,
-  type StreamerThemeId,
-} from "../_platform/theme";
-import {
   buildRacePlan,
   createRaceSlotAssignment,
   createSeed,
@@ -141,8 +137,6 @@ export type ShowdownGameProps = {
   onRosterTextChange?: (text: string) => void;
   allowDuplicateNames?: boolean;
   onAllowDuplicateNamesChange?: (allow: boolean) => void;
-  streamerThemeId?: StreamerThemeId;
-  onStreamerThemeChange?: (themeId: StreamerThemeId) => void;
   onRequestRosterEdit?: () => void;
   onActivityChange?: (active: boolean) => void;
 };
@@ -987,8 +981,6 @@ export function ShowdownGame({
   onRosterTextChange,
   allowDuplicateNames: controlledAllowDuplicateNames,
   onAllowDuplicateNamesChange,
-  streamerThemeId = DEFAULT_STREAMER_THEME_ID,
-  onStreamerThemeChange,
   onRequestRosterEdit,
   onActivityChange,
 }: ShowdownGameProps = {}) {
@@ -2053,10 +2045,6 @@ export function ShowdownGame({
             <SharedSetupSummary
               rosterCount={validation.candidates.length}
               allowDuplicateNames={allowDuplicateNames}
-              streamerThemeId={streamerThemeId}
-              onStreamerThemeChange={(themeId) =>
-                onStreamerThemeChange?.(themeId)
-              }
               onRequestRosterEdit={requestSharedRosterEdit}
               disabled={phase !== "ready"}
             />
@@ -2332,7 +2320,7 @@ export function ShowdownGame({
             exlab
           </a>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.4</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.5</span>
           </div>
         </header>
       )}

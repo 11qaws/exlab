@@ -126,8 +126,10 @@ export function StreamerThemePicker({
               data-theme-id={theme.id}
               key={theme.id}
               style={cardStyle}
+              title={theme.name}
             >
               <input
+                aria-label={theme.name}
                 checked={value === theme.id}
                 className="exlab-theme-card-radio"
                 name={inputName}
