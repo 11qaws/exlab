@@ -7,6 +7,7 @@
 - Roulette와 Showdown을 각각 동적 청크로 유지하고, 공통 명단·테마·로컬 저장 상태·스트리머 프로필 자산을 정적 미러에서도 그대로 사용한다.
 - `pages:verify`가 HTML의 `/exlab/` 자산 경로, 두 게임의 lazy chunk, `.nojekyll`, OG 이미지와 다섯 스트리머 이미지를 검사하며 도메인 루트로 잘못 고정된 공개 자산 경로도 차단한다.
 - GitHub Actions 전용 Pages workflow를 추가해 main 푸시 때 생산 빌드와 전체 회귀 테스트, 정적 빌드 검증을 통과한 artifact만 `github-pages` 환경에 배포하도록 했다.
+- 첫 Linux Actions 실행에서 npm 10의 clean install이 감지한 WASM 선택 의존성 잠금 누락을 npm 10 기준으로 재생성하고, `npm ci --dry-run`으로 새 환경 설치 계약을 검증했다. 애플리케이션 의존성 선언과 실제 패키지 버전은 변경하지 않았다.
 - 루트 `pages/` 폴더가 Vinext의 Pages Router로 인식되던 초기 충돌은 `pages-static/`으로 완전히 격리해 제거했다.
 - Pages 정적 빌드·검증, 생산 빌드, TypeScript, ESLint, diff whitespace 검사와 117개 자동 테스트를 통과했으며 이 변경 묶음을 1.3.4 배포 기준선으로 확정했다.
 
