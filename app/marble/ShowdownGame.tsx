@@ -1458,7 +1458,11 @@ export function ShowdownGame({
 
     if (phase === "result") {
       return (
-        <main className="showdown-game result-screen">
+        <main
+          className={`showdown-game result-screen${
+            embedded ? " is-embedded" : ""
+          }`}
+        >
           <div className="result-glow" aria-hidden="true" />
           <header className="result-header">
             <p className="eyebrow">SHOWDOWN RESULTS</p>
@@ -1638,7 +1642,11 @@ export function ShowdownGame({
     }
 
     return (
-      <main className="showdown-game race-screen">
+      <main
+        className={`showdown-game race-screen${
+          embedded ? " is-embedded" : ""
+        }`}
+      >
         <header className="race-header">
           <div>
             <p className="eyebrow">exlab · SHOWDOWN</p>
@@ -1982,6 +1990,26 @@ export function ShowdownGame({
                   {soundEnabled ? "켜짐" : "꺼짐"}
                 </button>
               </div>
+              {history.length > 0 && (
+                <details className="history-panel embedded-history-panel">
+                  <summary>최근 경기 {history.length}개</summary>
+                  <ol>
+                    {history.slice(0, 5).map((item) => (
+                      <li key={item.runId}>
+                        <span>
+                          {new Date(item.createdAt).toLocaleDateString("ko-KR")}
+                        </span>
+                        <strong>
+                          {(item.winnerNames
+                            ?? [item.winnerName ?? "알 수 없음"]
+                          ).join(", ")}
+                        </strong>
+                        <small>{item.rankedNames.length}명 경기</small>
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              )}
             </div>
           )}
           advancedSettingsLabel="경기 방식"
@@ -2052,27 +2080,6 @@ export function ShowdownGame({
           busy={phase === "generating"}
         />
 
-        {history.length > 0 && (
-          <details className="history-panel embedded-history-panel">
-            <summary>최근 경기 {history.length}개</summary>
-            <ol>
-              {history.slice(0, 5).map((item) => (
-                <li key={item.runId}>
-                  <span>
-                    {new Date(item.createdAt).toLocaleDateString("ko-KR")}
-                  </span>
-                  <strong>
-                    {(item.winnerNames
-                      ?? [item.winnerName ?? "알 수 없음"]
-                    ).join(", ")}
-                  </strong>
-                  <small>{item.rankedNames.length}명 경기</small>
-                </li>
-              ))}
-            </ol>
-          </details>
-        )}
-
         {phase === "error" && (
           <div className="error-banner" role="alert">
             <div>
@@ -2105,7 +2112,7 @@ export function ShowdownGame({
             exlab
           </a>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.1</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.2</span>
           </div>
         </header>
       )}

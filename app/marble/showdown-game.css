@@ -36,19 +36,19 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.preparation-screen,
-.race-screen,
-.result-screen {
+:scope.preparation-screen,
+:scope.race-screen,
+:scope.result-screen {
   min-height: 100svh;
 }
 
-.preparation-screen {
+:scope.preparation-screen {
   background: var(--page);
   color: var(--ink);
   padding: 28px clamp(20px, 4vw, 64px) 48px;
 }
 
-.preparation-screen.is-embedded {
+:scope.preparation-screen.is-embedded {
   background: transparent;
   min-height: 0;
   padding: 0;
@@ -153,7 +153,7 @@ button:disabled {
   max-width: 1480px;
 }
 
-.preparation-screen.is-embedded .preparation-grid {
+:scope.preparation-screen.is-embedded .preparation-grid {
   margin-top: 0;
   max-width: none;
 }
@@ -823,7 +823,7 @@ summary {
   font-weight: 850;
 }
 
-.race-screen {
+:scope.race-screen {
   background: var(--stage);
   color: var(--stage-ink);
   display: grid;
@@ -831,6 +831,17 @@ summary {
   height: 100svh;
   overflow: hidden;
   padding: 18px 22px 22px;
+}
+
+:scope.race-screen.is-embedded,
+:scope.result-screen.is-embedded {
+  block-size: calc(
+    100svh - var(--exlab-header-height, 58px)
+  );
+  block-size: calc(
+    100dvh - var(--exlab-header-height, 58px)
+  );
+  min-height: 0;
 }
 
 .race-header {
@@ -1153,7 +1164,7 @@ summary {
   width: 1px;
 }
 
-.result-screen {
+:scope.result-screen {
   background: var(--stage);
   color: var(--stage-ink);
   overflow: hidden auto;
@@ -1340,7 +1351,7 @@ summary {
   margin: 30px auto 0;
 }
 
-.result-screen .secondary-button {
+:scope.result-screen .secondary-button {
   border-color: #77515e;
   color: #fff8ef;
 }
@@ -1422,7 +1433,7 @@ summary {
 }
 
 .showdown-setup-workspace .exlab-setup-workspace__preview-stage {
-  min-height: 520px;
+  min-height: 0;
 }
 
 .showdown-setup-workspace
@@ -1488,8 +1499,50 @@ summary {
   min-width: 180px;
 }
 
-.embedded-history-panel {
-  margin: 0 clamp(18px, 2.25vw, 32px) 28px;
+.showdown-advanced-settings .embedded-history-panel {
+  margin: 2px 0 0;
+}
+
+@media (min-width: 901px) {
+  :scope.preparation-screen.is-embedded {
+    block-size: calc(
+      100svh - var(--exlab-header-height, 58px)
+    );
+    block-size: calc(
+      100dvh - var(--exlab-header-height, 58px)
+    );
+    min-block-size: 0;
+    overflow: hidden;
+  }
+
+  .showdown-setup-workspace {
+    block-size: 100%;
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    min-block-size: 0;
+    overflow: hidden;
+  }
+
+  .showdown-setup-workspace .exlab-setup-workspace__settings {
+    min-block-size: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: var(--accent-dark) transparent;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+
+  .showdown-setup-workspace .exlab-setup-workspace__advanced {
+    max-block-size: min(42dvh, 360px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: var(--accent-dark) transparent;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+
+  .showdown-setup-workspace .exlab-setup-workspace__preview {
+    min-block-size: 0;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -1531,7 +1584,7 @@ summary {
 }
 
 @media (min-width: 1180px) and (max-height: 950px) {
-  .preparation-screen {
+  :scope.preparation-screen {
     padding-top: 22px;
   }
 
@@ -1584,7 +1637,7 @@ summary {
 }
 
 @media (max-width: 767px) {
-  .preparation-screen {
+  :scope.preparation-screen {
     padding: 20px 16px 34px;
   }
 
@@ -1613,7 +1666,7 @@ summary {
     width: 100%;
   }
 
-  .race-screen {
+  :scope.race-screen {
     padding: 12px;
   }
 

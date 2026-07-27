@@ -75,6 +75,58 @@ test("embedded Race uses the shared roster contract without promotional copy", (
   assert.doesNotMatch(cssSource, /\.intro(?:\s|[>{.:])/);
 });
 
+test("scoped Showdown roots retain their intended frame colors and sizing", () => {
+  assert.match(
+    cssSource,
+    /:scope\.race-screen\s*\{[\s\S]*?background:\s*var\(--stage\);[\s\S]*?color:\s*var\(--stage-ink\);/,
+  );
+  assert.match(
+    cssSource,
+    /:scope\.preparation-screen\.is-embedded\s*\{[\s\S]*?min-height:\s*0;[\s\S]*?padding:\s*0;/,
+  );
+  assert.match(
+    cssSource,
+    /:scope\.result-screen\s*\{[\s\S]*?background:\s*var\(--stage\);[\s\S]*?color:\s*var\(--stage-ink\);/,
+  );
+  assert.doesNotMatch(cssSource, /^\.race-screen\s*\{/m);
+  assert.doesNotMatch(cssSource, /^\.result-screen\s*\{/m);
+  assert.match(
+    gameSource,
+    /className=\{`showdown-game race-screen\$\{[\s\S]*?embedded \? " is-embedded" : ""[\s\S]*?\}`\}/,
+  );
+  assert.match(
+    gameSource,
+    /className=\{`showdown-game result-screen\$\{[\s\S]*?embedded \? " is-embedded" : ""[\s\S]*?\}`\}/,
+  );
+  assert.match(
+    cssSource,
+    /:scope\.race-screen\.is-embedded,\s*:scope\.result-screen\.is-embedded\s*\{[\s\S]*?100dvh\s*-\s*var\(--exlab-header-height,\s*58px\)[\s\S]*?min-height:\s*0;/,
+  );
+});
+
+test("desktop Showdown setup is viewport-bound with settings-local overflow", () => {
+  assert.match(
+    cssSource,
+    /@media \(min-width:\s*901px\)\s*\{[\s\S]*?:scope\.preparation-screen\.is-embedded\s*\{[\s\S]*?100dvh\s*-\s*var\(--exlab-header-height,\s*58px\)[\s\S]*?overflow:\s*hidden;/,
+  );
+  assert.match(
+    cssSource,
+    /\.showdown-setup-workspace\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+auto;[\s\S]*?overflow:\s*hidden;/,
+  );
+  assert.match(
+    cssSource,
+    /\.showdown-setup-workspace \.exlab-setup-workspace__settings\s*\{[\s\S]*?overflow-y:\s*auto;/,
+  );
+  assert.match(
+    cssSource,
+    /\.showdown-setup-workspace \.exlab-setup-workspace__preview-stage\s*\{\s*min-height:\s*0;/,
+  );
+  assert.match(
+    gameSource,
+    /advancedSettings=\{\([\s\S]*?embedded-history-panel[\s\S]*?\)\}\s*advancedSettingsLabel=/,
+  );
+});
+
 test("mobile leaderboard keeps the first active contender visible", () => {
   assert.match(gameSource, /"is-active-contender"/);
   assert.match(

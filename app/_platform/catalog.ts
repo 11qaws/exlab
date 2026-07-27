@@ -5,7 +5,7 @@ export const GAME_CATALOG = [
     id: "roulette",
     label: "Roulette",
     slug: "roulette",
-    version: "1.3.1",
+    version: "1.3.2",
     capabilities: {
       grouping: false,
       configurableWinnerCount: true,
@@ -17,7 +17,7 @@ export const GAME_CATALOG = [
     id: "showdown",
     label: "Showdown",
     slug: "showdown",
-    version: "1.3.1",
+    version: "1.3.2",
     capabilities: {
       grouping: "optional",
       configurableWinnerCount: true,
