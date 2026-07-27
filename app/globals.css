@@ -238,6 +238,141 @@ body {
   z-index: 500;
 }
 
+.exlab-theme-welcome-layer {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: clamp(14px, 3vw, 32px);
+  position: fixed;
+  z-index: 600;
+}
+
+.exlab-theme-welcome-scrim {
+  background:
+    radial-gradient(
+      circle at 50% 18%,
+      color-mix(in srgb, var(--exlab-accent) 20%, transparent),
+      transparent 42%
+    ),
+    color-mix(in srgb, var(--exlab-text) 54%, transparent);
+  inset: 0;
+  position: absolute;
+}
+
+.exlab-theme-welcome {
+  background: var(--exlab-background);
+  border: 1px solid var(--exlab-border);
+  border-radius: 22px;
+  box-shadow: 0 28px 90px
+    color-mix(in srgb, var(--exlab-text) 28%, transparent);
+  color: var(--exlab-text);
+  display: grid;
+  gap: 22px;
+  max-height: calc(100svh - clamp(28px, 6vw, 64px));
+  max-width: 960px;
+  overflow: auto;
+  padding: clamp(20px, 3vw, 34px);
+  position: relative;
+  width: 100%;
+}
+
+.exlab-theme-welcome > header {
+  align-items: flex-start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.exlab-theme-welcome > header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.exlab-theme-welcome > header p,
+.exlab-theme-welcome > header h1 {
+  margin: 0;
+}
+
+.exlab-theme-welcome > header > div > p:first-child {
+  color: var(--exlab-accent-ink);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+}
+
+.exlab-theme-welcome > header h1 {
+  font-size: clamp(25px, 3vw, 36px);
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.exlab-theme-welcome > header > div > p:last-child {
+  color: var(--exlab-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 620px;
+}
+
+.exlab-onboarding-theme-picker > legend {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.exlab-onboarding-theme-picker .exlab-streamer-theme-list {
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  inline-size: 100%;
+}
+
+.exlab-onboarding-theme-picker
+  .exlab-theme-card-option:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: calc(50% - 6px);
+}
+
+.exlab-onboarding-theme-picker .exlab-theme-card {
+  border-radius: 13px;
+}
+
+.exlab-theme-welcome > footer {
+  align-items: center;
+  border-top: 1px solid var(--exlab-border);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding-top: 18px;
+}
+
+.exlab-theme-welcome > footer > span {
+  color: var(--exlab-muted);
+  font-size: 12px;
+}
+
+.exlab-theme-welcome > footer strong {
+  color: var(--exlab-text);
+}
+
+.exlab-theme-welcome > footer button {
+  background: var(--exlab-accent);
+  border: 1px solid var(--exlab-accent);
+  border-radius: 10px;
+  color: var(--exlab-on-accent);
+  font-size: 13px;
+  font-weight: 850;
+  min-height: 44px;
+  padding: 0 18px;
+}
+
 .exlab-roster-dialog-scrim {
   background: rgb(44 28 33 / 48%);
   border: 0;
@@ -492,6 +627,39 @@ body {
   .exlab-roster-trigger {
     min-height: 36px;
     padding-inline: 9px;
+  }
+
+  .exlab-theme-welcome {
+    gap: 17px;
+  }
+
+  .exlab-theme-welcome > header {
+    gap: 9px;
+    grid-template-columns: 1fr;
+  }
+
+  .exlab-theme-welcome > header > .exlab-wordmark {
+    font-size: 15px;
+  }
+
+  .exlab-onboarding-theme-picker .exlab-streamer-theme-list {
+    gap: 8px;
+    grid-template-columns: 1fr;
+  }
+
+  .exlab-onboarding-theme-picker
+    .exlab-theme-card-option:last-child:nth-child(odd) {
+    grid-column: auto;
+    width: 100%;
+  }
+
+  .exlab-theme-welcome > footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .exlab-theme-welcome > footer button {
+    width: 100%;
   }
 }
 

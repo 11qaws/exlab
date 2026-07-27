@@ -19,15 +19,18 @@ import {
 } from "./_platform/catalog";
 import {
   DEFAULT_SHARED_ROSTER,
+  hasStoredStreamerThemeChoice,
   readPlatformPreferences,
   writeDuplicateNamePolicy,
   writeLastGame,
   writeSharedRoster,
   writeStreamerTheme,
+  writeStreamerThemeChoice,
 } from "./_platform/storage";
 import { validateSharedRosterDraft } from "./_platform/roster";
 import {
   DEFAULT_STREAMER_THEME_ID,
+  getStreamerTheme,
   StreamerThemePicker,
   streamerThemeCssVariables,
   type StreamerThemeId,
@@ -50,6 +53,103 @@ type SharedRosterDialogProps = {
   onCancel: () => void;
   onSave: (rosterText: string, allowDuplicateNames: boolean) => void;
 };
+
+type StreamerThemeWelcomeProps = {
+  value: StreamerThemeId;
+  onChange: (themeId: StreamerThemeId) => void;
+  onConfirm: () => void;
+};
+
+function StreamerThemeWelcome({
+  value,
+  onChange,
+  onConfirm,
+}: StreamerThemeWelcomeProps) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const selectedTheme = getStreamerTheme(value);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current
+      ?.querySelector<HTMLInputElement>('input[type="radio"]:checked')
+      ?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  return (
+    <div className="exlab-theme-welcome-layer">
+      <div className="exlab-theme-welcome-scrim" aria-hidden="true" />
+      <section
+        ref={dialogRef}
+        className="exlab-theme-welcome"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="exlab-theme-welcome-title"
+        aria-describedby="exlab-theme-welcome-description"
+      >
+        <header>
+          <span className="exlab-wordmark" aria-hidden="true">
+            exlab
+          </span>
+          <div>
+            <p>첫 화면 설정</p>
+            <h1 id="exlab-theme-welcome-title">화면 테마 선택</h1>
+            <p id="exlab-theme-welcome-description">
+              게임 UI와 Showdown 경기 프레임에 적용됩니다. 이후에는
+              우상단에서 바꿀 수 있습니다.
+            </p>
+          </div>
+        </header>
+
+        <StreamerThemePicker
+          className="exlab-onboarding-theme-picker"
+          value={value}
+          onChange={onChange}
+          legend="스트리머"
+          description=""
+        />
+
+        <footer>
+          <span>
+            선택: <strong>{selectedTheme.name}</strong>
+          </span>
+          <button type="button" onClick={onConfirm}>
+            이 테마로 시작
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
 
 function SharedRosterDialog({
   rosterText,
@@ -194,6 +294,7 @@ export function ExlabApp() {
   const [streamerThemeId, setStreamerThemeId] =
     useState<StreamerThemeId>(DEFAULT_STREAMER_THEME_ID);
   const [preferencesReady, setPreferencesReady] = useState(false);
+  const [themeWelcomeRequired, setThemeWelcomeRequired] = useState(false);
   const [rosterEditorOpen, setRosterEditorOpen] = useState(false);
   const [visitedGameIds, setVisitedGameIds] = useState<Set<GameId>>(
     () => new Set(),
@@ -209,14 +310,19 @@ export function ExlabApp() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
+        const hasThemeChoice = hasStoredStreamerThemeChoice(
+          window.localStorage,
+        );
         const preferences = readPlatformPreferences(window.localStorage);
         setGameId(preferences.gameId);
         setRosterText(preferences.rosterText);
         setAllowDuplicateNames(preferences.allowDuplicateNames);
         setStreamerThemeId(preferences.streamerThemeId);
+        setThemeWelcomeRequired(!hasThemeChoice);
         setVisitedGameIds(new Set([preferences.gameId]));
       } catch {
         setVisitedGameIds(new Set([DEFAULT_GAME_ID]));
+        setThemeWelcomeRequired(true);
       } finally {
         setPreferencesReady(true);
       }
@@ -256,13 +362,13 @@ export function ExlabApp() {
   }, [allowDuplicateNames, preferencesReady]);
 
   useEffect(() => {
-    if (!preferencesReady) return;
+    if (!preferencesReady || themeWelcomeRequired) return;
     try {
       writeStreamerTheme(window.localStorage, streamerThemeId);
     } catch {
       // The selected visual identity still applies for this tab.
     }
-  }, [preferencesReady, streamerThemeId]);
+  }, [preferencesReady, streamerThemeId, themeWelcomeRequired]);
 
   const selectedGame = useMemo(() => gameCatalogEntry(gameId), [gameId]);
   const gameActive = activityByGame[gameId];
@@ -321,6 +427,17 @@ export function ExlabApp() {
         : null;
     setRosterEditorOpen(true);
   }, []);
+  const confirmStreamerTheme = useCallback(() => {
+    try {
+      writeStreamerTheme(window.localStorage, streamerThemeId);
+      writeStreamerThemeChoice(window.localStorage);
+    } catch {
+      // Keep the confirmed choice for this tab even when storage is blocked.
+    }
+    setThemeWelcomeRequired(false);
+  }, [streamerThemeId]);
+
+  const modalOpen = rosterEditorOpen || themeWelcomeRequired;
 
   return (
     <div
@@ -330,8 +447,8 @@ export function ExlabApp() {
     >
       <header
         className="exlab-header"
-        inert={rosterEditorOpen}
-        aria-hidden={rosterEditorOpen || undefined}
+        inert={modalOpen}
+        aria-hidden={modalOpen || undefined}
       >
         <span className="exlab-wordmark" aria-label="exlab">
           exlab
@@ -387,8 +504,8 @@ export function ExlabApp() {
         className="exlab-game-surface"
         aria-label={`${selectedGame.label} 운영 화면`}
         aria-busy={!preferencesReady}
-        inert={rosterEditorOpen}
-        aria-hidden={rosterEditorOpen || undefined}
+        inert={modalOpen}
+        aria-hidden={modalOpen || undefined}
       >
         {preferencesReady ? (
           GAME_CATALOG.filter((game) =>
@@ -441,6 +558,13 @@ export function ExlabApp() {
             setAllowDuplicateNames(nextDuplicatePolicy);
             closeRosterEditor();
           }}
+        />
+      )}
+      {preferencesReady && themeWelcomeRequired && (
+        <StreamerThemeWelcome
+          value={streamerThemeId}
+          onChange={setStreamerThemeId}
+          onConfirm={confirmStreamerTheme}
         />
       )}
     </div>

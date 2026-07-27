@@ -366,6 +366,19 @@ export type StreamerThemeCssVariableName =
   | "--exlab-accent-line"
   | "--exlab-rail-start"
   | "--exlab-rail-end"
+  | "--exlab-stage-background"
+  | "--exlab-stage-surface"
+  | "--exlab-stage-surface-subtle"
+  | "--exlab-stage-text"
+  | "--exlab-stage-muted"
+  | "--exlab-stage-text-subtle"
+  | "--exlab-stage-text-faint"
+  | "--exlab-stage-border"
+  | "--exlab-stage-border-strong"
+  | "--exlab-stage-accent"
+  | "--exlab-stage-accent-ink"
+  | "--exlab-stage-accent-bg"
+  | "--exlab-stage-accent-line"
   | "--exlab-theme-image-tint"
   | "--exlab-theme-image-tint-fade";
 
@@ -381,6 +394,7 @@ export function streamerThemeCssVariables(
   mode: StreamerThemeColorMode = "light",
 ): StreamerThemeCssVariables {
   const tokens = getStreamerThemeTokens(theme, mode);
+  const stageTokens = getStreamerThemeTokens(theme, "dark");
   return {
     "--exlab-background": tokens.background,
     "--exlab-surface": tokens.surface,
@@ -398,6 +412,19 @@ export function streamerThemeCssVariables(
     "--exlab-accent-line": tokens.accentLine,
     "--exlab-rail-start": tokens.railStart,
     "--exlab-rail-end": tokens.railEnd,
+    "--exlab-stage-background": stageTokens.background,
+    "--exlab-stage-surface": stageTokens.surface,
+    "--exlab-stage-surface-subtle": stageTokens.surfaceSubtle,
+    "--exlab-stage-text": stageTokens.text,
+    "--exlab-stage-muted": stageTokens.textMuted,
+    "--exlab-stage-text-subtle": stageTokens.textSubtle,
+    "--exlab-stage-text-faint": stageTokens.textFaint,
+    "--exlab-stage-border": stageTokens.border,
+    "--exlab-stage-border-strong": stageTokens.borderStrong,
+    "--exlab-stage-accent": stageTokens.accent,
+    "--exlab-stage-accent-ink": stageTokens.accentInk,
+    "--exlab-stage-accent-bg": stageTokens.accentBg,
+    "--exlab-stage-accent-line": stageTokens.accentLine,
     "--exlab-theme-image-tint": mode === "dark" ? "22%" : "14%",
     "--exlab-theme-image-tint-fade": mode === "dark" ? "15%" : "10%",
   };

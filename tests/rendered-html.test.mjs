@@ -45,7 +45,7 @@ test("server-renders the practical exlab shell while preferences load", async ()
   assert.doesNotMatch(html, /react-loading-skeleton/i);
 });
 
-test("pins the integrated package and both game catalog entries to 1.3.7", async () => {
+test("pins the integrated package and both game catalog entries to 1.3.8", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
@@ -54,10 +54,10 @@ test("pins the integrated package and both game catalog entries to 1.3.7", async
     "utf8",
   );
 
-  assert.equal(packageJson.version, "1.3.7");
-  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.7"/);
+  assert.equal(packageJson.version, "1.3.8");
+  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.8"/);
   assert.match(
     catalogSource,
-    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.7"/,
+    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.8"/,
   );
 });

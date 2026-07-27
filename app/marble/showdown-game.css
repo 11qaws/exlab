@@ -5,9 +5,19 @@
   --ink: var(--exlab-text, #3b2426);
   --muted: var(--exlab-muted, #6b5356);
   --line: var(--exlab-border, #e9d9d3);
-  --stage: #1f1118;
-  --stage-2: #2d1721;
-  --stage-ink: #fff8ef;
+  --stage: var(--exlab-stage-background, #160d14);
+  --stage-2: var(--exlab-stage-surface, #25151d);
+  --stage-3: var(--exlab-stage-surface-subtle, #39222c);
+  --stage-ink: var(--exlab-stage-text, #fff8ef);
+  --stage-muted: var(--exlab-stage-muted, #d5bdc1);
+  --stage-subtle: var(--exlab-stage-text-subtle, #b18f99);
+  --stage-faint: var(--exlab-stage-text-faint, #80646d);
+  --stage-line: var(--exlab-stage-border, #4e2c38);
+  --stage-line-strong: var(--exlab-stage-border-strong, #77515e);
+  --stage-accent: var(--exlab-stage-accent, #f1a7be);
+  --stage-accent-ink: var(--exlab-stage-accent-ink, #e17d9d);
+  --stage-accent-bg: var(--exlab-stage-accent-bg, #44202d);
+  --stage-accent-line: var(--exlab-stage-accent-line, #794052);
   --accent: var(--exlab-accent, #e84f83);
   --accent-dark: var(--exlab-accent-ink, #ad204f);
   --success: #075c43;
@@ -94,17 +104,17 @@ button:disabled {
 }
 
 .map-theme-toggle.is-compact {
-  background: #2d1721;
-  border-color: #77515e;
+  background: var(--stage-2);
+  border-color: var(--stage-line-strong);
 }
 
 .map-theme-toggle.is-compact button {
-  color: #d5bdc1;
+  color: var(--stage-muted);
 }
 
 .map-theme-toggle.is-compact button[aria-pressed="true"] {
-  background: #fff8ef;
-  color: #3b2426;
+  background: var(--stage-ink);
+  color: var(--stage);
 }
 
 .brand {
@@ -841,7 +851,7 @@ summary {
 }
 
 .race-header .eyebrow {
-  color: #f1a7be;
+  color: var(--stage-accent);
   margin-bottom: 3px;
 }
 
@@ -866,7 +876,7 @@ summary {
 }
 
 .race-status span {
-  color: #d0afb8;
+  color: var(--stage-muted);
   font-size: 11px;
 }
 
@@ -876,7 +886,7 @@ summary {
 }
 
 .race-layout {
-  border-top: 1px solid #4e2c38;
+  border-top: 1px solid var(--stage-line);
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
   min-height: 0;
@@ -901,7 +911,7 @@ summary {
 }
 
 .leaderboard {
-  border-left: 1px solid #4e2c38;
+  border-left: 1px solid var(--stage-line);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -923,7 +933,7 @@ summary {
 }
 
 .leaderboard-title > span {
-  color: #c89eaa;
+  color: var(--stage-muted);
   font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.14em;
@@ -932,7 +942,7 @@ summary {
 
 .race-clock {
   align-items: baseline;
-  color: #fff8ef;
+  color: var(--stage-ink);
   display: inline-flex;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
@@ -943,14 +953,14 @@ summary {
 }
 
 .race-clock small {
-  color: #98727f;
+  color: var(--stage-faint);
   font-size: 7px;
   font-weight: 900;
   letter-spacing: 0.12em;
 }
 
 .leaderboard .icon-button {
-  color: #f1c7d3;
+  color: var(--stage-accent);
   font-size: 10px;
 }
 
@@ -963,7 +973,7 @@ summary {
 }
 
 .leaderboard li {
-  border-bottom: 1px solid #3f2530;
+  border-bottom: 1px solid var(--stage-line);
   gap: 10px;
   grid-template-columns: 25px 9px minmax(0, 1fr) auto;
   min-height: 38px;
@@ -973,20 +983,20 @@ summary {
 }
 
 .leaderboard li > strong {
-  color: #bfa3ab;
+  color: var(--stage-subtle);
   font-size: 12px;
   text-align: center;
 }
 
 .leaderboard li > span {
-  color: #f8e9e3;
+  color: var(--stage-ink);
 }
 
 .leaderboard li.is-leading {
   background: color-mix(
     in srgb,
     var(--participant-primary, #e84f83) 20%,
-    #351c27
+    var(--stage-2)
   );
   border-radius: var(--radius-sm);
   border-bottom-color: transparent;
@@ -1003,7 +1013,7 @@ summary {
 }
 
 .leaderboard-time {
-  color: #bfa3ab;
+  color: var(--stage-subtle);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
   font-weight: 900;
@@ -1018,7 +1028,7 @@ summary {
 }
 
 .leaderboard-time.is-pending {
-  color: #80646d;
+  color: var(--stage-faint);
 }
 
 .leaderboard-result-meta {
@@ -1039,7 +1049,7 @@ summary {
   background: color-mix(
     in srgb,
     var(--participant-primary, #e84f83) 16%,
-    #351c27
+    var(--stage-2)
   );
   border-left: 3px solid var(--participant-primary, var(--accent));
   border-radius: var(--radius-sm);
@@ -1053,7 +1063,7 @@ summary {
 
 .leaderboard li.is-result-row.is-pending > i {
   background: transparent;
-  border: 1px dashed #77515e;
+  border: 1px dashed var(--stage-line-strong);
 }
 
 .leaderboard li em {
@@ -1064,7 +1074,7 @@ summary {
 }
 
 .camera-note {
-  color: #9e818a;
+  color: var(--stage-subtle);
   font-size: 10px;
   margin: auto 0 12px;
   text-align: center;
@@ -1072,7 +1082,7 @@ summary {
 
 .countdown {
   align-items: center;
-  background: rgba(20, 10, 15, 0.5);
+  background: color-mix(in srgb, var(--stage) 50%, transparent);
   display: flex;
   flex-direction: column;
   inset: 0;
@@ -1089,7 +1099,7 @@ summary {
 }
 
 .countdown p {
-  color: #f0c9d4;
+  color: var(--stage-accent);
   font-size: 12px;
   font-weight: 750;
   margin: 22px 0 0;
@@ -1097,7 +1107,7 @@ summary {
 
 .broadcast-waiting {
   align-items: center;
-  background: rgba(20, 10, 15, 0.78);
+  background: color-mix(in srgb, var(--stage) 78%, transparent);
   display: flex;
   flex-direction: column;
   inset: 0;
@@ -1115,7 +1125,7 @@ summary {
 }
 
 .broadcast-waiting > span {
-  color: #d2b8c0;
+  color: var(--stage-muted);
   font-size: 13px;
   line-height: 1.7;
   margin-top: 12px;
@@ -1129,15 +1139,16 @@ summary {
 }
 
 .broadcast-waiting .secondary-button {
-  border-color: #77515e;
-  color: white;
+  border-color: var(--stage-line-strong);
+  color: var(--stage-ink);
 }
 
 .finish-banner {
-  background: var(--accent-dark);
+  background: var(--stage-accent-bg);
+  border: 1px solid var(--stage-accent-line);
   border-radius: 999px;
   bottom: 28px;
-  color: white;
+  color: var(--stage-ink);
   font-size: 13px;
   font-weight: 900;
   left: 50%;
@@ -1153,7 +1164,7 @@ summary {
   background: color-mix(
     in srgb,
     var(--participant-primary, var(--accent)) 24%,
-    rgba(31, 17, 24, 0.94)
+    color-mix(in srgb, var(--stage-2) 94%, transparent)
   );
   border: 1px solid
     color-mix(
@@ -1163,7 +1174,8 @@ summary {
     );
   border-radius: var(--radius-md);
   bottom: 24px;
-  box-shadow: 0 20px 54px rgba(9, 4, 7, 0.42);
+  box-shadow: 0 20px 54px
+    color-mix(in srgb, var(--stage) 70%, transparent);
   display: flex;
   gap: 14px;
   left: 50%;
@@ -1207,7 +1219,7 @@ summary {
 }
 
 .showdown-result-hero p {
-  color: #f1c7d3;
+  color: var(--stage-accent);
   font-size: 9px;
   font-weight: 950;
   letter-spacing: 0.15em;
@@ -1234,7 +1246,7 @@ summary {
 }
 
 .showdown-result-hero small {
-  color: #d2b8c0;
+  color: var(--stage-muted);
   display: block;
   font-size: 9px;
   margin-top: 4px;
@@ -1270,10 +1282,12 @@ summary {
 
 .final-overtake-cue {
   align-items: center;
-  background: rgba(45, 23, 33, 0.92);
-  border: 1px solid rgba(255, 209, 102, 0.72);
+  background: color-mix(in srgb, var(--stage-2) 92%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--stage-accent) 72%, transparent);
   border-radius: 12px;
-  box-shadow: 0 12px 30px rgba(20, 10, 15, 0.28);
+  box-shadow: 0 12px 30px
+    color-mix(in srgb, var(--stage) 45%, transparent);
   color: white;
   display: flex;
   flex-direction: column;
@@ -1287,7 +1301,7 @@ summary {
 }
 
 .final-overtake-cue span {
-  color: #ffd166;
+  color: var(--stage-accent);
   font-size: 9px;
   font-weight: 950;
   letter-spacing: 0.16em;
@@ -1312,7 +1326,7 @@ summary {
 
 .leaderboard.is-results {
   overflow-y: auto;
-  scrollbar-color: #77515e transparent;
+  scrollbar-color: var(--stage-line-strong) transparent;
   scrollbar-width: thin;
 }
 
@@ -1330,19 +1344,19 @@ summary {
 }
 
 .leaderboard .result-actions .secondary-button {
-  border-color: #77515e;
-  color: #fff8ef;
+  border-color: var(--stage-line-strong);
+  color: var(--stage-ink);
 }
 
 .result-run-details {
-  border-top: 1px solid #4e2c38;
-  color: #d9bec6;
+  border-top: 1px solid var(--stage-line);
+  color: var(--stage-muted);
   margin-top: 10px;
   padding: 8px 0 12px;
 }
 
 .result-run-details summary {
-  color: #c9aab3;
+  color: var(--stage-subtle);
   cursor: pointer;
   font-size: 10px;
   font-weight: 850;
@@ -1361,7 +1375,7 @@ summary {
 }
 
 .result-run-details dt {
-  color: #9e818a;
+  color: var(--stage-faint);
   font-size: 9px;
 }
 
@@ -1685,7 +1699,7 @@ summary {
 
   .leaderboard {
     border-left: 0;
-    border-top: 1px solid #4e2c38;
+    border-top: 1px solid var(--stage-line);
     max-height: 216px;
     overflow: hidden;
     padding: 8px 0 0;

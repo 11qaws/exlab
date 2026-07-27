@@ -16,11 +16,13 @@ import {
 import {
   LEGACY_PLATFORM_STORAGE_KEYS,
   PLATFORM_STORAGE_KEYS,
+  hasStoredStreamerThemeChoice,
   readPlatformPreferences,
   writeDuplicateNamePolicy,
   writeLastGame,
   writeSharedRoster,
   writeStreamerTheme,
+  writeStreamerThemeChoice,
 } from "../app/_platform/storage";
 import {
   DEFAULT_STREAMER_THEME_ID,
@@ -173,6 +175,23 @@ test("invalid stored streamer themes fall back to the product default", () => {
   assert.equal(
     readPlatformPreferences(storage).streamerThemeId,
     DEFAULT_STREAMER_THEME_ID,
+  );
+});
+
+test("first-visit theme choice distinguishes new and returning users", () => {
+  const storage = new MemoryStorage();
+
+  assert.equal(hasStoredStreamerThemeChoice(storage), false);
+
+  writeStreamerTheme(storage, "sena");
+  assert.equal(hasStoredStreamerThemeChoice(storage), true);
+
+  storage.clear();
+  writeStreamerThemeChoice(storage);
+  assert.equal(hasStoredStreamerThemeChoice(storage), true);
+  assert.equal(
+    storage.getItem(PLATFORM_STORAGE_KEYS.streamerThemeChoice),
+    "1",
   );
 });
 

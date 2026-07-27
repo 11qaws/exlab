@@ -6,6 +6,7 @@ import {
   STREAMER_THEMES,
   STREAMER_THEME_CONTRAST_TARGETS,
   streamerThemeContrastReport,
+  streamerThemeCssVariables,
 } from "../app/_platform/theme/streamerThemes";
 
 test("streamer theme registry exposes the five canonical profile assets", async () => {
@@ -68,6 +69,32 @@ test("every light streamer theme keeps labels and text contrast-safe", () => {
   }
 });
 
+test("every Showdown stage palette keeps dark-surface text contrast-safe", () => {
+  for (const theme of STREAMER_THEMES) {
+    const report = streamerThemeContrastReport(theme, "dark");
+    assert.equal(report.passes, true, theme.id);
+    assert.ok(
+      report.bodyTextOnSurface >=
+        STREAMER_THEME_CONTRAST_TARGETS.bodyTextOnSurface,
+      `${theme.id} Showdown stage text`,
+    );
+  }
+});
+
+test("every streamer owns a unique dark-stage palette for Showdown", () => {
+  const stagePalettes = STREAMER_THEMES.map((theme) => {
+    const variables = streamerThemeCssVariables(theme, "light");
+    return [
+      variables["--exlab-stage-background"],
+      variables["--exlab-stage-surface"],
+      variables["--exlab-stage-accent"],
+      variables["--exlab-stage-border"],
+    ].join("|");
+  });
+
+  assert.equal(new Set(stagePalettes).size, STREAMER_THEMES.length);
+});
+
 test("the shell owns one compact theme picker beside the game selector", async () => {
   const [appSource, sharedSetupSource, pickerSource, globalsSource] =
     await Promise.all([
@@ -113,5 +140,31 @@ test("the shell owns one compact theme picker beside the game selector", async (
   assert.match(
     globalsSource,
     /@media \(max-width: 640px\)[\s\S]*?\.exlab-toolbar-theme-picker \.exlab-theme-card\s*\{[\s\S]*?block-size: 24px;/,
+  );
+});
+
+test("the first visit reuses profile cards and Showdown consumes stage tokens", async () => {
+  const [appSource, showdownCss] = await Promise.all([
+    readFile(new URL("../app/ExlabApp.tsx", import.meta.url), "utf8"),
+    readFile(
+      new URL("../app/marble/showdown-game.css", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(appSource, /<StreamerThemeWelcome/);
+  assert.match(
+    appSource,
+    /hasStoredStreamerThemeChoice\(\s*window\.localStorage/,
+  );
+  assert.match(
+    appSource,
+    /className="exlab-onboarding-theme-picker"/,
+  );
+  assert.match(showdownCss, /--stage:\s*var\(--exlab-stage-background/);
+  assert.match(showdownCss, /--stage-accent:\s*var\(--exlab-stage-accent/);
+  assert.doesNotMatch(
+    showdownCss.slice(showdownCss.indexOf(":scope.race-screen")),
+    /background:\s*#1f1118/,
   );
 });
