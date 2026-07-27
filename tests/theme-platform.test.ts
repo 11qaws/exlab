@@ -176,7 +176,11 @@ test("the first visit reuses profile cards and Showdown consumes stage tokens", 
   );
   assert.match(
     globalsSource,
-    /\.exlab-onboarding-theme-picker \.exlab-theme-card\s*\{[\s\S]*?aspect-ratio:\s*auto;[\s\S]*?block-size:\s*clamp\(70px,\s*10svh,\s*88px\);/,
+    /\.exlab-onboarding-theme-picker \.exlab-theme-card\s*\{[\s\S]*?aspect-ratio:\s*auto;[\s\S]*?block-size:\s*120px;/,
+  );
+  assert.doesNotMatch(
+    globalsSource,
+    /\.exlab-onboarding-theme-picker \.exlab-theme-card\s*\{[\s\S]*?block-size:\s*clamp\(/,
   );
   assert.doesNotMatch(
     globalsSource,

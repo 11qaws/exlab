@@ -336,7 +336,7 @@ body {
 
 .exlab-onboarding-theme-picker .exlab-theme-card {
   aspect-ratio: auto;
-  block-size: clamp(70px, 10svh, 88px);
+  block-size: 120px;
   border-radius: 13px;
 }
 
