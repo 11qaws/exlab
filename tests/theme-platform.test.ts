@@ -3,6 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  getStreamerThemeTokens,
   STREAMER_THEMES,
   STREAMER_THEME_CONTRAST_TARGETS,
   streamerThemeContrastReport,
@@ -107,6 +108,34 @@ test("every streamer owns a unique dark-stage palette for Showdown", () => {
   });
 
   assert.equal(new Set(stagePalettes).size, STREAMER_THEMES.length);
+});
+
+test("Torori Koko uses a sky-blue axis distinct from Mangjing blue", () => {
+  const torori = STREAMER_THEMES.find((theme) => theme.id === "torori");
+  const mangjing = STREAMER_THEMES.find(
+    (theme) => theme.id === "mangjing",
+  );
+  assert.ok(torori);
+  assert.ok(mangjing);
+
+  const hueDistance = Math.min(
+    Math.abs(torori.hue - mangjing.hue),
+    360 - Math.abs(torori.hue - mangjing.hue),
+  );
+  assert.equal(torori.hue, 198);
+  assert.ok(hueDistance >= 25);
+  assert.match(
+    getStreamerThemeTokens(torori, "light").accentInk,
+    /^hsl\(198 /,
+  );
+  assert.match(
+    getStreamerThemeTokens(torori, "dark").background,
+    /^hsl\(198 /,
+  );
+  assert.match(
+    getStreamerThemeTokens(torori, "dark").accentInk,
+    /^hsl\(198 /,
+  );
 });
 
 test("the shell owns one compact theme picker beside the game selector", async () => {
