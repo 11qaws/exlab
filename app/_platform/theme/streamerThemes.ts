@@ -42,6 +42,8 @@ export interface StreamerThemePortrait {
   readonly focus: string;
   /** Additional scale above cover, around the validated focus point. */
   readonly zoom: number;
+  /** Exact vertical image translation inside the card, in CSS pixels. */
+  readonly offsetY: number;
   /** Always remains available when the image cannot be loaded. */
   readonly fallback: string;
 }
@@ -75,6 +77,7 @@ export const STREAMER_THEMES = [
       path: "themes/streamers/amoretto.jpg",
       focus: "53% 41%",
       zoom: 2.15,
+      offsetY: 0,
       fallback: "아",
     },
     light: {
@@ -125,6 +128,7 @@ export const STREAMER_THEMES = [
       path: "themes/streamers/eureka.png",
       focus: "60% 82%",
       zoom: 1.15,
+      offsetY: 10,
       fallback: "유",
     },
     light: {
@@ -175,6 +179,7 @@ export const STREAMER_THEMES = [
       path: "themes/streamers/sena.jpg",
       focus: "22% 70%",
       zoom: 1.15,
+      offsetY: 10,
       fallback: "세",
     },
     light: {
@@ -225,6 +230,7 @@ export const STREAMER_THEMES = [
       path: "themes/streamers/torori.webp",
       focus: "40% 61%",
       zoom: 1.8,
+      offsetY: 0,
       fallback: "토",
     },
     light: {
@@ -275,6 +281,7 @@ export const STREAMER_THEMES = [
       path: "themes/streamers/mangjing.jpg",
       focus: "54% 38%",
       zoom: 3.5,
+      offsetY: 0,
       fallback: "망",
     },
     light: {

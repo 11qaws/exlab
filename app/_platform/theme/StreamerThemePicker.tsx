@@ -32,6 +32,7 @@ export interface StreamerThemePickerProps {
 type ThemeCardStyle = CSSProperties &
   StreamerThemeCssVariables & {
     "--exlab-portrait-focus": string;
+    "--exlab-portrait-offset-y": string;
     "--exlab-portrait-zoom": string;
   };
 
@@ -117,6 +118,7 @@ export function StreamerThemePicker({
           const cardStyle: ThemeCardStyle = {
             ...streamerThemeCssVariables(theme, colorMode),
             "--exlab-portrait-focus": theme.portrait.focus,
+            "--exlab-portrait-offset-y": `${theme.portrait.offsetY}px`,
             "--exlab-portrait-zoom": String(theme.portrait.zoom),
           };
 

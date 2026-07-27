@@ -120,7 +120,9 @@
 .exlab-theme-card-portrait img {
   object-fit: cover;
   object-position: var(--exlab-portrait-focus);
-  transform: scale(var(--exlab-portrait-zoom));
+  transform:
+    translateY(var(--exlab-portrait-offset-y))
+    scale(var(--exlab-portrait-zoom));
   transform-origin: var(--exlab-portrait-focus);
 }
 

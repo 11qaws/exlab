@@ -15,6 +15,16 @@ test("streamer theme registry exposes the five canonical profile assets", async 
     ["아모레또", "유레카", "세나 아르벨", "토로리 코코", "망징이"],
   );
   assert.deepEqual(
+    STREAMER_THEMES.map(({ id, portrait }) => [id, portrait.offsetY]),
+    [
+      ["amoretto", 0],
+      ["eureka", 10],
+      ["sena", 10],
+      ["torori", 0],
+      ["mangjing", 0],
+    ],
+  );
+  assert.deepEqual(
     STREAMER_THEMES.map(({ id, portrait }) => ({
       id,
       path: portrait.path,
