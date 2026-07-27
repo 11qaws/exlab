@@ -14,6 +14,7 @@ import {
   FINISH_Y,
   MARBLE_RADIUS,
   ROTATING_BARS,
+  START_ALIGNMENT_PIN_XS,
   STRAIGHT_ZONES,
   TARGET_FIRST_FINISH_SECONDS,
   WORLD_HEIGHT,
@@ -193,11 +194,11 @@ test("layout seed creates a centered, irregular, non-overlapping start row", () 
   });
 });
 
-test("seeded start layouts avoid direct alignment with the first pin row", () => {
-  const firstPinY = Math.min(...COURSE_PINS.map((pin) => pin.y));
-  const firstPinRowXs = COURSE_PINS.filter(
-    (pin) => pin.y === firstPinY,
-  ).map((pin) => pin.x);
+test("seeded start layouts avoid every opening alignment hazard", () => {
+  assert.ok(
+    START_ALIGNMENT_PIN_XS.includes(650),
+    "the lone pin between the opening guide rails must be covered",
+  );
 
   for (let count = 2; count <= 10; count += 1) {
     for (let seedIndex = 0; seedIndex < 300; seedIndex += 1) {
@@ -207,7 +208,9 @@ test("seeded start layouts avoid direct alignment with the first pin row", () =>
       );
       for (const position of layout.positions) {
         const closestPinDistance = Math.min(
-          ...firstPinRowXs.map((pinX) => Math.abs(position.x - pinX)),
+          ...START_ALIGNMENT_PIN_XS.map((pinX) =>
+            Math.abs(position.x - pinX),
+          ),
         );
         assert.ok(
           closestPinDistance >= START_PIN_ALIGNMENT_CLEARANCE,

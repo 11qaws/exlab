@@ -33,6 +33,7 @@ import { validateSharedRosterDraft } from "./_platform/roster";
 import {
   DEFAULT_STREAMER_THEME_ID,
   getStreamerTheme,
+  StreamerThemeCurrent,
   StreamerThemePicker,
   streamerThemeCssVariables,
   type StreamerThemeId,
@@ -60,12 +61,16 @@ type StreamerThemeWelcomeProps = {
   value: StreamerThemeId;
   onChange: (themeId: StreamerThemeId) => void;
   onConfirm: () => void;
+  required: boolean;
+  onCancel?: () => void;
 };
 
 function StreamerThemeWelcome({
   value,
   onChange,
   onConfirm,
+  required,
+  onCancel,
 }: StreamerThemeWelcomeProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const selectedTheme = getStreamerTheme(value);
@@ -79,7 +84,11 @@ function StreamerThemeWelcome({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        event.preventDefault();
+        if (required) {
+          event.preventDefault();
+        } else {
+          onCancel?.();
+        }
         return;
       }
       if (event.key !== "Tab") return;
@@ -105,7 +114,7 @@ function StreamerThemeWelcome({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [onCancel, required]);
 
   return (
     <div className="exlab-theme-welcome-layer">
@@ -123,11 +132,11 @@ function StreamerThemeWelcome({
             exlab
           </span>
           <div>
-            <p>첫 화면 설정</p>
+            <p>{required ? "첫 화면 설정" : "테마 교환"}</p>
             <h1 id="exlab-theme-welcome-title">화면 테마 선택</h1>
             <p id="exlab-theme-welcome-description">
-              게임 UI와 Showdown 경기 프레임에 적용됩니다. 이후에는
-              우상단에서 바꿀 수 있습니다.
+              게임 UI와 Showdown 경기 프레임에 적용할 스트리머를
+              선택합니다.
             </p>
           </div>
         </header>
@@ -144,9 +153,24 @@ function StreamerThemeWelcome({
           <span>
             선택: <strong>{selectedTheme.name}</strong>
           </span>
-          <button type="button" onClick={onConfirm}>
-            이 테마로 시작
-          </button>
+          <div className="exlab-theme-welcome-actions">
+            {!required && (
+              <button
+                className="is-secondary"
+                type="button"
+                onClick={onCancel}
+              >
+                취소
+              </button>
+            )}
+            <button
+              className="is-primary"
+              type="button"
+              onClick={onConfirm}
+            >
+              {required ? "이 테마로 시작" : "테마 적용"}
+            </button>
+          </div>
         </footer>
       </section>
     </div>
@@ -392,8 +416,12 @@ export function ExlabApp() {
   const [allowDuplicateNames, setAllowDuplicateNames] = useState(false);
   const [streamerThemeId, setStreamerThemeId] =
     useState<StreamerThemeId>(DEFAULT_STREAMER_THEME_ID);
+  const [streamerThemeDraftId, setStreamerThemeDraftId] =
+    useState<StreamerThemeId>(DEFAULT_STREAMER_THEME_ID);
   const [preferencesReady, setPreferencesReady] = useState(false);
-  const [themeWelcomeRequired, setThemeWelcomeRequired] = useState(false);
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [themeSelectionRequired, setThemeSelectionRequired] =
+    useState(false);
   const [rosterEditorOpen, setRosterEditorOpen] = useState(false);
   const [visitedGameIds, setVisitedGameIds] = useState<Set<GameId>>(
     () => new Set(),
@@ -405,6 +433,7 @@ export function ExlabApp() {
     showdown: false,
   });
   const rosterTriggerRef = useRef<HTMLElement | null>(null);
+  const themeTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -417,11 +446,15 @@ export function ExlabApp() {
         setRosterText(preferences.rosterText);
         setAllowDuplicateNames(preferences.allowDuplicateNames);
         setStreamerThemeId(preferences.streamerThemeId);
-        setThemeWelcomeRequired(!hasThemeChoice);
+        setStreamerThemeDraftId(preferences.streamerThemeId);
+        setThemeSelectionRequired(!hasThemeChoice);
+        setThemePickerOpen(!hasThemeChoice);
         setVisitedGameIds(new Set([preferences.gameId]));
       } catch {
         setVisitedGameIds(new Set([DEFAULT_GAME_ID]));
-        setThemeWelcomeRequired(true);
+        setStreamerThemeDraftId(DEFAULT_STREAMER_THEME_ID);
+        setThemeSelectionRequired(true);
+        setThemePickerOpen(true);
       } finally {
         setPreferencesReady(true);
       }
@@ -461,13 +494,13 @@ export function ExlabApp() {
   }, [allowDuplicateNames, preferencesReady]);
 
   useEffect(() => {
-    if (!preferencesReady || themeWelcomeRequired) return;
+    if (!preferencesReady || themeSelectionRequired) return;
     try {
       writeStreamerTheme(window.localStorage, streamerThemeId);
     } catch {
       // The selected visual identity still applies for this tab.
     }
-  }, [preferencesReady, streamerThemeId, themeWelcomeRequired]);
+  }, [preferencesReady, streamerThemeId, themeSelectionRequired]);
 
   const selectedGame = useMemo(() => gameCatalogEntry(gameId), [gameId]);
   const gameActive = activityByGame[gameId];
@@ -502,6 +535,15 @@ export function ExlabApp() {
   }, [rosterEditorOpen]);
 
   useEffect(() => {
+    if (themePickerOpen) return;
+    const trigger = themeTriggerRef.current;
+    if (!trigger?.isConnected) return;
+
+    trigger.focus();
+    themeTriggerRef.current = null;
+  }, [themePickerOpen]);
+
+  useEffect(() => {
     document.title = `${selectedGame.label} · exlab`;
   }, [selectedGame.label]);
 
@@ -526,17 +568,34 @@ export function ExlabApp() {
         : null;
     setRosterEditorOpen(true);
   }, []);
+  const openStreamerThemePicker = useCallback(() => {
+    if (navigationLocked || !preferencesReady) return;
+    themeTriggerRef.current =
+      document.activeElement instanceof HTMLButtonElement
+        ? document.activeElement
+        : null;
+    setStreamerThemeDraftId(streamerThemeId);
+    setThemeSelectionRequired(false);
+    setThemePickerOpen(true);
+  }, [navigationLocked, preferencesReady, streamerThemeId]);
+  const closeStreamerThemePicker = useCallback(() => {
+    if (themeSelectionRequired) return;
+    setStreamerThemeDraftId(streamerThemeId);
+    setThemePickerOpen(false);
+  }, [streamerThemeId, themeSelectionRequired]);
   const confirmStreamerTheme = useCallback(() => {
+    setStreamerThemeId(streamerThemeDraftId);
     try {
-      writeStreamerTheme(window.localStorage, streamerThemeId);
+      writeStreamerTheme(window.localStorage, streamerThemeDraftId);
       writeStreamerThemeChoice(window.localStorage);
     } catch {
       // Keep the confirmed choice for this tab even when storage is blocked.
     }
-    setThemeWelcomeRequired(false);
-  }, [streamerThemeId]);
+    setThemeSelectionRequired(false);
+    setThemePickerOpen(false);
+  }, [streamerThemeDraftId]);
 
-  const modalOpen = rosterEditorOpen || themeWelcomeRequired;
+  const modalOpen = rosterEditorOpen || themePickerOpen;
 
   return (
     <div
@@ -558,14 +617,18 @@ export function ExlabApp() {
             <span className="exlab-field-caption" aria-hidden="true">
               테마
             </span>
-            <StreamerThemePicker
-              className="exlab-toolbar-theme-picker"
+            <StreamerThemeCurrent
               value={streamerThemeId}
-              onChange={setStreamerThemeId}
-              disabled={navigationLocked || !preferencesReady}
-              legend="스트리머 테마"
-              description=""
             />
+            <button
+              ref={themeTriggerRef}
+              className="exlab-theme-change-button"
+              type="button"
+              disabled={navigationLocked || !preferencesReady}
+              onClick={openStreamerThemePicker}
+            >
+              테마 교환
+            </button>
           </div>
 
           <label className="exlab-select-field">
@@ -660,11 +723,17 @@ export function ExlabApp() {
           }}
         />
       )}
-      {preferencesReady && themeWelcomeRequired && (
+      {preferencesReady && themePickerOpen && (
         <StreamerThemeWelcome
-          value={streamerThemeId}
-          onChange={setStreamerThemeId}
+          value={streamerThemeDraftId}
+          onChange={setStreamerThemeDraftId}
           onConfirm={confirmStreamerTheme}
+          required={themeSelectionRequired}
+          onCancel={
+            themeSelectionRequired
+              ? undefined
+              : closeStreamerThemePicker
+          }
         />
       )}
     </div>

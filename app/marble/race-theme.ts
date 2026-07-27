@@ -5,7 +5,8 @@ export type RaceObstacleColorKey =
   | "lemon"
   | "mint"
   | "sky"
-  | "lavender";
+  | "lavender"
+  | "periwinkle";
 
 export type RaceObstacleColor = {
   key: RaceObstacleColorKey;
@@ -55,6 +56,12 @@ export const RACE_OBSTACLE_PALETTE = [
   { key: "sky", label: "스카이", value: "#4ea9f0" },
   { key: "lavender", label: "라벤더", value: "#7e57c2" },
 ] as const satisfies readonly RaceObstacleColor[];
+
+export const RACE_PIN_COLOR = {
+  key: "periwinkle",
+  label: "보랏빛 파랑",
+  value: "#6667d9",
+} as const satisfies RaceObstacleColor;
 
 export const RACE_MAP_THEMES = {
   light: {
@@ -125,7 +132,7 @@ export const RACE_OBSTACLE_ROLE_COLORS: Record<
   RaceObstacleColor
 > = {
   bumper: RACE_OBSTACLE_PALETTE[0],
-  pin: RACE_OBSTACLE_PALETTE[1],
+  pin: RACE_PIN_COLOR,
   guide: RACE_OBSTACLE_PALETTE[2],
   "elastic-wall": RACE_OBSTACLE_PALETTE[3],
   spinner: RACE_OBSTACLE_PALETTE[4],

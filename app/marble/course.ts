@@ -447,6 +447,13 @@ export const COURSE_RECTS: CourseRect[] = [
 export const COURSE_CURVE_RECTS: CourseRect[] =
   COURSE_CURVES.flatMap(curveSegments);
 
+const BASE_FIRST_SECTION_EXIT_PIN: CoursePin = {
+  x: 650,
+  y: 1450,
+  radius: 24,
+  zoneId: "right-chute",
+};
+
 const BASE_COURSE_PINS: CoursePin[] = [
   // Start canopy: dense but fully separated staggered rows.
   ...[155, 300, 455, 610, 753].map((x) => ({
@@ -469,7 +476,7 @@ const BASE_COURSE_PINS: CoursePin[] = [
   })),
 
   // One offset island per biased chute.
-  { x: 650, y: 1450, radius: 24, zoneId: "right-chute" },
+  BASE_FIRST_SECTION_EXIT_PIN,
 
   // Central release: deliberately uneven island sizes.
   { x: 225, y: 3820, radius: 35, zoneId: "central-release" },
@@ -498,6 +505,28 @@ export const COURSE_PINS: CoursePin[] = BASE_COURSE_PINS.map((pin) => ({
   ...pin,
   y: scaleCourseY(pin.y),
 }));
+
+const FIRST_START_PIN_ROW_Y = Math.min(
+  ...COURSE_PINS
+    .filter((pin) => pin.zoneId === "start-deck")
+    .map((pin) => pin.y),
+);
+
+/**
+ * Horizontal lines that a starting marble must not share with an opening pin.
+ * The exit pin sits below the canopy between the guide rails, but a marble
+ * aligned above it can still fall onto its crown before it has mixed.
+ */
+export const START_ALIGNMENT_PIN_XS = [
+  ...COURSE_PINS
+    .filter(
+      (pin) =>
+        pin.zoneId === "start-deck"
+        && pin.y === FIRST_START_PIN_ROW_Y,
+    )
+    .map((pin) => pin.x),
+  BASE_FIRST_SECTION_EXIT_PIN.x,
+];
 
 const BASE_COURSE_BUMPERS: CourseBumper[] = [
   // 25% Bumper Run: replace the opening pin language with active rebounds.

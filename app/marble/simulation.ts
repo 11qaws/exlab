@@ -14,6 +14,7 @@ import {
   MAX_SIMULATION_SECONDS,
   ROTATING_BARS,
   scaleCourseY,
+  START_ALIGNMENT_PIN_XS,
   WORLD_WIDTH,
 } from "./course";
 import type {
@@ -42,11 +43,7 @@ export const CHASE_ASSIST_LAST_PLACE_MAX_BONUS = 0.32;
 export const CHASE_ASSIST_CLOSING_SPEED_LIMIT = 600;
 export const FIXED_GUIDE_FRICTION = 0;
 const START_WALL_CLEARANCE = 6;
-const START_LAYOUT_ATTEMPTS = 64;
-const FIRST_PIN_ROW_Y = Math.min(...COURSE_PINS.map((pin) => pin.y));
-const FIRST_PIN_ROW_XS = COURSE_PINS.filter(
-  (pin) => pin.y === FIRST_PIN_ROW_Y,
-).map((pin) => pin.x);
+const START_LAYOUT_ATTEMPTS = 256;
 export type StaticCollisionMaterial = {
   friction: number;
   frictionStatic: number;
@@ -402,12 +399,14 @@ function createMarbleStartLayoutCandidate(
   };
 }
 
-function minimumFirstPinAlignmentDistance(
+function minimumStartPinAlignmentDistance(
   positions: MarbleStartLayout["positions"],
 ): number {
   return Math.min(
     ...positions.flatMap((position) =>
-      FIRST_PIN_ROW_XS.map((pinX) => Math.abs(position.x - pinX)),
+      START_ALIGNMENT_PIN_XS.map((pinX) =>
+        Math.abs(position.x - pinX),
+      ),
     ),
   );
 }
@@ -426,7 +425,7 @@ export function createMarbleStartLayout(
       layoutSeed,
       attempt,
     );
-    const alignmentDistance = minimumFirstPinAlignmentDistance(
+    const alignmentDistance = minimumStartPinAlignmentDistance(
       layout.positions,
     );
     if (alignmentDistance >= START_PIN_ALIGNMENT_CLEARANCE) {
@@ -435,7 +434,7 @@ export function createMarbleStartLayout(
   }
 
   throw new Error(
-    "Unable to create a start layout with first-pin alignment clearance.",
+    "Unable to create a start layout with opening-pin alignment clearance.",
   );
 }
 

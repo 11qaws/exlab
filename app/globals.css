@@ -95,64 +95,61 @@ body {
   min-width: 0;
 }
 
-.exlab-toolbar-theme-picker > legend {
-  border: 0;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  padding: 0;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
-}
-
-.exlab-toolbar-theme-picker .exlab-streamer-theme-list {
+.exlab-current-theme {
+  align-items: center;
+  color: var(--exlab-text);
   display: inline-flex;
-  gap: 6px;
-  inline-size: auto;
+  gap: 7px;
+  min-width: 0;
 }
 
-.exlab-toolbar-theme-picker .exlab-theme-card-option {
-  flex: 0 0 auto;
-}
-
-.exlab-toolbar-theme-picker .exlab-theme-card {
-  aspect-ratio: 1;
-  block-size: 32px;
-  border-radius: 999px;
-  inline-size: 32px;
-}
-
-.exlab-toolbar-theme-picker
-  .exlab-theme-card-radio:checked
-  + .exlab-theme-card {
-  border-color: transparent;
-  box-shadow:
-    0 0 0 2px var(--exlab-surface),
-    0 0 0 4px var(--exlab-accent-ink);
-}
-
-.exlab-toolbar-theme-picker .exlab-theme-card-portrait {
+.exlab-current-theme .exlab-theme-card-portrait {
   -webkit-mask-image: none;
-  inset: 0;
+  border: 1px solid var(--exlab-border-strong);
+  border-radius: 999px;
+  flex: 0 0 32px;
+  height: 32px;
+  inset: auto;
   mask-image: none;
-  width: 100%;
+  position: relative;
+  width: 32px;
 }
 
-.exlab-toolbar-theme-picker .exlab-theme-card-fallback {
-  font-size: 14px;
+.exlab-current-theme .exlab-theme-card-fallback {
+  font-size: 13px;
 }
 
-.exlab-toolbar-theme-picker .exlab-theme-card-scrim {
-  background: color-mix(in srgb, var(--exlab-accent) 7%, transparent);
+.exlab-current-theme strong {
+  font-size: 12px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.exlab-toolbar-theme-picker .exlab-theme-card-copy,
-.exlab-toolbar-theme-picker .exlab-theme-card-rail,
-.exlab-toolbar-theme-picker .exlab-theme-card-check {
-  display: none;
+.exlab-theme-change-button {
+  background: var(--exlab-surface);
+  border: 1px solid var(--exlab-border);
+  border-radius: 9px;
+  color: var(--exlab-text);
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 34px;
+  padding-inline: 10px;
+}
+
+.exlab-theme-change-button:hover:not(:disabled) {
+  border-color: var(--exlab-border-strong);
+}
+
+.exlab-theme-change-button:focus-visible {
+  outline: 3px solid var(--exlab-accent-ink);
+  outline-offset: 2px;
+}
+
+.exlab-theme-change-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .exlab-select-field {
@@ -358,15 +355,29 @@ body {
   color: var(--exlab-text);
 }
 
+.exlab-theme-welcome-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .exlab-theme-welcome > footer button {
-  background: var(--exlab-accent);
-  border: 1px solid var(--exlab-accent);
   border-radius: 10px;
-  color: var(--exlab-on-accent);
   font-size: 13px;
   font-weight: 850;
   min-height: 44px;
   padding: 0 18px;
+}
+
+.exlab-theme-welcome > footer button.is-primary {
+  background: var(--exlab-accent);
+  border: 1px solid var(--exlab-accent);
+  color: var(--exlab-on-accent);
+}
+
+.exlab-theme-welcome > footer button.is-secondary {
+  background: var(--exlab-surface);
+  border: 1px solid var(--exlab-border-strong);
+  color: var(--exlab-text);
 }
 
 .exlab-roster-dialog-scrim {
@@ -684,13 +695,24 @@ body {
     padding-left: 9px;
   }
 
-  .exlab-toolbar-theme-picker .exlab-streamer-theme-list {
-    gap: 4px;
+  .exlab-current-theme {
+    gap: 5px;
   }
 
-  .exlab-toolbar-theme-picker .exlab-theme-card {
-    block-size: 24px;
-    inline-size: 24px;
+  .exlab-current-theme .exlab-theme-card-portrait {
+    flex-basis: 26px;
+    height: 26px;
+    width: 26px;
+  }
+
+  .exlab-current-theme strong {
+    font-size: 11px;
+    max-width: 70px;
+  }
+
+  .exlab-theme-change-button {
+    min-height: 34px;
+    padding-inline: 8px;
   }
 
   .exlab-session-status {
@@ -734,6 +756,10 @@ body {
   }
 
   .exlab-theme-welcome > footer button {
+    flex: 1;
+  }
+
+  .exlab-theme-welcome-actions {
     width: 100%;
   }
 }

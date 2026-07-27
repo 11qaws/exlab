@@ -23,6 +23,8 @@ export {
 } from "./streamerThemes";
 
 export {
+  StreamerThemeCurrent,
   StreamerThemePicker,
+  type StreamerThemeCurrentProps,
   type StreamerThemePickerProps,
 } from "./StreamerThemePicker";

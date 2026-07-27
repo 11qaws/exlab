@@ -29,6 +29,13 @@ export interface StreamerThemePickerProps {
   readonly className?: string;
 }
 
+export interface StreamerThemeCurrentProps {
+  readonly value: StreamerThemeId;
+  readonly colorMode?: StreamerThemeColorMode;
+  readonly assetBasePath?: string;
+  readonly className?: string;
+}
+
 type ThemeCardStyle = CSSProperties &
   StreamerThemeCssVariables & {
     "--exlab-portrait-focus": string;
@@ -64,6 +71,49 @@ function ThemePortrait({ theme, src }: ThemePortraitProps) {
         src={src}
       />
     </span>
+  );
+}
+
+/**
+ * Compact, read-only presentation of the committed shell theme.
+ *
+ * Theme changes remain an explicit action owned by the host, so the current
+ * state is never mistaken for a second picker.
+ */
+export function StreamerThemeCurrent({
+  value,
+  colorMode = "light",
+  assetBasePath = ".",
+  className,
+}: StreamerThemeCurrentProps) {
+  const theme = STREAMER_THEMES.find((candidate) => candidate.id === value)
+    ?? STREAMER_THEMES[0];
+  const portraitUrl = resolveStreamerThemePortraitUrl(
+    theme,
+    assetBasePath,
+  );
+  const style: ThemeCardStyle = {
+    ...streamerThemeCssVariables(theme, colorMode),
+    "--exlab-portrait-focus": theme.portrait.focus,
+    "--exlab-portrait-offset-y": `${theme.portrait.offsetY}px`,
+    "--exlab-portrait-zoom": String(theme.portrait.zoom),
+  };
+
+  return (
+    <div
+      aria-label={`현재 테마: ${theme.name}`}
+      className={["exlab-current-theme", className ?? ""]
+        .filter(Boolean)
+        .join(" ")}
+      style={style}
+    >
+      <ThemePortrait
+        key={portraitUrl}
+        src={portraitUrl}
+        theme={theme}
+      />
+      <strong>{theme.name}</strong>
+    </div>
   );
 }
 

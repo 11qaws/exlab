@@ -19,8 +19,8 @@ test("streamer theme registry exposes the five canonical profile assets", async 
     STREAMER_THEMES.map(({ id, portrait }) => [id, portrait.offsetY]),
     [
       ["amoretto", 0],
-      ["eureka", 10],
-      ["sena", 10],
+      ["eureka", 0],
+      ["sena", 0],
       ["torori", 0],
       ["mangjing", 0],
     ],
@@ -138,7 +138,7 @@ test("Torori Koko uses a sky-blue axis distinct from Mangjing blue", () => {
   );
 });
 
-test("the shell owns one compact theme picker beside the game selector", async () => {
+test("the shell shows only the committed theme and opens the full picker on demand", async () => {
   const [appSource, sharedSetupSource, pickerSource, globalsSource] =
     await Promise.all([
       readFile(
@@ -165,24 +165,33 @@ test("the shell owns one compact theme picker beside the game selector", async (
       ),
     ]);
 
-  const pickerIndex = appSource.indexOf(
-    'className="exlab-toolbar-theme-picker"',
+  const currentThemeIndex = appSource.indexOf(
+    "<StreamerThemeCurrent",
+  );
+  const changeButtonIndex = appSource.indexOf(
+    "테마 교환",
+    currentThemeIndex,
   );
   const gameSelectorIndex = appSource.indexOf(
     'className="exlab-select-field"',
   );
 
-  assert.ok(pickerIndex >= 0);
-  assert.ok(gameSelectorIndex > pickerIndex);
+  assert.ok(currentThemeIndex >= 0);
+  assert.ok(changeButtonIndex > currentThemeIndex);
+  assert.ok(gameSelectorIndex > changeButtonIndex);
   assert.doesNotMatch(sharedSetupSource, /StreamerThemePicker/);
   assert.match(pickerSource, /aria-label=\{theme\.name\}/);
+  assert.match(pickerSource, /현재 테마: \$\{theme\.name\}/);
+  assert.doesNotMatch(appSource, /exlab-toolbar-theme-picker/);
+  assert.match(appSource, /setStreamerThemeDraftId\(streamerThemeId\)/);
+  assert.match(appSource, /setThemePickerOpen\(true\)/);
   assert.match(
     globalsSource,
-    /\.exlab-toolbar-theme-picker \.exlab-theme-card\s*\{[\s\S]*?block-size: 32px;/,
+    /\.exlab-current-theme \.exlab-theme-card-portrait\s*\{[\s\S]*?height: 32px;/,
   );
   assert.match(
     globalsSource,
-    /@media \(max-width: 640px\)[\s\S]*?\.exlab-toolbar-theme-picker \.exlab-theme-card\s*\{[\s\S]*?block-size: 24px;/,
+    /\.exlab-theme-change-button\s*\{[\s\S]*?min-height: 34px;/,
   );
 });
 
@@ -196,6 +205,7 @@ test("the first visit reuses profile cards and Showdown consumes stage tokens", 
   ]);
 
   assert.match(appSource, /<StreamerThemeWelcome/);
+  assert.match(appSource, /required=\{themeSelectionRequired\}/);
   assert.match(
     appSource,
     /hasStoredStreamerThemeChoice\(\s*window\.localStorage/,

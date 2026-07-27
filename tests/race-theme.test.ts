@@ -59,12 +59,13 @@ test("obstacle roles use distinct colors that match their physical behavior", ()
     ),
     {
       bumper: "hot-pink",
-      pin: "lemon",
+      pin: "periwinkle",
       guide: "mint",
       "elastic-wall": "sky",
       spinner: "lavender",
     },
   );
+  assert.equal(RACE_OBSTACLE_ROLE_COLORS.pin.value, "#6667d9");
 });
 
 test("obstacle colors wrap deterministically in both directions", () => {

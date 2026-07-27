@@ -128,7 +128,7 @@ export const STREAMER_THEMES = [
       path: "themes/streamers/eureka.png",
       focus: "60% 82%",
       zoom: 1.15,
-      offsetY: 10,
+      offsetY: 0,
       fallback: "유",
     },
     light: {
@@ -179,7 +179,7 @@ export const STREAMER_THEMES = [
       path: "themes/streamers/sena.jpg",
       focus: "22% 70%",
       zoom: 1.15,
-      offsetY: 10,
+      offsetY: 0,
       fallback: "세",
     },
     light: {
