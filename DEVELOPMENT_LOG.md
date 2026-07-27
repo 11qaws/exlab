@@ -1,5 +1,15 @@
 # Development Log
 
+## 2026-07-27 1.3.4 GitHub Pages 배포 복원
+
+- 삭제된 `docs`를 계속 참조하던 레거시 Pages 설정 때문에 Jekyll이 `/github/workspace/docs`를 찾지 못하고 실패하던 원인을 확인했다.
+- Worker/RSC 서버가 필요한 Vinext 산출물을 정적 호스팅에 직접 올리지 않고, 같은 `ExlabApp`을 사용하는 별도 `pages-static` Vite 진입점을 추가했다. 이 진입점은 기본 Sites 빌드와 import graph를 공유하면서 GitHub Pages의 `/exlab/` base에 맞는 정적 자산만 생성한다.
+- Roulette와 Showdown을 각각 동적 청크로 유지하고, 공통 명단·테마·로컬 저장 상태·스트리머 프로필 자산을 정적 미러에서도 그대로 사용한다.
+- `pages:verify`가 HTML의 `/exlab/` 자산 경로, 두 게임의 lazy chunk, `.nojekyll`, OG 이미지와 다섯 스트리머 이미지를 검사하며 도메인 루트로 잘못 고정된 공개 자산 경로도 차단한다.
+- GitHub Actions 전용 Pages workflow를 추가해 main 푸시 때 생산 빌드와 전체 회귀 테스트, 정적 빌드 검증을 통과한 artifact만 `github-pages` 환경에 배포하도록 했다.
+- 루트 `pages/` 폴더가 Vinext의 Pages Router로 인식되던 초기 충돌은 `pages-static/`으로 완전히 격리해 제거했다.
+- Pages 정적 빌드·검증, 생산 빌드, TypeScript, ESLint, diff whitespace 검사와 117개 자동 테스트를 통과했으며 이 변경 묶음을 1.3.4 배포 기준선으로 확정했다.
+
 ## 2026-07-27 1.3.3 인게임 결과 UI 통합
 
 - Roulette와 Showdown이 함께 사용하는 결과 프레젠테이션 상태를 `live → evidence → hero → docking → settled`로 명문화하고, `runId + presentationId` 토큰으로 지난 경기의 지연 타이머와 콜백이 새 화면을 덮지 못하게 했다.

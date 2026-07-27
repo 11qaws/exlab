@@ -1,6 +1,14 @@
 # exlab
 
-exlab은 하나의 실용적인 운영 셸에서 `Roulette`와 `Showdown`을 선택해 실행하는 게임 도구입니다. 현재 버전은 `1.3.3`입니다.
+exlab은 하나의 실용적인 운영 셸에서 `Roulette`와 `Showdown`을 선택해 실행하는 게임 도구입니다. 현재 버전은 `1.3.4`입니다.
+
+## 1.3.4 GitHub Pages 정적 미러
+
+- 기본 Vinext·Sites 빌드와 분리된 클라이언트 전용 진입점으로 같은 `ExlabApp`을 `/exlab/` 경로에 빌드합니다.
+- Roulette와 Showdown의 지연 로딩, 공통 명단, 동일 이름 정책, 스트리머 테마와 로컬 저장 상태를 공개 Pages에서도 그대로 사용합니다.
+- GitHub Actions가 생산 빌드와 117개 회귀 테스트를 통과한 뒤 정적 산출물을 검증하고 Pages에 배포합니다.
+- 배포 검증은 `/exlab/` 자산 기준 경로, 두 게임의 동적 청크, `.nojekyll`, OG 이미지와 다섯 스트리머 프로필 이미지의 존재를 확인합니다.
+- GitHub Pages는 공개 미러이며, 인증된 비공개 Sites 배포와 별개로 운영합니다.
 
 ## 1.3.3 인게임 결과 UI 통합 범위
 
@@ -32,7 +40,7 @@ exlab은 하나의 실용적인 운영 셸에서 `Roulette`와 `Showdown`을 선
 
 전체 명단을 조당 최대 10명으로 균형 편성한 뒤, 선택한 조의 마블이 시드로 만든 불규칙한 가로 배치에서 동시에 출발해 Matter.js 물리 코스를 통과합니다. 우승자를 먼저 정하는 모드는 없으며, 출발 전에 참가자를 익명 슬롯에 한 번 배정한 뒤 실제 결승 통과 순서만으로 결과를 결정합니다.
 
-1.3.3은 1.2.3의 Showdown 물리·라이브 시계·골인 기록 계약을 변경하지 않습니다. 현재 시간은 화면이 보여주는 소수 물리 프레임을 따라가므로 FINAL MIX 슬로모션에서도 장면과 어긋나지 않으며, 당첨자 기록은 최초 결승 통과 프레임에서 고정됩니다.
+1.3.4는 1.2.3의 Showdown 물리·라이브 시계·골인 기록 계약을 변경하지 않습니다. 현재 시간은 화면이 보여주는 소수 물리 프레임을 따라가므로 FINAL MIX 슬로모션에서도 장면과 어긋나지 않으며, 당첨자 기록은 최초 결승 통과 프레임에서 고정됩니다.
 
 ## 구현 범위
 
@@ -167,6 +175,8 @@ npm run dev
 npm run lint
 npx tsc --noEmit
 npm test
+npm run pages:build
+npm run pages:verify
 npm run benchmark:obstacles
 npm run benchmark:stalls
 ```
