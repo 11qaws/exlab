@@ -175,6 +175,15 @@ test("embedded Roulette pauses previews and locks navigation while editing a ros
     /setupReturnStatus !== 'configuring'[\s\S]*?setBroadcastSession\(null\)/,
   );
   assert.match(previewSource, /const active = enabled && inViewport && documentVisible;/);
+  assert.match(previewSource, /onCycleBoundary\?\.\(\);/);
+  assert.match(
+    previewSource,
+    /\[active, clearTimers, cycleSignature, startCycle\]/,
+  );
+  assert.doesNotMatch(
+    previewSource,
+    /\[active, clearTimers, previewSignature, startCycle\]/,
+  );
 });
 
 test("Roulette blocks duplicate roster entries until the common policy allows them", () => {

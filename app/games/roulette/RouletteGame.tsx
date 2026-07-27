@@ -10,6 +10,12 @@ import type { CSSProperties } from 'react';
 
 import { SetupWorkspace } from '../../_platform/components/SetupWorkspace';
 import { SharedSetupSummary } from '../../_platform/components/SharedSetupSummary';
+import {
+  advancePreviewCycle,
+  createPreviewCycleBuffer,
+  DEFAULT_PREVIEW_ROSTER_NAMES,
+  previewRosterNamesOrDefault,
+} from '../../_platform/previewRoster';
 import type { StreamerThemeId } from '../../_platform/theme';
 import {
   createResultPresentationProjection,
@@ -402,6 +408,11 @@ export interface RouletteGameProps {
   onRequestRosterEdit?: () => void;
   onActivityChange?: (active: boolean) => void;
 }
+
+type PeoplePreviewInput = Readonly<{
+  names: readonly string[];
+  weights?: readonly number[];
+}>;
 
 export function RouletteGame({
   embedded = false,
@@ -901,6 +912,59 @@ export function RouletteGame({
 
   const drawOptionNames = useMemo(() => drawOptions.map((option) => option.name), [drawOptions]);
   const drawOptionWeights = useMemo(() => drawOptions.map((option) => option.weight), [drawOptions]);
+  const requestedPeoplePreview = useMemo<PeoplePreviewInput>(() => {
+    if (raffleStatus === 'roster') {
+      const names = participantPreviewDraft
+        .map((participant) => participant.name.trim())
+        .filter(Boolean);
+      return {
+        names,
+        weights: useWeights
+          ? participantPreviewDraft.map((participant) => participant.weight)
+          : undefined,
+      };
+    }
+    return {
+      names: drawOptionNames,
+      weights: drawOptionWeights,
+    };
+  }, [
+    drawOptionNames,
+    drawOptionWeights,
+    participantPreviewDraft,
+    raffleStatus,
+    useWeights,
+  ]);
+  const requestedPeoplePreviewRef = useRef(requestedPeoplePreview);
+  useEffect(() => {
+    requestedPeoplePreviewRef.current = requestedPeoplePreview;
+  }, [requestedPeoplePreview]);
+  const [peoplePreviewCycle, setPeoplePreviewCycle] = useState(() => (
+    createPreviewCycleBuffer<PeoplePreviewInput>(
+      {
+        names: [...DEFAULT_PREVIEW_ROSTER_NAMES],
+        weights: undefined,
+      },
+      {
+        names: previewRosterNamesOrDefault(requestedPeoplePreview.names),
+        weights: requestedPeoplePreview.names.length > 0
+          ? requestedPeoplePreview.weights
+          : undefined,
+      },
+    )
+  ));
+  const advancePeoplePreviewCycle = useCallback(() => {
+    const requested = requestedPeoplePreviewRef.current;
+    const latestPending: PeoplePreviewInput = {
+      names: previewRosterNamesOrDefault(requested.names),
+      weights: requested.names.length > 0
+        ? requested.weights
+        : undefined,
+    };
+    setPeoplePreviewCycle((state) => (
+      advancePreviewCycle(state, latestPending)
+    ));
+  }, []);
   const displayOptions = useMemo(
     () => spinning || winnerIndex !== null ? presentedOptions : drawOptions,
     [drawOptions, presentedOptions, spinning, winnerIndex],
@@ -2280,11 +2344,11 @@ export function RouletteGame({
     const duplicateLabel = drawTarget === 'people'
       ? removeAfterDraw ? '당첨 후 제외' : '중복 허용'
       : '재고 차감';
-    const previewNames = editorOpen && drawTarget === 'people'
-      ? participantPreviewDraft.map((participant) => participant.name).filter(Boolean)
+    const previewNames = drawTarget === 'people'
+      ? peoplePreviewCycle.active.names
       : drawOptionNames;
-    const previewWeights = editorOpen && drawTarget === 'people'
-      ? useWeights ? participantPreviewDraft.map((participant) => participant.weight) : undefined
+    const previewWeights = drawTarget === 'people'
+      ? peoplePreviewCycle.active.weights
       : drawOptionWeights;
     const runPreparationAction = () => {
       if (preparation.state === 'ready') {
@@ -2363,6 +2427,7 @@ export function RouletteGame({
                     mode={drawMode}
                     presentation={wheelPresentation}
                     title={stageTitle}
+                    onCycleBoundary={advancePeoplePreviewCycle}
                   />
                 )}
                 previewFooter={(
@@ -2498,6 +2563,7 @@ export function RouletteGame({
                 mode={drawMode}
                 presentation={wheelPresentation}
                 title={stageTitle}
+                onCycleBoundary={advancePeoplePreviewCycle}
               />
             </div>
 

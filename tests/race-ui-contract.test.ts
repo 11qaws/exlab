@@ -282,3 +282,18 @@ test("a failed random preview seed retries instead of freezing on the static map
   );
   assert.match(gameSource, /window\.clearTimeout\(retryTimer\);/);
 });
+
+test("Showdown commits roster changes only when the 10-second preview cycle ends", () => {
+  assert.match(
+    gameSource,
+    /createPreviewCycleBuffer\(\s*defaultPreviewCandidates,\s*resolvePreviewCandidates\(candidates\),\s*\)/,
+  );
+  assert.match(
+    gameSource,
+    /if \(elapsedMs >= PREVIEW_DURATION_MS\) \{[\s\S]*?advancePreviewCycle\([\s\S]*?requestedCandidatesRef\.current[\s\S]*?setPreviewCycle/,
+  );
+  assert.match(
+    gameSource,
+    /\[active, candidateCycle\.active, layoutSeed, previewCycle\]/,
+  );
+});

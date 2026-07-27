@@ -13,6 +13,11 @@ import {
 import { SetupWorkspace } from "../_platform/components/SetupWorkspace";
 import { SharedSetupSummary } from "../_platform/components/SharedSetupSummary";
 import {
+  advancePreviewCycle,
+  createPreviewCycleBuffer,
+  DEFAULT_PREVIEW_ROSTER_NAMES,
+} from "../_platform/previewRoster";
+import {
   DEFAULT_STREAMER_THEME_ID,
   STREAMER_THEMES,
   getStreamerThemeTokens,
@@ -866,6 +871,33 @@ function LiveRacePreview({
   wallColor: string;
   active: boolean;
 }) {
+  const defaultPreviewCandidates = useMemo<Candidate[]>(
+    () => DEFAULT_PREVIEW_ROSTER_NAMES.map((name, index) => ({
+      id: `preview-default-${index + 1}`,
+      name,
+      number: index + 1,
+      theme: PARTICIPANT_THEMES[index],
+    })),
+    [],
+  );
+  const resolvePreviewCandidates = useCallback(
+    (nextCandidates: readonly Candidate[]) => (
+      nextCandidates.length >= 2
+        ? [...nextCandidates]
+        : defaultPreviewCandidates
+    ),
+    [defaultPreviewCandidates],
+  );
+  const requestedCandidatesRef = useRef(candidates);
+  useEffect(() => {
+    requestedCandidatesRef.current = candidates;
+  }, [candidates]);
+  const [candidateCycle, setCandidateCycle] = useState(() => (
+    createPreviewCycleBuffer(
+      defaultPreviewCandidates,
+      resolvePreviewCandidates(candidates),
+    )
+  ));
   const [previewCycle, setPreviewCycle] = useState(0);
   const [previewPlan, setPreviewPlan] = useState<RacePlan | null>(null);
   const [previewFrameIndex, setPreviewFrameIndex] = useState(0);
@@ -877,15 +909,7 @@ function LiveRacePreview({
     const timer = window.setTimeout(() => {
       setPreviewFrameIndex(0);
       setRemainingSeconds(10);
-      const previewCandidates =
-        candidates.length >= 2
-          ? candidates
-          : Array.from({ length: 2 }, (_, index) => ({
-              id: `preview-${index + 1}`,
-              name: `PREVIEW ${index + 1}`,
-              number: index + 1,
-              theme: PARTICIPANT_THEMES[index],
-            }));
+      const previewCandidates = candidateCycle.active;
       const raceSeed = createSeed(`preview-race-${previewCycle + 1}`);
       const previewLayoutSeed = createSeed(
         `${layoutSeed}-preview-layout-${previewCycle + 1}`,
@@ -925,7 +949,7 @@ function LiveRacePreview({
       window.clearTimeout(timer);
       window.clearTimeout(retryTimer);
     };
-  }, [active, candidates, layoutSeed, previewCycle]);
+  }, [active, candidateCycle.active, layoutSeed, previewCycle]);
 
   useEffect(() => {
     if (!active || !previewPlan) return;
@@ -942,6 +966,12 @@ function LiveRacePreview({
         Math.max(0, Math.ceil((PREVIEW_DURATION_MS - elapsedMs) / 1000)),
       );
       if (elapsedMs >= PREVIEW_DURATION_MS) {
+        setCandidateCycle((state) => (
+          advancePreviewCycle(
+            state,
+            resolvePreviewCandidates(requestedCandidatesRef.current),
+          )
+        ));
         setPreviewCycle((value) => value + 1);
         return;
       }
@@ -949,12 +979,12 @@ function LiveRacePreview({
     };
     animationFrame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrame);
-  }, [active, previewPlan]);
+  }, [active, previewPlan, resolvePreviewCandidates]);
 
   if (!previewPlan) {
     return (
       <StartPreview
-        candidates={candidates}
+        candidates={candidateCycle.active}
         layoutSeed={layoutSeed}
         mapMode={mapMode}
         wallColor={wallColor}
@@ -2357,7 +2387,7 @@ export function ShowdownGame({
             exlab
           </a>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.16</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.17</span>
           </div>
         </header>
       )}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 
-import { STREAMER_THEMES } from '../../../_platform/theme';
+import { DEFAULT_PREVIEW_ROSTER_NAMES } from '../../../_platform/previewRoster';
 import type { DrawMode, DrawTarget, WheelPresentation } from '../types';
 import {
   createDartAimSession,
@@ -22,7 +22,7 @@ import RouletteWheel from './RouletteWheel';
 
 import './DrawPreviewDirector.css';
 
-const SAMPLE_PEOPLE = STREAMER_THEMES.map(({ name }) => name);
+const SAMPLE_PEOPLE = [...DEFAULT_PREVIEW_ROSTER_NAMES];
 const SAMPLE_PRIZES = ['선물 A', '선물 B', '선물 C', '선물 D', '선물 E', '선물 F'];
 const PREVIEW_COMMIT_DELAY = 120;
 const PREVIEW_RESULT_HOLD = 900;
@@ -69,6 +69,7 @@ export interface DrawPreviewDirectorProps {
   mode: DrawMode;
   presentation: WheelPresentation;
   title?: string;
+  onCycleBoundary?: () => void;
 }
 
 export default function DrawPreviewDirector({
@@ -79,6 +80,7 @@ export default function DrawPreviewDirector({
   mode,
   presentation,
   title,
+  onCycleBoundary,
 }: DrawPreviewDirectorProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const wheelRef = useRef<RouletteWheelHandle>(null);
@@ -118,9 +120,13 @@ export default function DrawPreviewDirector({
     [isSample, names, target],
   );
   const previewWeights = isSample ? undefined : weights;
-  const signature = useMemo(
+  const previewSignature = useMemo(
     () => [target, mode, presentation, previewNames.join('\u001f'), previewWeights?.join(',') ?? 'equal'].join('|'),
     [mode, presentation, previewNames, previewWeights, target],
+  );
+  const cycleSignature = useMemo(
+    () => [target, mode, presentation].join('|'),
+    [mode, presentation, target],
   );
   const active = enabled && inViewport && documentVisible;
   const previewTitle = title?.trim() || (target === 'people' ? '당첨자 추첨' : '상품 추첨');
@@ -245,12 +251,13 @@ export default function DrawPreviewDirector({
       setSpinCommit(null);
       setDartCommit(null);
       setPhase('idle');
+      onCycleBoundary?.();
       schedule(() => {
         if (runId !== runIdRef.current) return;
         startCycle(false);
       }, PREVIEW_RESTART_GAP);
     }, PREVIEW_RESULT_HOLD);
-  }, [active, reducedMotion, schedule, startCycle]);
+  }, [active, onCycleBoundary, reducedMotion, schedule, startCycle]);
 
   useEffect(() => {
     const media = window.matchMedia?.('(prefers-reduced-motion: reduce)');
@@ -283,7 +290,7 @@ export default function DrawPreviewDirector({
       runIdRef.current += 1;
       clearTimers();
     };
-  }, [active, clearTimers, signature, startCycle]);
+  }, [active, clearTimers, cycleSignature, startCycle]);
 
   useEffect(() => () => {
     runIdRef.current += 1;
@@ -314,7 +321,7 @@ export default function DrawPreviewDirector({
   };
 
   return (
-    <div ref={rootRef} className={rootClassName} data-preview-signature={signature}>
+    <div ref={rootRef} className={rootClassName} data-preview-signature={previewSignature}>
       <h3 className="draw-preview-director__title" title={previewTitle}>{previewTitle}</h3>
       <div className="draw-preview-director__badge">
         <strong>미리보기</strong>
