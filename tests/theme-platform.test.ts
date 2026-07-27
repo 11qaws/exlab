@@ -9,6 +9,9 @@ import {
   streamerThemeContrastReport,
   streamerThemeCssVariables,
 } from "../app/_platform/theme/streamerThemes";
+import {
+  streamerThemePickerPortraitOffsetY,
+} from "../app/_platform/theme/streamerThemePresentation";
 
 test("streamer theme registry exposes the five canonical profile assets", async () => {
   assert.deepEqual(
@@ -82,6 +85,20 @@ test("every light streamer theme keeps labels and text contrast-safe", () => {
       `${theme.id} body text`,
     );
   }
+});
+
+test("only the wide theme picker lowers Eureka and Sena portraits", () => {
+  assert.deepEqual(
+    STREAMER_THEMES.map((theme) => (
+      streamerThemePickerPortraitOffsetY(theme)
+    )),
+    [0, 10, 10, 0, 0],
+  );
+  assert.deepEqual(
+    STREAMER_THEMES.map(({ portrait }) => portrait.offsetY),
+    [0, 0, 0, 0, 0],
+    "compact current-theme avatars must keep the canonical crop",
+  );
 });
 
 test("every Showdown stage palette keeps dark-surface text contrast-safe", () => {
