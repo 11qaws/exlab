@@ -14,6 +14,7 @@ import { SetupWorkspace } from "../_platform/components/SetupWorkspace";
 import { SharedSetupSummary } from "../_platform/components/SharedSetupSummary";
 import {
   DEFAULT_STREAMER_THEME_ID,
+  STREAMER_THEMES,
   getStreamerThemeTokens,
   type StreamerThemeId,
 } from "../_platform/theme";
@@ -110,11 +111,7 @@ import { RaceCanvas } from "./RaceCanvas";
 import "./showdown-game.css";
 
 const DEFAULT_ROSTER = [
-  "아모",
-  "유레카",
-  "세나",
-  "코코",
-  "망징이",
+  ...STREAMER_THEMES.map(({ name }) => name),
   "로티",
   "토리",
   "마루",
@@ -2360,7 +2357,7 @@ export function ShowdownGame({
             exlab
           </a>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.11</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.12</span>
           </div>
         </header>
       )}

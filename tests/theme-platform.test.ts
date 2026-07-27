@@ -12,7 +12,7 @@ import {
 test("streamer theme registry exposes the five canonical profile assets", async () => {
   assert.deepEqual(
     STREAMER_THEMES.map(({ name }) => name),
-    ["아모레또", "유레카", "세나", "코코", "망징"],
+    ["아모레또", "유레카", "세나 아르벨", "토로리 코코", "망징이"],
   );
   assert.deepEqual(
     STREAMER_THEMES.map(({ id, portrait }) => ({

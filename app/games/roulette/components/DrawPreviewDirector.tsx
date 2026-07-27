@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 
+import { STREAMER_THEMES } from '../../../_platform/theme';
 import type { DrawMode, DrawTarget, WheelPresentation } from '../types';
 import {
   createDartAimSession,
@@ -21,7 +22,7 @@ import RouletteWheel from './RouletteWheel';
 
 import './DrawPreviewDirector.css';
 
-const SAMPLE_PEOPLE = ['아모레또', '유레카', '세나', '코코', '망징이'];
+const SAMPLE_PEOPLE = STREAMER_THEMES.map(({ name }) => name);
 const SAMPLE_PRIZES = ['선물 A', '선물 B', '선물 C', '선물 D', '선물 E', '선물 F'];
 const PREVIEW_COMMIT_DELAY = 120;
 const PREVIEW_RESULT_HOLD = 900;

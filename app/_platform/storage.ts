@@ -5,6 +5,7 @@ import {
 } from "./catalog";
 import {
   DEFAULT_STREAMER_THEME_ID,
+  STREAMER_THEMES,
   isStreamerThemeId,
   type StreamerThemeId,
 } from "./theme/streamerThemes";
@@ -28,11 +29,7 @@ export const LEGACY_PLATFORM_STORAGE_KEYS = {
 } as const;
 
 export const DEFAULT_SHARED_ROSTER = [
-  "아모레또",
-  "유레카",
-  "세나",
-  "코코",
-  "망징이",
+  ...STREAMER_THEMES.map(({ name }) => name),
   "로티",
   "토리",
   "마루",

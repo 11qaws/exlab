@@ -166,7 +166,7 @@ export const STREAMER_THEMES = [
   },
   {
     id: "sena",
-    name: "세나",
+    name: "세나 아르벨",
     subtitle: "교환학생 1기 ORIENT",
     hue: 277,
     chroma: 0.3,
@@ -216,7 +216,7 @@ export const STREAMER_THEMES = [
   },
   {
     id: "torori",
-    name: "코코",
+    name: "토로리 코코",
     subtitle: "교환학생 1기 ORIENT",
     hue: 211,
     chroma: 1.04,
@@ -266,7 +266,7 @@ export const STREAMER_THEMES = [
   },
   {
     id: "mangjing",
-    name: "망징",
+    name: "망징이",
     subtitle: "교환학생 1기 ORIENT",
     hue: 226,
     chroma: 0.78,

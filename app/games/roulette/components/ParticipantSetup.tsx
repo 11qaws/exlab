@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ClipboardEvent, KeyboardEvent } from 'react';
 
+import { STREAMER_THEMES } from '../../../_platform/theme';
 import { extractNaverCafeCommentAuthors } from '../lib/clipboardCommentParser';
 import type { Participant } from '../types';
 
@@ -12,6 +13,10 @@ type ParseSummary = {
   total: number;
   replies: number;
 };
+
+const STREAMER_NAME_PLACEHOLDER = STREAMER_THEMES
+  .map(({ name }) => name)
+  .join('\n');
 
 export interface ParticipantSetupProps {
   initialParticipants: Participant[];
@@ -326,7 +331,7 @@ export default function ParticipantSetup({
               }
             }}
             aria-keyshortcuts="Shift+Enter"
-            placeholder={'아모레또\n유레카\n세나\n코코\n망징이'}
+            placeholder={STREAMER_NAME_PLACEHOLDER}
           />
           <div className="setup-inline-action">
             <button className="setup-secondary" type="button" onClick={addManualNames}>명단에 추가</button>
