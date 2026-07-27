@@ -214,3 +214,27 @@ test("Roulette blocks duplicate roster entries until the common policy allows th
     "ready",
   );
 });
+
+test("compact Roulette and Dart reserve screen space for boundary names", async () => {
+  const viewportCss = await readFile(
+    new URL(
+      "../app/games/roulette/styles/roulette-viewport.css",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  assert.match(viewportCss, /--wheel-proof-band:\s*5\.5rem/);
+  assert.match(
+    viewportCss,
+    /padding:\s*var\(--wheel-proof-band\)\s*var\(--wheel-stage-padding\)\s*var\(--wheel-stage-floor\)/,
+  );
+  assert.match(
+    viewportCss,
+    /\.boundary-names--dart\.is-final[\s\S]*?bottom:\s*calc\(100% \+ 1rem\)/,
+  );
+  assert.match(
+    viewportCss,
+    /\.boundary-names--dart\s*\{\s*width:\s*min\(96%, 28rem\)/,
+  );
+});

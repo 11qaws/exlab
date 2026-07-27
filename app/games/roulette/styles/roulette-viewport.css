@@ -244,6 +244,24 @@
     --wheel-stage-padding: clamp(2.75rem, 7cqh, 3.125rem);
   }
 
+  /* The compact desktop canvas already has space above the rim. Use it for
+     boundary proof instead of painting participant names over the wheel. */
+  :scope .app-shell--live .roulette-wheel :is(
+    .boundary-names,
+    .boundary-names--dart,
+    .boundary-names--dart.is-final-point,
+    .boundary-names--dart.is-final,
+    .winner-nameplate,
+    .winner-nameplate--dart
+  ) {
+    top: auto;
+    bottom: calc(100% + 1rem);
+  }
+
+  :scope .app-shell--live .roulette-wheel .boundary-names--dart {
+    width: min(88%, 28rem);
+  }
+
   :scope .broadcast-focus.reveal-phase--boundary-entered:not(:has(.roulette-wheel.is-dart)) {
     --cinematic-camera-scale: 1.24;
   }
@@ -316,9 +334,15 @@
   :scope .app-shell--live .broadcast-focus__visual .roulette-wheel,
   :scope .app-shell--live .broadcast-focus__visual .roulette-wheel.is-dart,
   :scope .app-shell--live .broadcast-focus__visual .roulette-wheel.roulette-wheel:not(.is-dart) {
+    --wheel-proof-band: 5.5rem;
+    --wheel-stage-floor: 0.75rem;
     --wheel-size: clamp(
       10rem,
-      min(calc(100cqw - 5.5rem), calc(100cqh - 5.5rem), 22rem),
+      min(
+        calc(100cqw - 5.5rem),
+        calc(100cqh - var(--wheel-proof-band) - var(--wheel-stage-floor)),
+        22rem
+      ),
       22rem
     );
     --wheel-stage-padding: 2.75rem;
@@ -335,7 +359,32 @@
     min-width: 0;
     height: 100%;
     min-height: 0;
-    padding: var(--wheel-stage-padding);
+    padding:
+      var(--wheel-proof-band)
+      var(--wheel-stage-padding)
+      var(--wheel-stage-floor);
+  }
+
+  /* Boundary proof is screen-space UI. Reserving a band above the rim keeps
+     both Roulette and Dart readable without shrinking the primary game prop. */
+  :scope .app-shell--live .roulette-wheel :is(
+    .boundary-names,
+    .boundary-names--dart,
+    .boundary-names--dart.is-final-point,
+    .boundary-names--dart.is-final,
+    .winner-nameplate,
+    .winner-nameplate--dart
+  ) {
+    top: auto;
+    bottom: calc(100% + 1rem);
+  }
+
+  :scope .app-shell--live .roulette-wheel .boundary-names--dart {
+    width: min(96%, 28rem);
+  }
+
+  :scope .app-shell--live .roulette-wheel .winner-nameplate {
+    width: min(72%, 16rem);
   }
 
   :scope .app-shell--live .broadcast-focus__action {
