@@ -11,6 +11,10 @@ import {
 
 test("streamer theme registry exposes the five canonical profile assets", async () => {
   assert.deepEqual(
+    STREAMER_THEMES.map(({ name }) => name),
+    ["아모레또", "유레카", "세나", "코코", "망징"],
+  );
+  assert.deepEqual(
     STREAMER_THEMES.map(({ id, portrait }) => ({
       id,
       path: portrait.path,
@@ -161,6 +165,22 @@ test("the first visit reuses profile cards and Showdown consumes stage tokens", 
   assert.match(
     appSource,
     /className="exlab-onboarding-theme-picker"/,
+  );
+  const globalsSource = await readFile(
+    new URL("../app/globals.css", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    globalsSource,
+    /\.exlab-onboarding-theme-picker \.exlab-streamer-theme-list\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\);[\s\S]*?margin-inline:\s*auto;/,
+  );
+  assert.match(
+    globalsSource,
+    /\.exlab-onboarding-theme-picker \.exlab-theme-card\s*\{[\s\S]*?aspect-ratio:\s*auto;[\s\S]*?block-size:\s*clamp\(70px,\s*10svh,\s*88px\);/,
+  );
+  assert.doesNotMatch(
+    globalsSource,
+    /\.exlab-onboarding-theme-picker[\s\S]{0,120}\.exlab-theme-card-option:last-child/,
   );
   assert.match(showdownCss, /--stage:\s*var\(--exlab-stage-background/);
   assert.match(showdownCss, /--stage-accent:\s*var\(--exlab-stage-accent/);

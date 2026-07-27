@@ -270,7 +270,7 @@ body {
   display: grid;
   gap: 22px;
   max-height: calc(100svh - clamp(28px, 6vw, 64px));
-  max-width: 960px;
+  max-width: 760px;
   overflow: auto;
   padding: clamp(20px, 3vw, 34px);
   position: relative;
@@ -328,19 +328,15 @@ body {
 }
 
 .exlab-onboarding-theme-picker .exlab-streamer-theme-list {
-  gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  inline-size: 100%;
-}
-
-.exlab-onboarding-theme-picker
-  .exlab-theme-card-option:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
-  justify-self: center;
-  width: calc(50% - 6px);
+  gap: 9px;
+  grid-template-columns: minmax(0, 1fr);
+  inline-size: min(100%, 640px);
+  margin-inline: auto;
 }
 
 .exlab-onboarding-theme-picker .exlab-theme-card {
+  aspect-ratio: auto;
+  block-size: clamp(70px, 10svh, 88px);
   border-radius: 13px;
 }
 
@@ -644,13 +640,6 @@ body {
 
   .exlab-onboarding-theme-picker .exlab-streamer-theme-list {
     gap: 8px;
-    grid-template-columns: 1fr;
-  }
-
-  .exlab-onboarding-theme-picker
-    .exlab-theme-card-option:last-child:nth-child(odd) {
-    grid-column: auto;
-    width: 100%;
   }
 
   .exlab-theme-welcome > footer {
