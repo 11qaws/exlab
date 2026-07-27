@@ -9,6 +9,9 @@ import {
   isGameId,
 } from "../app/_platform/catalog";
 import {
+  extractNaverCafeCommentAuthors,
+} from "../app/_platform/cafeCommentParser";
+import {
   GAME_LIFECYCLE_STATES,
   GAME_LIFECYCLE_TRANSITIONS,
   isGameSwitchLocked,
@@ -176,6 +179,60 @@ test("invalid stored streamer themes fall back to the product default", () => {
     readPlatformPreferences(storage).streamerThemeId,
     DEFAULT_STREAMER_THEME_ID,
   );
+});
+
+test("shared cafe comment parser keeps root commenters and excludes replies", () => {
+  const candidates = extractNaverCafeCommentAuthors(JSON.stringify({
+    comments: [
+      {
+        commentNo: 1,
+        writer: { memberId: "root-1", nick: "첫 댓글" },
+      },
+      {
+        commentNo: 2,
+        parentCommentNo: 1,
+        writer: { memberId: "reply-1", nick: "대댓글" },
+      },
+      {
+        commentNo: 3,
+        writer: { memberId: "root-2", nick: "두 번째 댓글" },
+      },
+    ],
+  }));
+
+  assert.deepEqual(
+    candidates.filter((candidate) => !candidate.reply).map(
+      (candidate) => candidate.nick,
+    ),
+    ["첫 댓글", "두 번째 댓글"],
+  );
+  assert.equal(
+    candidates.find((candidate) => candidate.nick === "대댓글")?.reply,
+    true,
+  );
+});
+
+test("shared roster keeps cafe import as an optional disclosure", async () => {
+  const [appSource, cssSource, rouletteSetupSource] = await Promise.all([
+    readFile(new URL("../app/ExlabApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(
+      new URL(
+        "../app/games/roulette/components/ParticipantSetup.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(appSource, /<details[\s\S]*?exlab-roster-import/);
+  assert.match(appSource, /카페 댓글에서 가져오기/);
+  assert.match(appSource, /댓글 작성자 가져오기/);
+  assert.match(appSource, /extractNaverCafeCommentAuthors/);
+  assert.match(cssSource, /\.exlab-roster-import/);
+  assert.match(rouletteSetupSource, /initialStep = 'edit'/);
+  assert.match(rouletteSetupSource, /<details[\s\S]*?setup-import-option/);
+  assert.doesNotMatch(rouletteSetupSource, /setup-source-tabs/);
 });
 
 test("first-visit theme choice distinguishes new and returning users", () => {

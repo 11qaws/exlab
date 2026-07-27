@@ -88,34 +88,39 @@
   padding: 16px 18px 18px;
 }
 
-.setup-source-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.setup-import-option {
   margin-bottom: 14px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--cream);
+  border-bottom: 1px solid var(--line);
 }
 
-.setup-source-tabs button {
+.setup-import-option > summary {
+  display: flex;
   min-height: 42px;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
+  align-items: center;
+  justify-content: space-between;
+  color: var(--magenta);
+  cursor: pointer;
   font-family: 'Jua', sans-serif;
   font-size: 13px;
-  cursor: pointer;
+  list-style: none;
 }
 
-.setup-source-tabs button + button {
-  border-left: 1px solid var(--line);
+.setup-import-option > summary::-webkit-details-marker {
+  display: none;
 }
 
-.setup-source-tabs button[aria-pressed='true'] {
-  background: #ffdce5;
-  color: var(--ink);
-  box-shadow: inset 0 -3px 0 var(--hot-pink-strong);
+.setup-import-option > summary::after {
+  color: var(--muted);
+  content: '+';
+  font-size: 18px;
+}
+
+.setup-import-option[open] > summary::after {
+  content: '−';
+}
+
+.setup-import-option__body {
+  padding: 2px 0 14px;
 }
 
 .setup-copy {
@@ -140,6 +145,10 @@
 
 .setup-textarea--short {
   min-height: 130px;
+}
+
+.setup-textarea--import {
+  min-height: 160px;
 }
 
 .setup-textarea:focus,
@@ -187,8 +196,7 @@
 }
 
 .setup-privacy {
-  margin: 10px 0 0;
-  text-align: center;
+  margin: 9px 0 0;
 }
 
 .setup-message {

@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ClipboardEvent,
   type ChangeEvent,
 } from "react";
 import {
@@ -17,6 +18,7 @@ import {
   isGameId,
   type GameId,
 } from "./_platform/catalog";
+import { extractNaverCafeCommentAuthors } from "./_platform/cafeCommentParser";
 import {
   DEFAULT_SHARED_ROSTER,
   hasStoredStreamerThemeChoice,
@@ -160,7 +162,12 @@ function SharedRosterDialog({
   const [draft, setDraft] = useState(rosterText);
   const [duplicateDraft, setDuplicateDraft] =
     useState(allowDuplicateNames);
+  const [cafeImportOpen, setCafeImportOpen] = useState(false);
+  const [cafePage, setCafePage] = useState("");
+  const [cafeImportMessage, setCafeImportMessage] = useState("");
+  const [cafeImportError, setCafeImportError] = useState("");
   const dialogRef = useRef<HTMLElement>(null);
+  const richCafeClipboard = useRef("");
   const validation = useMemo(
     () => validateSharedRosterDraft(draft, duplicateDraft),
     [draft, duplicateDraft],
@@ -178,6 +185,48 @@ function SharedRosterDialog({
     onCancel();
   }, [dirty, onCancel]);
 
+  const handleCafePaste = (
+    event: ClipboardEvent<HTMLTextAreaElement>,
+  ) => {
+    event.preventDefault();
+    const text =
+      event.clipboardData.getData("text/plain")
+      || event.clipboardData.getData("text");
+    richCafeClipboard.current =
+      event.clipboardData.getData("text/html");
+    setCafePage(text);
+    setCafeImportMessage("");
+    setCafeImportError("");
+  };
+
+  const importCafeCommenters = () => {
+    const source = richCafeClipboard.current || cafePage;
+    if (!source.trim()) {
+      setCafeImportError(
+        "카페 페이지에서 복사한 내용을 먼저 붙여넣어 주세요.",
+      );
+      setCafeImportMessage("");
+      return;
+    }
+
+    const candidates = extractNaverCafeCommentAuthors(source);
+    const commenters = candidates.filter((candidate) => !candidate.reply);
+    if (commenters.length === 0) {
+      setCafeImportError(
+        "댓글 작성자를 찾지 못했어요. 붙여넣은 원문을 확인해 주세요.",
+      );
+      setCafeImportMessage("");
+      return;
+    }
+
+    setDraft(commenters.map((candidate) => candidate.nick).join("\n"));
+    setCafeImportError("");
+    setCafeImportMessage(
+      `${commenters.length}명을 명단에 가져왔어요. 저장 전에 아래에서 확인할 수 있습니다.`,
+    );
+    setCafeImportOpen(false);
+  };
+
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -190,7 +239,7 @@ function SharedRosterDialog({
       if (event.key !== "Tab") return;
       const focusable = Array.from(
         dialogRef.current?.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+          'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"])',
         ) ?? [],
       );
       if (focusable.length === 0) return;
@@ -234,6 +283,56 @@ function SharedRosterDialog({
           </div>
           <strong>{validation.names.length}명</strong>
         </header>
+
+        <details
+          className="exlab-roster-import"
+          open={cafeImportOpen}
+          onToggle={(event) =>
+            setCafeImportOpen(event.currentTarget.open)
+          }
+        >
+          <summary>
+            <span>
+              <strong>카페 댓글에서 가져오기</strong>
+              <small>필요할 때 카페 글 원문에서 작성자만 추출합니다.</small>
+            </span>
+          </summary>
+          <div className="exlab-roster-import__body">
+            <p>
+              카페 글에서 <strong>Ctrl+A → Ctrl+C</strong> 후 아래에
+              붙여넣으세요.
+            </p>
+            <textarea
+              value={cafePage}
+              onChange={(event) => {
+                richCafeClipboard.current = "";
+                setCafePage(event.target.value);
+                setCafeImportMessage("");
+                setCafeImportError("");
+              }}
+              onPaste={handleCafePaste}
+              placeholder="카페 글 전체 붙여넣기"
+              aria-label="카페 페이지 내용"
+              aria-invalid={Boolean(cafeImportError)}
+              aria-describedby="exlab-cafe-import-status"
+            />
+            <div className="exlab-roster-import__action">
+              <p id="exlab-cafe-import-status">
+                {cafeImportError
+                  || "붙여넣은 내용은 브라우저 안에서만 처리됩니다."}
+              </p>
+              <button type="button" onClick={importCafeCommenters}>
+                댓글 작성자 가져오기
+              </button>
+            </div>
+          </div>
+        </details>
+
+        {cafeImportMessage && (
+          <p className="exlab-roster-import-result" role="status">
+            {cafeImportMessage}
+          </p>
+        )}
 
         <label htmlFor="exlab-roster-input">한 줄에 한 명</label>
         <textarea

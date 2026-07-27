@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import type { ClipboardEvent, KeyboardEvent } from 'react';
 
 import { STREAMER_THEMES } from '../../../_platform/theme';
-import { extractNaverCafeCommentAuthors } from '../lib/clipboardCommentParser';
+import { extractNaverCafeCommentAuthors } from '../../../_platform/cafeCommentParser';
 import type { Participant } from '../types';
 
 import './ParticipantSetup.css';
 
-type SetupStep = 'paste' | 'review' | 'edit';
+type SetupStep = 'review' | 'edit';
 
 type ParseSummary = {
   total: number;
@@ -75,7 +75,7 @@ function rosterFingerprint(
 
 export default function ParticipantSetup({
   initialParticipants,
-  initialStep = 'paste',
+  initialStep = 'edit',
   onCancel,
   onClear,
   onDraftChange,
@@ -84,6 +84,7 @@ export default function ParticipantSetup({
   onStart,
 }: ParticipantSetupProps) {
   const [step, setStep] = useState<SetupStep>(initialStep);
+  const [cafeImportOpen, setCafeImportOpen] = useState(false);
   const [pastedPage, setPastedPage] = useState('');
   const [draft, setDraft] = useState<Participant[]>(() => (
     normalizeParticipants(initialParticipants, allowDuplicateNames)
@@ -115,7 +116,7 @@ export default function ParticipantSetup({
       rootRef.current?.querySelector<HTMLElement>('[data-setup-initial-focus]')?.focus();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [step]);
+  }, [cafeImportOpen, step]);
 
   const handleDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (!onCancel) return;
@@ -178,6 +179,11 @@ export default function ParticipantSetup({
     setStep('review');
   };
 
+  const returnToEditor = (openCafeImport = false) => {
+    setCafeImportOpen(openCafeImport);
+    setStep('edit');
+  };
+
   const addManualNames = () => {
     const names = parseManualNames(manualNames);
     if (names.length === 0) {
@@ -236,9 +242,8 @@ export default function ParticipantSetup({
       <header className="participant-setup__header">
         <div>
           <h1 id="participant-setup-title">
-            {step === 'paste' && '명단 추가'}
             {step === 'review' && '명단 확인'}
-            {step === 'edit' && (initialParticipants.length > 0 ? '명단 편집' : '직접 입력')}
+            {step === 'edit' && (initialParticipants.length > 0 ? '명단 편집' : '명단 작성')}
           </h1>
           <p>{step === 'review' ? `${summary?.total ?? draft.length}명` : `${draft.length}명 저장 전`}</p>
         </div>
@@ -254,34 +259,6 @@ export default function ParticipantSetup({
         )}
       </header>
 
-      {step === 'paste' && (
-        <div className="setup-pane setup-pane--paste">
-          <div className="setup-source-tabs" role="group" aria-label="명단 입력 방식">
-            <button type="button" aria-pressed="true">카페 댓글</button>
-            <button type="button" aria-pressed="false" onClick={() => setStep('edit')}>직접 입력</button>
-          </div>
-          <p className="setup-copy"><strong>Ctrl+A → Ctrl+C → 붙여넣기</strong></p>
-          <textarea
-            data-setup-initial-focus
-            className="setup-textarea"
-            value={pastedPage}
-            onChange={(event) => {
-              richClipboard.current = '';
-              setPastedPage(event.target.value);
-              setParseError('');
-            }}
-            onPaste={handlePaste}
-            placeholder="카페 글 전체 붙여넣기"
-            aria-label="카페 페이지 내용"
-          />
-          {parseError && <p className="setup-message setup-message--error" role="alert">{parseError}</p>}
-          <div className="setup-actions">
-            <button className="setup-primary" type="button" onClick={handleParse}>작성자 확인</button>
-          </div>
-          <p className="setup-privacy">붙여넣은 내용은 브라우저 안에서만 처리됩니다.</p>
-        </div>
-      )}
-
       {step === 'review' && (
         <div className="setup-pane">
           <div className="setup-summary">
@@ -294,24 +271,48 @@ export default function ParticipantSetup({
           {draft.length > 80 && <p className="setup-list-note">처음 80명 표시 · 전체 {draft.length}명</p>}
           <div className="setup-actions">
             <button data-setup-initial-focus className="setup-primary" type="button" onClick={finishSetup}>이 명단 사용</button>
-            <button className="setup-secondary" type="button" onClick={() => setStep('edit')}>명단 수정</button>
-            <button className="setup-link-button" type="button" onClick={() => setStep('paste')}>다시 붙여넣기</button>
+            <button className="setup-secondary" type="button" onClick={() => returnToEditor()}>명단 수정</button>
+            <button className="setup-link-button" type="button" onClick={() => returnToEditor(true)}>다시 가져오기</button>
           </div>
         </div>
       )}
 
       {step === 'edit' && (
         <div className="setup-pane">
-          <div className="setup-source-tabs" role="group" aria-label="명단 입력 방식">
-            <button type="button" aria-pressed="false" onClick={() => setStep('paste')}>카페 댓글</button>
-            <button type="button" aria-pressed="true">직접 입력</button>
-          </div>
+          <details
+            className="setup-import-option"
+            open={cafeImportOpen}
+            onToggle={(event) => setCafeImportOpen(event.currentTarget.open)}
+          >
+            <summary>카페 댓글에서 가져오기</summary>
+            <div className="setup-import-option__body">
+              <p className="setup-copy">카페 글에서 <strong>Ctrl+A → Ctrl+C</strong> 후 아래에 붙여넣으세요.</p>
+              <textarea
+                data-setup-initial-focus={cafeImportOpen ? true : undefined}
+                className="setup-textarea setup-textarea--import"
+                value={pastedPage}
+                onChange={(event) => {
+                  richClipboard.current = '';
+                  setPastedPage(event.target.value);
+                  setParseError('');
+                }}
+                onPaste={handlePaste}
+                placeholder="카페 글 전체 붙여넣기"
+                aria-label="카페 페이지 내용"
+              />
+              {parseError && <p className="setup-message setup-message--error" role="alert">{parseError}</p>}
+              <div className="setup-inline-action">
+                <button className="setup-secondary" type="button" onClick={handleParse}>댓글 작성자 가져오기</button>
+              </div>
+              <p className="setup-privacy">붙여넣은 내용은 브라우저 안에서만 처리됩니다.</p>
+            </div>
+          </details>
           <label className="setup-field-label" htmlFor="manual-names">
             <span>한 줄에 한 명</span>
             <span className="setup-field-shortcut">Shift+Enter로 한 번에 추가</span>
           </label>
           <textarea
-            data-setup-initial-focus
+            data-setup-initial-focus={!cafeImportOpen ? true : undefined}
             id="manual-names"
             className="setup-textarea setup-textarea--short"
             value={manualNames}

@@ -1,5 +1,5 @@
 /**
- * A deliberately small, local-only representation of a pasted comment author.
+ * A deliberately small, shared, local-only representation of a pasted comment author.
  * Keep this module independent of Naver URL/import helpers so it can also be
  * used by the clipboard fallback when no article URL is available.
  */

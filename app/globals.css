@@ -423,6 +423,92 @@ body {
   padding: 6px 9px;
 }
 
+.exlab-roster-import {
+  border-bottom: 1px solid var(--exlab-border);
+}
+
+.exlab-roster-import > summary {
+  align-items: center;
+  color: var(--exlab-accent);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  list-style: none;
+  min-height: 44px;
+}
+
+.exlab-roster-import > summary::-webkit-details-marker {
+  display: none;
+}
+
+.exlab-roster-import > summary::after {
+  color: var(--exlab-muted);
+  content: "+";
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.exlab-roster-import[open] > summary::after {
+  content: "−";
+}
+
+.exlab-roster-import > summary span {
+  display: grid;
+  gap: 2px;
+}
+
+.exlab-roster-import > summary strong {
+  font-size: 12px;
+}
+
+.exlab-roster-import > summary small,
+.exlab-roster-import__body > p,
+.exlab-roster-import__action p,
+.exlab-roster-import-result {
+  color: var(--exlab-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.exlab-roster-import__body {
+  display: grid;
+  gap: 8px;
+  padding: 2px 0 13px;
+}
+
+.exlab-roster-import__body > p,
+.exlab-roster-import__action p,
+.exlab-roster-import-result {
+  margin: 0;
+}
+
+.exlab-roster-import__body textarea {
+  min-height: 150px;
+}
+
+.exlab-roster-import__action {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.exlab-roster-import__action button {
+  background: var(--exlab-surface);
+  border: 1px solid var(--exlab-accent);
+  border-radius: 9px;
+  color: var(--exlab-accent);
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 800;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.exlab-roster-import-result {
+  color: var(--exlab-accent);
+}
+
 .exlab-roster-dialog > label[for] {
   font-size: 12px;
   font-weight: 800;

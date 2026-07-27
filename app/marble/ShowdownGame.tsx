@@ -2357,7 +2357,7 @@ export function ShowdownGame({
             exlab
           </a>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.13</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.14</span>
           </div>
         </header>
       )}

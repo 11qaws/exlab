@@ -126,7 +126,7 @@ type DrawOption = {
 };
 
 type SideTab = 'participants' | 'prizes' | 'history';
-type SetupStartStep = 'paste' | 'edit';
+type SetupStartStep = 'edit';
 type SetupReturnStatus = Extract<RaffleStatus, 'configuring' | 'ready' | 'completed'>;
 
 type CurrentRound = {
@@ -456,7 +456,7 @@ export function RouletteGame({
   const [raffleStatus, setRaffleStatus] = useState<RaffleStatus>('configuring');
   const [setupReturnStatus, setSetupReturnStatus] = useState<SetupReturnStatus>('configuring');
   const [setupSession, setSetupSession] = useState(0);
-  const [setupStartStep, setSetupStartStep] = useState<SetupStartStep>('paste');
+  const [setupStartStep, setSetupStartStep] = useState<SetupStartStep>('edit');
   const [participantPreviewDraft, setParticipantPreviewDraft] = useState<Participant[]>([]);
   const [rosterEditorDirty, setRosterEditorDirty] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -1367,10 +1367,7 @@ export function RouletteGame({
       onRequestRosterEdit();
       return;
     }
-    openParticipantEditor(
-      'configuring',
-      participants.length === 0 ? 'paste' : 'edit',
-    );
+    openParticipantEditor('configuring');
   };
 
   const clearParticipantRoster = () => {
@@ -1384,7 +1381,7 @@ export function RouletteGame({
     setPoolLimit(0);
     clearCurrentRound();
     setSetupReturnStatus('configuring');
-    setSetupStartStep('paste');
+    setSetupStartStep('edit');
     setSetupSession((value) => value + 1);
     setRosterEditorDirty(false);
     if (setupReturnStatus !== 'configuring') {
@@ -1392,7 +1389,7 @@ export function RouletteGame({
       setRotorReady(false);
     }
     onRosterTextChange?.('');
-    showToast('명단을 비웠어요. 새 명단을 붙여넣거나 직접 입력해 주세요.');
+    showToast('명단을 비웠어요. 새 명단을 입력하거나 카페 댓글에서 가져와 주세요.');
   };
 
   const cancelParticipantEditor = () => {
@@ -1527,7 +1524,7 @@ export function RouletteGame({
   const recoverReadyDraw = () => {
     if (drawTarget === 'people') {
       if (participants.length === 0) {
-        openParticipantEditor('ready', 'paste');
+        openParticipantEditor('ready');
         return;
       }
       if (eligibleParticipants.length === 0 && excludedParticipantIds.length > 0) {
@@ -1567,7 +1564,7 @@ export function RouletteGame({
     }
 
     if (drawTarget === 'people' && participants.length === 0) {
-      openParticipantEditor('completed', 'paste');
+      openParticipantEditor('completed');
       return;
     }
 
@@ -2147,7 +2144,7 @@ export function RouletteGame({
           {participants.length > 18 && <p className="live-panel__note">+{participants.length - 18}명은 명단 조정에서 확인할 수 있어요.</p>}
           <button className="panel-wide-button" type="button" onClick={copyParticipantList}>번호가 붙은 명단 복사</button>
           <button className="panel-wide-button panel-wide-button--soft" type="button" disabled={isStageLocked} onClick={resetWinnerState}>당첨 제외 상태 초기화</button>
-          <button className="panel-wide-button panel-wide-button--soft" type="button" disabled={isStageLocked} onClick={() => openParticipantEditor(raffleStatus === 'completed' ? 'completed' : 'ready', 'paste')}>명단 교체 · 비우기</button>
+          <button className="panel-wide-button panel-wide-button--soft" type="button" disabled={isStageLocked} onClick={() => openParticipantEditor(raffleStatus === 'completed' ? 'completed' : 'ready')}>명단 교체 · 비우기</button>
         </section>
       )}
 
