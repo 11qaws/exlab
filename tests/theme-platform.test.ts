@@ -10,6 +10,7 @@ import {
   streamerThemeCssVariables,
 } from "../app/_platform/theme/streamerThemes";
 import {
+  streamerThemeCurrentPortraitZoom,
   streamerThemePickerPortraitOffsetY,
 } from "../app/_platform/theme/streamerThemePresentation";
 
@@ -98,6 +99,22 @@ test("only the wide theme picker lowers Eureka and Sena portraits", () => {
     STREAMER_THEMES.map(({ portrait }) => portrait.offsetY),
     [0, 0, 0, 0, 0],
     "compact current-theme avatars must keep the canonical crop",
+  );
+});
+
+test("only compact current avatars shrink Amoretto and Mangjing portraits", () => {
+  const currentZooms = STREAMER_THEMES.map((theme) => (
+    streamerThemeCurrentPortraitZoom(theme)
+  ));
+  const canonicalZooms = STREAMER_THEMES.map(
+    ({ portrait }) => portrait.zoom,
+  );
+
+  assert.deepEqual(currentZooms, [1.935, 1.15, 1.15, 1.8, 3.15]);
+  assert.deepEqual(
+    canonicalZooms,
+    [2.15, 1.15, 1.15, 1.8, 3.5],
+    "theme picker portraits must keep their canonical zoom",
   );
 });
 

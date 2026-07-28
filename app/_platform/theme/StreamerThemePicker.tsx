@@ -15,7 +15,10 @@ import {
   type StreamerThemeCssVariables,
   type StreamerThemeId,
 } from "./streamerThemes";
-import { streamerThemePickerPortraitOffsetY } from "./streamerThemePresentation";
+import {
+  streamerThemeCurrentPortraitZoom,
+  streamerThemePickerPortraitOffsetY,
+} from "./streamerThemePresentation";
 import "./streamer-theme-picker.css";
 
 export interface StreamerThemePickerProps {
@@ -98,7 +101,9 @@ export function StreamerThemeCurrent({
     ...streamerThemeCssVariables(theme, colorMode),
     "--exlab-portrait-focus": theme.portrait.focus,
     "--exlab-portrait-offset-y": `${theme.portrait.offsetY}px`,
-    "--exlab-portrait-zoom": String(theme.portrait.zoom),
+    "--exlab-portrait-zoom": String(
+      streamerThemeCurrentPortraitZoom(theme),
+    ),
   };
 
   return (
