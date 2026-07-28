@@ -4,6 +4,7 @@ import {
 } from "./streamerThemes";
 
 export const THEME_CONFIRM_TRANSITION_MS = 420;
+export const THEME_CONFIRM_BLINK_MS = 500;
 export const THEME_CONFIRM_HOLD_MS = 2_000;
 
 export type ThemeSelectionPhase =

@@ -235,17 +235,21 @@
   transition: opacity 420ms ease, filter 420ms ease;
 }
 
-.roulette-wheel__label--palette-main {
+.roulette-wheel__label--tone-accent {
   fill: var(--exlab-on-accent, var(--ink, #251c32));
 }
 
-.roulette-wheel__label--palette-light {
+.roulette-wheel__label--tone-ink {
   fill: var(--exlab-text, var(--ink, #251c32));
 }
 
-.roulette-wheel__label--palette-dark {
+.roulette-wheel__label--tone-stage {
   fill: var(--exlab-stage-text, #fff);
-  stroke: var(--roulette-palette-dark, #8f3655);
+  stroke: color-mix(
+    in srgb,
+    var(--exlab-text, var(--ink, #251c32)) 78%,
+    transparent
+  );
 }
 
 .roulette-wheel.is-idle-spinning .roulette-wheel__label,

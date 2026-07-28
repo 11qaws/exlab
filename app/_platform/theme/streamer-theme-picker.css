@@ -71,7 +71,9 @@
   transition:
     border-color 160ms ease-out,
     box-shadow 180ms ease-out,
-    block-size 420ms cubic-bezier(0.22, 1, 0.36, 1);
+    block-size
+      var(--exlab-theme-confirm-transition-duration, 420ms)
+      cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .exlab-theme-card-radio:checked + .exlab-theme-card {
@@ -339,6 +341,12 @@
   .exlab-theme-card-option,
   .exlab-streamer-theme-list {
     transition-duration: 0.01ms;
+  }
+
+  .exlab-theme-welcome.is-confirming
+    .exlab-theme-card-option.is-selected
+    .exlab-theme-card {
+    animation: none !important;
   }
 
   .exlab-streamer-theme-picker:not(.is-disabled):not(.is-confirming)

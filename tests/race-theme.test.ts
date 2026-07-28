@@ -118,3 +118,31 @@ test("Showdown walls keep one streamer triad role visible in both map modes", ()
     );
   }
 });
+
+test("Torori dark stays saturated, readable, and darker than the elastic wall", () => {
+  const torori = STREAMER_THEMES.find((streamer) => streamer.id === "torori");
+  assert.ok(torori);
+
+  const tororiDark = torori.palette.dark;
+  const elasticWall = RACE_OBSTACLE_ROLE_COLORS["elastic-wall"].value;
+
+  assert.equal(tororiDark, "#176188");
+  assert.equal(torori.palette.main, "#4baedc");
+  assert.equal(elasticWall, "#4ea9f0");
+  assert.ok(
+    relativeLuminance(tororiDark) < relativeLuminance(elasticWall),
+    "Torori structure must remain darker than the elastic-wall role",
+  );
+  assert.ok(
+    contrastRatio("#ffffff", tororiDark) >= 6.5,
+    "Torori dark must support small white labels",
+  );
+  assert.ok(
+    contrastRatio(tororiDark, RACE_MAP_THEMES.light.track) >= 6.5,
+    "Torori dark must remain clear against the light track",
+  );
+  assert.ok(
+    contrastRatio(tororiDark, torori.palette.main) >= 2.5,
+    "Torori dark and main roles must remain visually distinct",
+  );
+});

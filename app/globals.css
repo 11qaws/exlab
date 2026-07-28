@@ -479,7 +479,9 @@ body {
   inline-size: min(100%, 640px);
   margin-inline: auto;
   min-block-size: 100%;
-  transition: gap 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: gap
+    var(--exlab-theme-confirm-transition-duration, 420ms)
+    cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .exlab-onboarding-theme-picker .exlab-theme-card-option {
@@ -512,6 +514,27 @@ body {
     inset 0 0 0 1px var(--exlab-accent),
     0 18px 42px
       color-mix(in srgb, var(--exlab-accent) 28%, transparent);
+  animation:
+    exlab-theme-confirm-double-blink
+    var(--exlab-theme-confirm-blink-duration, 500ms)
+    ease-in-out
+    var(--exlab-theme-confirm-transition-duration, 420ms)
+    both;
+}
+
+@keyframes exlab-theme-confirm-double-blink {
+  0%,
+  25%,
+  50%,
+  75%,
+  100% {
+    opacity: 1;
+  }
+
+  12.5%,
+  62.5% {
+    opacity: 0.44;
+  }
 }
 
 .exlab-theme-welcome > footer {

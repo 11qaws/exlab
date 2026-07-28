@@ -32,7 +32,7 @@ export const STREAMER_COLOR_PALETTES = {
     light: "#bdacbb",
   },
   torori: {
-    dark: "#355d8a",
+    dark: "#176188",
     main: "#4baedc",
     light: "#d6f1fb",
   },

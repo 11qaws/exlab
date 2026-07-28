@@ -16,13 +16,11 @@ function equalSliceLabelRadius(participantCount: number) {
     : baseRadius;
 }
 
-test("221px compact Roulette keeps every common roster size identifiable", () => {
+test("221px compact Roulette keeps short names readable without number placeholders", () => {
   for (const participantCount of [2, 5, 10, 32]) {
-    const participantIndex = participantCount - 1;
     const decision = resolveWheelSliceLabel({
-      participant: "아주 긴 참가자 이름",
+      participant: "레또",
       participantCount,
-      participantIndex,
       sliceAngle: 360 / participantCount,
       labelRadius: equalSliceLabelRadius(participantCount),
       wheelDiameter: 221,
@@ -30,11 +28,36 @@ test("221px compact Roulette keeps every common roster size identifiable", () =>
       viewBoxDiameter: 600,
     });
 
-    assert.equal(decision.kind, "number");
-    assert.equal(decision.text, String(participantIndex + 1));
+    assert.equal(decision.kind, "name");
+    assert.equal(decision.text, "레또");
     assert.ok(
-      decision.fontSizeInViewBox * (221 / 600) >= 9,
-      `${participantCount} slices should keep a readable rendered number`,
+      decision.fontSizeInViewBox * (221 / 600) >= 10,
+      `${participantCount} slices should keep a readable rendered name`,
+    );
+  }
+});
+
+test("compact Roulette hides or truncates long names instead of inventing ordinals", () => {
+  for (const participantCount of [2, 5, 10, 32]) {
+    const decision = resolveWheelSliceLabel({
+      participant: "아주 긴 참가자 이름",
+      participantCount,
+      sliceAngle: 360 / participantCount,
+      labelRadius: equalSliceLabelRadius(participantCount),
+      wheelDiameter: 221,
+      wheelRadius: WHEEL_RADIUS,
+      viewBoxDiameter: 600,
+    });
+
+    assert.notEqual(
+      (decision as { kind: string }).kind,
+      "number",
+      `${participantCount} slices must never fall back to a numeric label`,
+    );
+    assert.notEqual(decision.text, String(participantCount));
+    assert.ok(
+      decision.kind === "hidden" || decision.text.includes("아"),
+      `${participantCount} slices should preserve the supplied name when visible`,
     );
   }
 });
@@ -43,7 +66,6 @@ test("large Roulette wheels keep readable participant names", () => {
   const decision = resolveWheelSliceLabel({
     participant: "레또",
     participantCount: 5,
-    participantIndex: 0,
     sliceAngle: 72,
     labelRadius: 178,
     wheelDiameter: 600,
@@ -63,11 +85,10 @@ test("wheel name compaction never splits emoji graphemes", () => {
   );
 });
 
-test("an impossibly dense compact wheel delegates identity to the numbered roster", () => {
+test("an impossibly dense compact wheel hides its label cleanly", () => {
   const decision = resolveWheelSliceLabel({
     participant: "후보",
     participantCount: 320,
-    participantIndex: 319,
     sliceAngle: 360 / 320,
     labelRadius: 240,
     wheelDiameter: 221,

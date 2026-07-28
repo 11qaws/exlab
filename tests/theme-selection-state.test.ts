@@ -1,10 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  THEME_CONFIRM_BLINK_MS,
+  THEME_CONFIRM_HOLD_MS,
+  THEME_CONFIRM_TRANSITION_MS,
   createThemeSelectionState,
   effectiveStreamerThemeId,
   themeSelectionReducer,
 } from "../app/_platform/theme/themeSelectionState";
+
+test("the double blink fits inside the existing post-center hold", () => {
+  assert.equal(THEME_CONFIRM_TRANSITION_MS, 420);
+  assert.equal(THEME_CONFIRM_BLINK_MS, 500);
+  assert.equal(THEME_CONFIRM_HOLD_MS, 2_000);
+  assert.ok(THEME_CONFIRM_BLINK_MS <= THEME_CONFIRM_HOLD_MS);
+});
 
 test("a required first visit opens with the stored theme as its draft", () => {
   const state = themeSelectionReducer(

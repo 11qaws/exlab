@@ -104,7 +104,7 @@ test("streamer palettes expose one image-derived dark, main, and light triad", (
       light: "#bdacbb",
     },
     torori: {
-      dark: "#355d8a",
+      dark: "#176188",
       main: "#4baedc",
       light: "#d6f1fb",
     },
@@ -365,10 +365,17 @@ test("the shell previews draft themes and commits only after confirmation", asyn
 });
 
 test("the first visit reuses profile cards and Showdown consumes stage tokens", async () => {
-  const [appSource, showdownCss] = await Promise.all([
+  const [appSource, showdownCss, pickerCss] = await Promise.all([
     readFile(new URL("../app/ExlabApp.tsx", import.meta.url), "utf8"),
     readFile(
       new URL("../app/marble/showdown-game.css", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/_platform/theme/streamer-theme-picker.css",
+        import.meta.url,
+      ),
       "utf8",
     ),
   ]);
@@ -419,6 +426,38 @@ test("the first visit reuses profile cards and Showdown consumes stage tokens", 
   assert.match(
     appSource,
     /THEME_CONFIRM_TRANSITION_MS[\s\S]*?\+\s*THEME_CONFIRM_HOLD_MS/,
+  );
+  assert.match(
+    appSource,
+    /"--exlab-theme-confirm-blink-duration":\s*`\$\{THEME_CONFIRM_BLINK_MS\}ms`/,
+  );
+  assert.match(
+    appSource,
+    /"--exlab-theme-confirm-transition-duration":\s*`\$\{THEME_CONFIRM_TRANSITION_MS\}ms`/,
+  );
+  assert.match(
+    globalsSource,
+    /\.exlab-theme-welcome\.is-confirming[\s\S]*?\.exlab-theme-card-option\.is-selected[\s\S]*?\.exlab-theme-card\s*\{[\s\S]*?animation:\s*exlab-theme-confirm-double-blink[\s\S]*?var\(--exlab-theme-confirm-blink-duration,\s*500ms\)[\s\S]*?var\(--exlab-theme-confirm-transition-duration,\s*420ms\)[\s\S]*?both;/,
+  );
+  const blinkKeyframes = globalsSource.slice(
+    globalsSource.indexOf("@keyframes exlab-theme-confirm-double-blink"),
+    globalsSource.indexOf(
+      ".exlab-theme-welcome > footer",
+      globalsSource.indexOf("@keyframes exlab-theme-confirm-double-blink"),
+    ),
+  );
+  assert.ok(blinkKeyframes.length > 0);
+  assert.match(
+    blinkKeyframes,
+    /0%,\s*25%,\s*50%,\s*75%,\s*100%\s*\{\s*opacity:\s*1;/,
+  );
+  const opacityTroughs = blinkKeyframes.match(
+    /([\d.]+)%,\s*([\d.]+)%\s*\{\s*opacity:\s*0\.44;/,
+  );
+  assert.deepEqual(opacityTroughs?.slice(1), ["12.5", "62.5"]);
+  assert.match(
+    pickerCss,
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.exlab-theme-welcome\.is-confirming[\s\S]*?\.exlab-theme-card-option\.is-selected[\s\S]*?\.exlab-theme-card\s*\{[\s\S]*?animation:\s*none !important;/,
   );
   assert.match(
     appSource,

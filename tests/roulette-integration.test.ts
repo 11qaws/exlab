@@ -27,6 +27,7 @@ import {
   getRouletteSliceIndexAtScreenAngle,
 } from "../app/games/roulette/lib/roulette";
 import { derivePreparationReadiness } from "../app/games/roulette/lib/preparation";
+import { ROULETTE_WHEEL_PALETTE } from "../app/games/roulette/lib/wheelPalette";
 import { readFile } from "node:fs/promises";
 
 const ALLOWED_TRANSITIONS: Record<
@@ -122,6 +123,30 @@ test("Roulette result is derived from the committed physical stop", () => {
   assert.equal(
     buildCommittedSpinRouletteFinishPlan(commit, 3, [1, 3, 1]),
     null,
+  );
+});
+
+test("Roulette wheel interleaves the streamer triad with five game colours", () => {
+  assert.deepEqual(
+    ROULETTE_WHEEL_PALETTE.map(({ key }) => key),
+    [
+      "theme-main",
+      "lemon",
+      "theme-dark",
+      "mint",
+      "theme-light",
+      "sky",
+      "lavender",
+      "orange",
+    ],
+  );
+  assert.equal(
+    new Set(ROULETTE_WHEEL_PALETTE.map(({ color }) => color)).size,
+    8,
+  );
+  assert.deepEqual(
+    ROULETTE_WHEEL_PALETTE.map(({ labelTone }) => labelTone),
+    ["accent", "ink", "stage", "ink", "ink", "ink", "stage", "ink"],
   );
 });
 
@@ -306,7 +331,15 @@ test("Roulette preserves paused progress and replays without entering persistenc
 });
 
 test("completed Roulette prioritizes another draw and keeps the wheel grid stable", async () => {
-  const [source, wheelSource, wheelCss, gameCss, embedCss, winnersCss] =
+  const [
+    source,
+    wheelSource,
+    wheelCss,
+    gameCss,
+    skinCss,
+    embedCss,
+    winnersCss,
+  ] =
     await Promise.all([
       readFile(
         new URL("../app/games/roulette/RouletteGame.tsx", import.meta.url),
@@ -328,6 +361,13 @@ test("completed Roulette prioritizes another draw and keeps the wheel grid stabl
       ),
       readFile(
         new URL("../app/games/roulette/roulette-game.css", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/games/roulette/styles/roulette-skin.css",
+          import.meta.url,
+        ),
         "utf8",
       ),
       readFile(
@@ -392,13 +432,22 @@ test("completed Roulette prioritizes another draw and keeps the wheel grid stabl
     gameCss,
     /\.broadcast-focus__visual\.is-round-complete[\s\S]{0,180}max-height:/,
   );
-  assert.match(wheelSource, /--roulette-palette-dark/);
-  assert.match(wheelSource, /--roulette-palette-main/);
-  assert.match(wheelSource, /--roulette-palette-light/);
+  assert.match(wheelSource, /ROULETTE_WHEEL_PALETTE/);
+  assert.match(wheelSource, /roulette-wheel__label--tone-\$\{slice\.labelTone\}/);
   assert.match(
     wheelCss,
-    /\.roulette-wheel__label--palette-dark[\s\S]*?stroke:/,
-    "adjacent triad slices retain a neutral/structural label separator",
+    /\.roulette-wheel__label--tone-stage[\s\S]*?stroke:/,
+    "dark slices retain a structural label separator",
+  );
+  assert.match(
+    skinCss,
+    /\.roulette-wheel__label,[\s\S]*?\.roulette-wheel__label--tone-accent[\s\S]*?fill:\s*#251c32[\s\S]*?\.roulette-wheel__label--tone-ink[\s\S]*?fill:\s*#251c32[\s\S]*?\.roulette-wheel__label--tone-stage[\s\S]*?fill:\s*#fff/,
+    "standalone tone rules must follow and override the generic label rule",
+  );
+  assert.match(
+    embedCss,
+    /:is\(\.roulette-wheel__label,\s*\.roulette-wheel__empty-copy\)[\s\S]*?\.roulette-wheel__label--tone-accent[\s\S]*?fill:\s*var\(--exlab-on-accent,\s*#251c32\)[\s\S]*?\.roulette-wheel__label--tone-ink[\s\S]*?fill:\s*#251c32[\s\S]*?\.roulette-wheel__label--tone-stage[\s\S]*?fill:\s*#fff/,
+    "embedded tone rules must follow and override the generic label rule",
   );
 });
 
@@ -529,13 +578,26 @@ test("compact Roulette and Dart reserve screen space for boundary names", async 
 });
 
 test("compact Roulette proof, camera, and live focus stay connected", async () => {
-  const [wheelSource, finishSource, gameSource, cinematicCss] = await Promise.all([
+  const [
+    wheelSource,
+    finishSource,
+    labelSource,
+    gameSource,
+    cinematicCss,
+  ] = await Promise.all([
     readFile(
       new URL("../app/games/roulette/components/RouletteWheel.tsx", import.meta.url),
       "utf8",
     ),
     readFile(
       new URL("../app/games/roulette/components/DartFinish.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/games/roulette/lib/wheelLabelReadability.ts",
+        import.meta.url,
+      ),
       "utf8",
     ),
     readFile(
@@ -548,12 +610,17 @@ test("compact Roulette proof, camera, and live focus stay connected", async () =
     ),
   ]);
 
-  assert.match(wheelSource, /leftNumber=\{boundaryLeftIndex \+ 1\}/);
   assert.match(wheelSource, /aria-live=\{showWinner \? 'off' : 'polite'\}/);
-  assert.match(wheelSource, /rightNumber=\{boundaryRightIndex \+ 1\}/);
-  assert.match(wheelSource, /number=\{winnerIndex \+ 1\}/);
-  assert.match(finishSource, /ProofNickname name=\{leftName\} number=\{leftNumber\}/);
-  assert.match(finishSource, /ProofNickname name=\{rightName\} number=\{rightNumber\}/);
+  assert.doesNotMatch(wheelSource, /leftNumber=\{/);
+  assert.doesNotMatch(wheelSource, /rightNumber=\{/);
+  assert.doesNotMatch(wheelSource, /number=\{winnerIndex \+ 1\}/);
+  assert.doesNotMatch(wheelSource, /labelKind === ['"]number['"]/);
+  assert.doesNotMatch(finishSource, /#\$\{number\}/);
+  assert.doesNotMatch(finishSource, /number\?:\s*number/);
+  assert.match(finishSource, /<ProofNickname name=\{leftName\} \/>/);
+  assert.match(finishSource, /<ProofNickname name=\{rightName\} \/>/);
+  assert.doesNotMatch(labelSource, /['"]number['"]/);
+  assert.doesNotMatch(labelSource, /NUMBER_TARGET_RENDERED_FONT/);
   assert.match(
     cinematicCss,
     /reveal-phase--dart-names-revealed[\s\S]*?transform-origin:\s*var\(--cinematic-final-x, 50%\) 0%/,

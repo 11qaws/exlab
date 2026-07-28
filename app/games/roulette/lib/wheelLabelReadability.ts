@@ -1,4 +1,4 @@
-export type WheelSliceLabelKind = 'name' | 'number' | 'hidden';
+export type WheelSliceLabelKind = 'name' | 'hidden';
 
 export interface WheelSliceLabelDecision {
   kind: WheelSliceLabelKind;
@@ -9,7 +9,6 @@ export interface WheelSliceLabelDecision {
 export interface WheelSliceLabelInput {
   participant: string;
   participantCount: number;
-  participantIndex: number;
   sliceAngle: number;
   labelRadius: number;
   wheelDiameter: number | null;
@@ -21,7 +20,6 @@ const DEFAULT_WHEEL_RADIUS = 304;
 const DEFAULT_VIEWBOX_DIAMETER = 600;
 const MIN_COMPACT_RENDERED_FONT = 10;
 const MIN_REGULAR_RENDERED_FONT = 9;
-const NUMBER_TARGET_RENDERED_FONT = 10.5;
 
 function labelGraphemes(value: string) {
   if (typeof Intl.Segmenter === 'function') {
@@ -83,7 +81,6 @@ function hasEnoughSpace({
 export function resolveWheelSliceLabel({
   participant,
   participantCount,
-  participantIndex,
   sliceAngle,
   labelRadius,
   wheelDiameter,
@@ -95,7 +92,6 @@ export function resolveWheelSliceLabel({
   }
 
   const name = compactWheelName(participant, participantCount);
-  const number = String(participantIndex + 1);
   const baseNameFont = Math.max(10, Math.min(20, 170 / participantCount));
 
   if (wheelDiameter !== null && wheelDiameter > 0) {
@@ -103,33 +99,26 @@ export function resolveWheelSliceLabel({
     const minimumRenderedFont = wheelDiameter < 380
       ? MIN_COMPACT_RENDERED_FONT
       : MIN_REGULAR_RENDERED_FONT;
+    const readableNameFont = Math.min(
+      34,
+      Math.max(baseNameFont, minimumRenderedFont / scale),
+    );
     if (
-      baseNameFont * scale >= minimumRenderedFont
+      readableNameFont * scale >= minimumRenderedFont
       && hasEnoughSpace({
         label: name,
-        fontSizeInViewBox: baseNameFont,
+        fontSizeInViewBox: readableNameFont,
         labelRadius,
         scale,
         sliceAngle,
         wheelRadius,
       })
     ) {
-      return { kind: 'name', text: name, fontSizeInViewBox: baseNameFont };
-    }
-
-    const numberFont = Math.min(34, Math.max(18, NUMBER_TARGET_RENDERED_FONT / scale));
-    if (
-      numberFont * scale >= MIN_REGULAR_RENDERED_FONT
-      && hasEnoughSpace({
-        label: number,
-        fontSizeInViewBox: numberFont,
-        labelRadius,
-        scale,
-        sliceAngle,
-        wheelRadius,
-      })
-    ) {
-      return { kind: 'number', text: number, fontSizeInViewBox: numberFont };
+      return {
+        kind: 'name',
+        text: name,
+        fontSizeInViewBox: readableNameFont,
+      };
     }
 
     return { kind: 'hidden', text: '', fontSizeInViewBox: 0 };
@@ -146,5 +135,5 @@ export function resolveWheelSliceLabel({
     return { kind: 'name', text: name, fontSizeInViewBox: baseNameFont };
   }
 
-  return { kind: 'number', text: number, fontSizeInViewBox: 20 };
+  return { kind: 'hidden', text: '', fontSizeInViewBox: 0 };
 }

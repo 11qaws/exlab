@@ -128,6 +128,19 @@
     );
   }
 
+  :scope.is-embedded .roulette-wheel__label--tone-accent {
+    fill: var(--exlab-on-accent, #251c32);
+  }
+
+  :scope.is-embedded .roulette-wheel__label--tone-ink {
+    fill: #251c32;
+  }
+
+  :scope.is-embedded .roulette-wheel__label--tone-stage {
+    fill: #fff;
+    stroke: color-mix(in srgb, #251c32 78%, transparent);
+  }
+
   :scope.is-embedded .roulette-wheel__hub {
     border-color: var(--exlab-accent);
     background: var(--exlab-accent-bg);

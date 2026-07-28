@@ -37,6 +37,7 @@ import {
   type SpinPhysicalCommit,
   type SpinSelectionGeometry,
 } from '../lib/roulette';
+import { ROULETTE_WHEEL_PALETTE } from '../lib/wheelPalette';
 import { resolveWheelSliceLabel } from '../lib/wheelLabelReadability';
 import type { WheelPresentation } from '../types';
 import './RouletteWheel.css';
@@ -129,23 +130,6 @@ export interface RouletteRevealEvent {
   at: number;
   metadata: RouletteRevealMetadata;
 }
-
-const WHEEL_COLORS = [
-  'var(--roulette-palette-main, #e84f83)',
-  'var(--roulette-palette-light, #f6c8d8)',
-  'var(--roulette-palette-dark, #8f3655)',
-  'var(--roulette-palette-light, #f6c8d8)',
-  'var(--roulette-palette-main, #e84f83)',
-  'var(--roulette-palette-dark, #8f3655)',
-];
-const WHEEL_PALETTE_ROLES = [
-  'main',
-  'light',
-  'dark',
-  'light',
-  'main',
-  'dark',
-] as const;
 
 const VIEWBOX_CENTER = 300;
 const WHEEL_RADIUS = VIEWBOX_CENTER + 4;
@@ -743,21 +727,23 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
       const labelDecision = resolveWheelSliceLabel({
         participant,
         participantCount,
-        participantIndex: index,
         sliceAngle,
         labelRadius,
         wheelDiameter,
         wheelRadius: WHEEL_RADIUS,
         viewBoxDiameter: VIEWBOX_CENTER * 2,
       });
+      const palette =
+        ROULETTE_WHEEL_PALETTE[
+          index % ROULETTE_WHEEL_PALETTE.length
+        ];
 
       return {
         participant,
         index,
         path: makeSlicePath(geometry.startAngle, geometry.endAngle),
-        color: WHEEL_COLORS[index % WHEEL_COLORS.length],
-        paletteRole:
-          WHEEL_PALETTE_ROLES[index % WHEEL_PALETTE_ROLES.length],
+        color: palette.color,
+        labelTone: palette.labelTone,
         label: labelDecision.text,
         labelKind: labelDecision.kind,
         labelFontSize: labelDecision.fontSizeInViewBox,
@@ -1493,14 +1479,14 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
               </title>
               <desc id={wheelDescriptionId}>
                 {participantCount > 0
-                  ? `${itemNoun} ${participantCount}${countUnit}. 조각에는 공간에 따라 이름 또는 후보 명단과 같은 번호가 표시됩니다.`
+                  ? `${itemNoun} ${participantCount}${countUnit}. 공간이 충분한 조각에는 이름이 표시됩니다.`
                   : `${itemNoun}을 기다리는 빈 룰렛`}
               </desc>
 
               <g transform={`translate(${VIEWBOX_CENTER} ${VIEWBOX_CENTER})`}>
                 {slices.map((slice) => (
                   <g key={`${slice.index}-${slice.participant}`}>
-                    <title>{`${slice.index + 1}번 ${slice.participant.trim() || '이름 없음'}`}</title>
+                    <title>{slice.participant.trim() || '이름 없음'}</title>
                     {slice.path && (
                       <path
                         className={`roulette-wheel__slice${
@@ -1520,10 +1506,9 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
                     )}
                     {slice.showLabel && (
                       <text
-                        className={`roulette-wheel__label roulette-wheel__label--${slice.labelKind} roulette-wheel__label--palette-${slice.paletteRole}`}
+                        className={`roulette-wheel__label roulette-wheel__label--${slice.labelKind} roulette-wheel__label--tone-${slice.labelTone}`}
                         style={{
                           fontSize: `${slice.labelFontSize}px`,
-                          fontWeight: slice.labelKind === 'number' ? 800 : undefined,
                         }}
                         transform={slice.labelTransform}
                         textAnchor="middle"
@@ -1570,10 +1555,14 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
             <BoundaryNames
               leftName={participants[boundaryLeftIndex]}
               rightName={participants[boundaryRightIndex]}
-              leftNumber={boundaryLeftIndex + 1}
-              rightNumber={boundaryRightIndex + 1}
-              leftColor={slices[boundaryLeftIndex]?.color ?? WHEEL_COLORS[0]}
-              rightColor={slices[boundaryRightIndex]?.color ?? WHEEL_COLORS[1]}
+              leftColor={
+                slices[boundaryLeftIndex]?.color ??
+                ROULETTE_WHEEL_PALETTE[0].color
+              }
+              rightColor={
+                slices[boundaryRightIndex]?.color ??
+                ROULETTE_WHEEL_PALETTE[1].color
+              }
               visible={showBoundaryNames}
               namesVisible={!isDartPresentation || dartNamesRevealed}
               mode={isDartPresentation ? 'dart' : 'spin'}
@@ -1584,8 +1573,10 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
           {showWinnerNameplate && winnerIndex !== null && (
             <WinnerNameplate
               name={participants[winnerIndex]}
-              number={winnerIndex + 1}
-              color={slices[winnerIndex]?.color ?? WHEEL_COLORS[0]}
+              color={
+                slices[winnerIndex]?.color ??
+                ROULETTE_WHEEL_PALETTE[0].color
+              }
               visible={showWinnerNameplate}
               mode={isDartPresentation ? 'dart' : 'spin'}
             />

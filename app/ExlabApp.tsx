@@ -9,6 +9,7 @@ import {
   useReducer,
   useRef,
   useState,
+  type CSSProperties,
   type ClipboardEvent,
   type ChangeEvent,
 } from "react";
@@ -33,6 +34,7 @@ import {
 import { validateSharedRosterDraft } from "./_platform/roster";
 import {
   DEFAULT_STREAMER_THEME_ID,
+  THEME_CONFIRM_BLINK_MS,
   THEME_CONFIRM_HOLD_MS,
   THEME_CONFIRM_TRANSITION_MS,
   createThemeSelectionState,
@@ -92,6 +94,11 @@ type StreamerThemeWelcomeProps = {
   onCancel?: () => void;
 };
 
+type StreamerThemeWelcomeStyle = CSSProperties & {
+  "--exlab-theme-confirm-blink-duration": string;
+  "--exlab-theme-confirm-transition-duration": string;
+};
+
 function StreamerThemeWelcome({
   value,
   onChange,
@@ -110,6 +117,12 @@ function StreamerThemeWelcome({
   });
   const selectedTheme = getStreamerTheme(value);
   const confirming = phase === "confirming";
+  const timingStyle: StreamerThemeWelcomeStyle = {
+    "--exlab-theme-confirm-blink-duration":
+      `${THEME_CONFIRM_BLINK_MS}ms`,
+    "--exlab-theme-confirm-transition-duration":
+      `${THEME_CONFIRM_TRANSITION_MS}ms`,
+  };
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -236,6 +249,7 @@ function StreamerThemeWelcome({
         className={`exlab-theme-welcome${
           confirming ? " is-confirming" : ""
         }`}
+        style={timingStyle}
         data-phase={phase}
         role="dialog"
         aria-modal="true"

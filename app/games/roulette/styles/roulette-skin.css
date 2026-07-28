@@ -40,6 +40,19 @@
   font-weight: 400;
 }
 
+.roulette-wheel__label--tone-accent {
+  fill: #251c32;
+}
+
+.roulette-wheel__label--tone-ink {
+  fill: #251c32;
+}
+
+.roulette-wheel__label--tone-stage {
+  fill: #fff;
+  stroke: color-mix(in srgb, #251c32 78%, transparent);
+}
+
 .roulette-wheel__hub {
   border-color: var(--hot-pink);
   background: var(--cream);
