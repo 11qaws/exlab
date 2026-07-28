@@ -28,3 +28,14 @@ export {
   type StreamerThemeCurrentProps,
   type StreamerThemePickerProps,
 } from "./StreamerThemePicker";
+
+export {
+  THEME_CONFIRM_HOLD_MS,
+  THEME_CONFIRM_TRANSITION_MS,
+  createThemeSelectionState,
+  effectiveStreamerThemeId,
+  themeSelectionReducer,
+  type ThemeSelectionEvent,
+  type ThemeSelectionPhase,
+  type ThemeSelectionState,
+} from "./themeSelectionState";

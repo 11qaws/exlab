@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type ClipboardEvent,
@@ -32,10 +33,16 @@ import {
 import { validateSharedRosterDraft } from "./_platform/roster";
 import {
   DEFAULT_STREAMER_THEME_ID,
+  THEME_CONFIRM_HOLD_MS,
+  THEME_CONFIRM_TRANSITION_MS,
+  createThemeSelectionState,
+  effectiveStreamerThemeId,
   getStreamerTheme,
   StreamerThemeCurrent,
   StreamerThemePicker,
   streamerThemeCssVariables,
+  themeSelectionReducer,
+  type ThemeSelectionPhase,
   type StreamerThemeId,
 } from "./_platform/theme";
 
@@ -61,6 +68,9 @@ type StreamerThemeWelcomeProps = {
   value: StreamerThemeId;
   onChange: (themeId: StreamerThemeId) => void;
   onConfirm: () => void;
+  onConfirmationComplete: (token: number) => void;
+  phase: Exclude<ThemeSelectionPhase, "closed">;
+  confirmationToken: number;
   required: boolean;
   onCancel?: () => void;
 };
@@ -69,22 +79,35 @@ function StreamerThemeWelcome({
   value,
   onChange,
   onConfirm,
+  onConfirmationComplete,
+  phase,
+  confirmationToken,
   required,
   onCancel,
 }: StreamerThemeWelcomeProps) {
   const dialogRef = useRef<HTMLElement>(null);
+  const confirmationStartedRef = useRef(false);
+  const [pickerScrollEdges, setPickerScrollEdges] = useState({
+    up: false,
+    down: false,
+  });
   const selectedTheme = getStreamerTheme(value);
+  const confirming = phase === "confirming";
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    dialogRef.current
-      ?.querySelector<HTMLInputElement>('input[type="radio"]:checked')
-      ?.focus();
+    if (!confirming) {
+      dialogRef.current
+        ?.querySelector<HTMLInputElement>(
+          'input[type="radio"]:checked:not(:disabled)',
+        )
+        ?.focus();
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (required) {
+        if (required || confirming) {
           event.preventDefault();
         } else {
           onCancel?.();
@@ -94,7 +117,7 @@ function StreamerThemeWelcome({
       if (event.key !== "Tab") return;
       const focusable = Array.from(
         dialogRef.current?.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+          'button:not(:disabled):not([tabindex="-1"]), input[type="radio"]:checked:not(:disabled), [tabindex]:not([tabindex="-1"])',
         ) ?? [],
       );
       if (focusable.length === 0) return;
@@ -114,14 +137,89 @@ function StreamerThemeWelcome({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onCancel, required]);
+  }, [confirming, onCancel, required]);
+
+  useEffect(() => {
+    if (!confirming) {
+      confirmationStartedRef.current = false;
+      return;
+    }
+
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const closeDelay =
+      (reduceMotion ? 0 : THEME_CONFIRM_TRANSITION_MS)
+      + THEME_CONFIRM_HOLD_MS;
+    const timer = window.setTimeout(
+      () => onConfirmationComplete(confirmationToken),
+      closeDelay,
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [
+    confirmationToken,
+    confirming,
+    onConfirmationComplete,
+  ]);
+
+  useEffect(() => {
+    const picker =
+      dialogRef.current?.querySelector<HTMLElement>(
+        ".exlab-onboarding-theme-picker",
+      );
+    if (!picker) return;
+
+    const updateScrollEdges = () => {
+      const next = {
+        up: picker.scrollTop > 2,
+        down:
+          picker.scrollTop + picker.clientHeight
+          < picker.scrollHeight - 2,
+      };
+      setPickerScrollEdges((current) =>
+        current.up === next.up && current.down === next.down
+          ? current
+          : next,
+      );
+    };
+
+    updateScrollEdges();
+    picker.addEventListener("scroll", updateScrollEdges, {
+      passive: true,
+    });
+    const resizeObserver = new ResizeObserver(updateScrollEdges);
+    resizeObserver.observe(picker);
+    const list = picker.querySelector(".exlab-streamer-theme-list");
+    if (list) resizeObserver.observe(list);
+
+    return () => {
+      picker.removeEventListener("scroll", updateScrollEdges);
+      resizeObserver.disconnect();
+    };
+  }, [confirming, value]);
+
+  const startConfirmation = () => {
+    if (confirming || confirmationStartedRef.current) return;
+    confirmationStartedRef.current = true;
+    dialogRef.current
+      ?.querySelector<HTMLInputElement>(
+        'input[type="radio"]:checked',
+      )
+      ?.closest<HTMLElement>(".exlab-theme-card-option")
+      ?.scrollIntoView({ behavior: "auto", block: "center" });
+    onConfirm();
+  };
 
   return (
     <div className="exlab-theme-welcome-layer">
       <div className="exlab-theme-welcome-scrim" aria-hidden="true" />
       <section
         ref={dialogRef}
-        className="exlab-theme-welcome"
+        className={`exlab-theme-welcome${
+          confirming ? " is-confirming" : ""
+        }`}
+        data-phase={phase}
         role="dialog"
         aria-modal="true"
         aria-labelledby="exlab-theme-welcome-title"
@@ -141,24 +239,53 @@ function StreamerThemeWelcome({
           </div>
         </header>
 
-        <StreamerThemePicker
-          className="exlab-onboarding-theme-picker"
-          value={value}
-          onChange={onChange}
-          legend="스트리머"
-          description=""
-        />
+        <div
+          className={[
+            "exlab-onboarding-theme-frame",
+            pickerScrollEdges.up ? "can-scroll-up" : "",
+            pickerScrollEdges.down ? "can-scroll-down" : "",
+            confirming ? "is-confirming" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <StreamerThemePicker
+            className="exlab-onboarding-theme-picker"
+            value={value}
+            onChange={onChange}
+            legend="스트리머"
+            description=""
+            disabled={confirming}
+            presentationState={phase}
+          />
+          <span
+            aria-hidden="true"
+            className="exlab-theme-scroll-cue is-top"
+          />
+          <span
+            aria-hidden="true"
+            className="exlab-theme-scroll-cue is-bottom"
+          />
+        </div>
 
         <footer>
-          <span>
-            선택: <strong>{selectedTheme.name}</strong>
+          <span
+            className="exlab-theme-welcome-status"
+            role="status"
+            aria-live="polite"
+          >
+            {confirming
+              ? `${selectedTheme.name} 테마를 적용하고 있습니다.`
+              : ""}
           </span>
           <div className="exlab-theme-welcome-actions">
             {!required && (
               <button
+                aria-disabled={confirming || undefined}
                 className="is-secondary"
                 type="button"
-                onClick={onCancel}
+                onClick={confirming ? undefined : onCancel}
+                tabIndex={confirming ? -1 : undefined}
               >
                 취소
               </button>
@@ -166,9 +293,14 @@ function StreamerThemeWelcome({
             <button
               className="is-primary"
               type="button"
-              onClick={onConfirm}
+              aria-disabled={confirming || undefined}
+              onClick={startConfirmation}
             >
-              {required ? "이 테마로 시작" : "테마 적용"}
+              {confirming
+                ? "테마 적용 중"
+                : required
+                  ? "이 테마로 시작"
+                  : "이 테마로 결정"}
             </button>
           </div>
         </footer>
@@ -420,14 +552,12 @@ export function ExlabApp() {
   const [gameId, setGameId] = useState<GameId>(DEFAULT_GAME_ID);
   const [rosterText, setRosterText] = useState(DEFAULT_SHARED_ROSTER);
   const [allowDuplicateNames, setAllowDuplicateNames] = useState(false);
-  const [streamerThemeId, setStreamerThemeId] =
-    useState<StreamerThemeId>(DEFAULT_STREAMER_THEME_ID);
-  const [streamerThemeDraftId, setStreamerThemeDraftId] =
-    useState<StreamerThemeId>(DEFAULT_STREAMER_THEME_ID);
+  const [themeSelection, dispatchThemeSelection] = useReducer(
+    themeSelectionReducer,
+    undefined,
+    () => createThemeSelectionState(),
+  );
   const [preferencesReady, setPreferencesReady] = useState(false);
-  const [themePickerOpen, setThemePickerOpen] = useState(false);
-  const [themeSelectionRequired, setThemeSelectionRequired] =
-    useState(false);
   const [rosterEditorOpen, setRosterEditorOpen] = useState(false);
   const [visitedGameIds, setVisitedGameIds] = useState<Set<GameId>>(
     () => new Set(),
@@ -438,8 +568,16 @@ export function ExlabApp() {
     roulette: false,
     showdown: false,
   });
+  const streamerThemeDraftId = themeSelection.draftId;
+  const activeStreamerThemeId =
+    effectiveStreamerThemeId(themeSelection);
+  const themePickerOpen = themeSelection.phase !== "closed";
+  const themeSelectionRequired = themeSelection.required;
   const rosterTriggerRef = useRef<HTMLElement | null>(null);
   const themeTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const themeReturnFocusRef = useRef<HTMLElement | null>(null);
+  const themeDialogWasOpenRef = useRef(false);
+  const gameSurfaceRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -451,16 +589,19 @@ export function ExlabApp() {
         setGameId(preferences.gameId);
         setRosterText(preferences.rosterText);
         setAllowDuplicateNames(preferences.allowDuplicateNames);
-        setStreamerThemeId(preferences.streamerThemeId);
-        setStreamerThemeDraftId(preferences.streamerThemeId);
-        setThemeSelectionRequired(!hasThemeChoice);
-        setThemePickerOpen(!hasThemeChoice);
+        dispatchThemeSelection({
+          type: "hydrate",
+          themeId: preferences.streamerThemeId,
+          required: !hasThemeChoice,
+        });
         setVisitedGameIds(new Set([preferences.gameId]));
       } catch {
         setVisitedGameIds(new Set([DEFAULT_GAME_ID]));
-        setStreamerThemeDraftId(DEFAULT_STREAMER_THEME_ID);
-        setThemeSelectionRequired(true);
-        setThemePickerOpen(true);
+        dispatchThemeSelection({
+          type: "hydrate",
+          themeId: DEFAULT_STREAMER_THEME_ID,
+          required: true,
+        });
       } finally {
         setPreferencesReady(true);
       }
@@ -499,15 +640,6 @@ export function ExlabApp() {
     }
   }, [allowDuplicateNames, preferencesReady]);
 
-  useEffect(() => {
-    if (!preferencesReady || themeSelectionRequired) return;
-    try {
-      writeStreamerTheme(window.localStorage, streamerThemeId);
-    } catch {
-      // The selected visual identity still applies for this tab.
-    }
-  }, [preferencesReady, streamerThemeId, themeSelectionRequired]);
-
   const selectedGame = useMemo(() => gameCatalogEntry(gameId), [gameId]);
   const gameActive = activityByGame[gameId];
   const navigationLocked = gameActive || rosterEditorOpen;
@@ -541,12 +673,24 @@ export function ExlabApp() {
   }, [rosterEditorOpen]);
 
   useEffect(() => {
-    if (themePickerOpen) return;
-    const trigger = themeTriggerRef.current;
-    if (!trigger?.isConnected) return;
+    if (themePickerOpen) {
+      themeDialogWasOpenRef.current = true;
+      return;
+    }
+    if (!themeDialogWasOpenRef.current) return;
 
-    trigger.focus();
-    themeTriggerRef.current = null;
+    themeDialogWasOpenRef.current = false;
+    const trigger = themeReturnFocusRef.current;
+    themeReturnFocusRef.current = null;
+    if (
+      trigger?.isConnected
+      && !trigger.matches(":disabled")
+      && !trigger.closest("[inert]")
+    ) {
+      trigger.focus({ preventScroll: true });
+      if (document.activeElement === trigger) return;
+    }
+    gameSurfaceRef.current?.focus({ preventScroll: true });
   }, [themePickerOpen]);
 
   useEffect(() => {
@@ -576,38 +720,40 @@ export function ExlabApp() {
   }, []);
   const openStreamerThemePicker = useCallback(() => {
     if (navigationLocked || !preferencesReady) return;
-    themeTriggerRef.current =
-      document.activeElement instanceof HTMLButtonElement
-        ? document.activeElement
-        : null;
-    setStreamerThemeDraftId(streamerThemeId);
-    setThemeSelectionRequired(false);
-    setThemePickerOpen(true);
-  }, [navigationLocked, preferencesReady, streamerThemeId]);
+    themeReturnFocusRef.current = themeTriggerRef.current;
+    dispatchThemeSelection({ type: "open" });
+  }, [navigationLocked, preferencesReady]);
   const closeStreamerThemePicker = useCallback(() => {
-    if (themeSelectionRequired) return;
-    setStreamerThemeDraftId(streamerThemeId);
-    setThemePickerOpen(false);
-  }, [streamerThemeId, themeSelectionRequired]);
+    dispatchThemeSelection({ type: "cancel" });
+  }, []);
   const confirmStreamerTheme = useCallback(() => {
-    setStreamerThemeId(streamerThemeDraftId);
+    if (themeSelection.phase !== "choosing") return;
+    const confirmedThemeId = themeSelection.draftId;
+    dispatchThemeSelection({ type: "confirm" });
     try {
-      writeStreamerTheme(window.localStorage, streamerThemeDraftId);
+      writeStreamerTheme(window.localStorage, confirmedThemeId);
       writeStreamerThemeChoice(window.localStorage);
     } catch {
       // Keep the confirmed choice for this tab even when storage is blocked.
     }
-    setThemeSelectionRequired(false);
-    setThemePickerOpen(false);
-  }, [streamerThemeDraftId]);
+  }, [themeSelection.draftId, themeSelection.phase]);
+  const completeStreamerThemeConfirmation = useCallback(
+    (token: number) => {
+      dispatchThemeSelection({
+        type: "confirmation-finished",
+        token,
+      });
+    },
+    [],
+  );
 
   const modalOpen = rosterEditorOpen || themePickerOpen;
 
   return (
     <div
       className="exlab-shell"
-      data-streamer-theme={streamerThemeId}
-      style={streamerThemeCssVariables(streamerThemeId, "light")}
+      data-streamer-theme={activeStreamerThemeId}
+      style={streamerThemeCssVariables(activeStreamerThemeId, "light")}
     >
       <header
         className="exlab-header"
@@ -624,7 +770,7 @@ export function ExlabApp() {
               테마
             </span>
             <StreamerThemeCurrent
-              value={streamerThemeId}
+              value={activeStreamerThemeId}
             />
             <button
               ref={themeTriggerRef}
@@ -669,7 +815,9 @@ export function ExlabApp() {
       </header>
 
       <div
+        ref={gameSurfaceRef}
         className="exlab-game-surface"
+        tabIndex={-1}
         aria-label={`${selectedGame.label} 운영 화면`}
         aria-busy={!preferencesReady}
         inert={modalOpen}
@@ -698,7 +846,7 @@ export function ExlabApp() {
                   <GameSurface
                     embedded
                     active={isActiveGame}
-                    streamerThemeId={streamerThemeId}
+                    streamerThemeId={activeStreamerThemeId}
                     rosterText={rosterText}
                     onRosterTextChange={setRosterText}
                     allowDuplicateNames={allowDuplicateNames}
@@ -732,8 +880,17 @@ export function ExlabApp() {
       {preferencesReady && themePickerOpen && (
         <StreamerThemeWelcome
           value={streamerThemeDraftId}
-          onChange={setStreamerThemeDraftId}
+          onChange={(themeId) =>
+            dispatchThemeSelection({ type: "preview", themeId })
+          }
           onConfirm={confirmStreamerTheme}
+          onConfirmationComplete={completeStreamerThemeConfirmation}
+          phase={
+            themeSelection.phase === "closed"
+              ? "choosing"
+              : themeSelection.phase
+          }
+          confirmationToken={themeSelection.confirmationToken}
           required={themeSelectionRequired}
           onCancel={
             themeSelectionRequired

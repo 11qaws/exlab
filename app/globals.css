@@ -240,7 +240,8 @@ body {
   display: flex;
   inset: 0;
   justify-content: center;
-  padding: clamp(14px, 3vw, 32px);
+  overflow: hidden;
+  padding: 12px;
   position: fixed;
   z-index: 600;
 }
@@ -263,13 +264,15 @@ body {
   border-radius: 22px;
   box-shadow: 0 28px 90px
     color-mix(in srgb, var(--exlab-text) 28%, transparent);
+  block-size: min(860px, calc(100svh - 24px));
   color: var(--exlab-text);
   display: grid;
-  gap: 22px;
-  max-height: calc(100svh - clamp(28px, 6vw, 64px));
+  gap: clamp(10px, 1.7vh, 16px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   max-width: 760px;
-  overflow: auto;
-  padding: clamp(20px, 3vw, 34px);
+  min-block-size: 0;
+  overflow: hidden;
+  padding: clamp(14px, 2.2vw, 24px);
   position: relative;
   width: 100%;
 }
@@ -324,17 +327,127 @@ body {
   width: 1px;
 }
 
+.exlab-onboarding-theme-frame {
+  min-block-size: 0;
+  position: relative;
+}
+
+.exlab-onboarding-theme-picker {
+  block-size: 100%;
+  min-block-size: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 8px 24px;
+  scroll-padding-block: 24px;
+  scrollbar-width: none;
+}
+
+.exlab-onboarding-theme-picker::-webkit-scrollbar {
+  display: none;
+}
+
+.exlab-theme-scroll-cue {
+  height: 26px;
+  left: 8px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+  transition: opacity 160ms ease-out;
+  z-index: 8;
+}
+
+.exlab-theme-scroll-cue::after {
+  border-bottom: 2px solid var(--exlab-accent-ink);
+  border-right: 2px solid var(--exlab-accent-ink);
+  content: "";
+  height: 7px;
+  left: calc(50% - 4px);
+  position: absolute;
+  width: 7px;
+}
+
+.exlab-theme-scroll-cue.is-top {
+  background: linear-gradient(
+    to bottom,
+    var(--exlab-background),
+    transparent
+  );
+  top: 0;
+}
+
+.exlab-theme-scroll-cue.is-top::after {
+  top: 5px;
+  transform: rotate(225deg);
+}
+
+.exlab-theme-scroll-cue.is-bottom {
+  background: linear-gradient(
+    to top,
+    var(--exlab-background),
+    transparent
+  );
+  bottom: 0;
+}
+
+.exlab-theme-scroll-cue.is-bottom::after {
+  bottom: 5px;
+  transform: rotate(45deg);
+}
+
+.exlab-onboarding-theme-frame.can-scroll-up
+  .exlab-theme-scroll-cue.is-top,
+.exlab-onboarding-theme-frame.can-scroll-down
+  .exlab-theme-scroll-cue.is-bottom {
+  opacity: 0.9;
+}
+
+.exlab-onboarding-theme-frame.is-confirming
+  .exlab-theme-scroll-cue {
+  opacity: 0;
+}
+
 .exlab-onboarding-theme-picker .exlab-streamer-theme-list {
+  align-content: center;
   gap: 9px;
   grid-template-columns: minmax(0, 1fr);
   inline-size: min(100%, 640px);
   margin-inline: auto;
+  min-block-size: 100%;
+  transition: gap 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.exlab-onboarding-theme-picker .exlab-theme-card-option {
+  block-size: 120px;
 }
 
 .exlab-onboarding-theme-picker .exlab-theme-card {
   aspect-ratio: auto;
   block-size: 120px;
   border-radius: 13px;
+}
+
+.exlab-theme-welcome.is-confirming
+  .exlab-onboarding-theme-picker {
+  overflow: hidden;
+}
+
+.exlab-theme-welcome.is-confirming
+  .exlab-onboarding-theme-picker
+  .exlab-theme-card-option.is-selected {
+  block-size: 160px;
+}
+
+.exlab-theme-welcome.is-confirming
+  .exlab-onboarding-theme-picker
+  .exlab-theme-card-option.is-selected
+  .exlab-theme-card {
+  block-size: 160px;
+  box-shadow:
+    inset 0 0 0 1px var(--exlab-accent),
+    0 18px 42px
+      color-mix(in srgb, var(--exlab-accent) 28%, transparent);
 }
 
 .exlab-theme-welcome > footer {
@@ -346,13 +459,11 @@ body {
   padding-top: 18px;
 }
 
-.exlab-theme-welcome > footer > span {
+.exlab-theme-welcome-status {
   color: var(--exlab-muted);
+  flex: 1;
   font-size: 12px;
-}
-
-.exlab-theme-welcome > footer strong {
-  color: var(--exlab-text);
+  min-width: 0;
 }
 
 .exlab-theme-welcome-actions {
@@ -378,6 +489,11 @@ body {
   background: var(--exlab-surface);
   border: 1px solid var(--exlab-border-strong);
   color: var(--exlab-text);
+}
+
+.exlab-theme-welcome > footer button[aria-disabled="true"] {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .exlab-roster-dialog-scrim {
@@ -734,7 +850,7 @@ body {
   }
 
   .exlab-theme-welcome {
-    gap: 17px;
+    gap: 10px;
   }
 
   .exlab-theme-welcome > header {
@@ -753,14 +869,45 @@ body {
   .exlab-theme-welcome > footer {
     align-items: stretch;
     flex-direction: column;
+    gap: 10px;
   }
 
   .exlab-theme-welcome > footer button {
     flex: 1;
+    padding-inline: 13px;
   }
 
   .exlab-theme-welcome-actions {
     width: 100%;
+  }
+}
+
+@media (max-height: 560px) {
+  .exlab-theme-welcome-layer {
+    padding: 8px;
+  }
+
+  .exlab-theme-welcome {
+    block-size: calc(100svh - 16px);
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .exlab-theme-welcome > header {
+    grid-template-columns: 1fr;
+  }
+
+  .exlab-theme-welcome > header > .exlab-wordmark,
+  .exlab-theme-welcome > header > div > p:last-child {
+    display: none;
+  }
+
+  .exlab-theme-welcome > header h1 {
+    font-size: 20px;
+  }
+
+  .exlab-theme-welcome > footer {
+    padding-top: 8px;
   }
 }
 

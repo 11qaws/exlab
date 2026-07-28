@@ -28,6 +28,7 @@ export interface StreamerThemePickerProps {
   readonly description?: string;
   readonly assetBasePath?: string;
   readonly className?: string;
+  readonly presentationState?: "choosing" | "confirming";
 }
 
 export interface StreamerThemeCurrentProps {
@@ -134,6 +135,7 @@ export function StreamerThemePicker({
   description = "전체 화면에 적용할 테마를 선택합니다.",
   assetBasePath = ".",
   className,
+  presentationState = "choosing",
 }: StreamerThemePickerProps) {
   const generatedId = useId();
   const inputName = name ?? `streamer-theme-${generatedId}`;
@@ -151,6 +153,7 @@ export function StreamerThemePicker({
       className={[
         "exlab-streamer-theme-picker",
         disabled ? "is-disabled" : "",
+        presentationState === "confirming" ? "is-confirming" : "",
         className ?? "",
       ]
         .filter(Boolean)
@@ -175,7 +178,9 @@ export function StreamerThemePicker({
 
           return (
             <label
-              className="exlab-theme-card-option"
+              className={`exlab-theme-card-option${
+                value === theme.id ? " is-selected" : ""
+              }`}
               data-theme-id={theme.id}
               key={theme.id}
               style={cardStyle}
