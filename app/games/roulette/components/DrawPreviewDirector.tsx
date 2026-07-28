@@ -356,9 +356,10 @@ export default function DrawPreviewDirector({
         type="button"
         onClick={() => startCycle(reducedMotion)}
         disabled={moving}
+        aria-busy={moving || undefined}
         aria-label="연출 미리보기 다시 재생"
       >
-        ↻ 다시 보기
+        {moving ? "재생 중…" : "↻ 다시 보기"}
       </button>
     </div>
   );

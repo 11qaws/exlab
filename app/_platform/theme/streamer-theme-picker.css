@@ -112,6 +112,12 @@
   }
 }
 
+.exlab-streamer-theme-picker:not(.is-disabled):not(.is-confirming)
+  .exlab-theme-card-option:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 60ms;
+}
+
 .exlab-theme-card-rail {
   background: linear-gradient(
     170deg,
@@ -333,6 +339,11 @@
   .exlab-theme-card-option,
   .exlab-streamer-theme-list {
     transition-duration: 0.01ms;
+  }
+
+  .exlab-streamer-theme-picker:not(.is-disabled):not(.is-confirming)
+    .exlab-theme-card-option:active {
+    transform: none;
   }
 }
 

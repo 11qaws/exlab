@@ -121,9 +121,14 @@
   backdrop-filter: blur(8px);
 }
 
-.draw-preview-director__replay:hover {
+.draw-preview-director__replay:hover:not(:disabled) {
   border-color: var(--hot-pink);
   color: var(--magenta);
+}
+
+.draw-preview-director__replay:disabled {
+  cursor: wait;
+  opacity: 0.58;
 }
 
 .draw-preview-director.preview-phase--hold .draw-preview-director__viewport {

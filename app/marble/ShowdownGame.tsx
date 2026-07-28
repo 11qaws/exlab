@@ -127,6 +127,7 @@ const PREVIEW_DURATION_MS = 10_000;
 const MAX_PRESENTATION_DELTA_MS = 100;
 const RESULT_HERO_HOLD_MS = 2_200;
 const RESULT_DOCK_DURATION_MS = 400;
+const AUDIO_RESUME_TIMEOUT_MS = 350;
 
 type Phase =
   | "ready"
@@ -1063,6 +1064,7 @@ export function ShowdownGame({
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const [winnerCount, setWinnerCount] = useState(1);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [raceStartPending, setRaceStartPending] = useState(false);
   const [layoutSeed, setLayoutSeed] = useState(() => createSeed("layout"));
   const [phase, setPhase] = useState<Phase>("ready");
   const [resultPresentation, dispatchResultPresentationState] =
@@ -1087,6 +1089,8 @@ export function ShowdownGame({
   );
   const generationKey = useRef(0);
   const audioContext = useRef<AudioContext | null>(null);
+  const raceStartPendingRef = useRef(false);
+  const raceStartRequestRef = useRef(0);
   const resultPresentationRef =
     useRef<ShowdownResultPresentationState>(resultPresentation);
   const resultHeroTimerRef = useRef<number | null>(null);
@@ -1608,17 +1612,48 @@ export function ShowdownGame({
   };
 
   const handleRaceStart = async () => {
-    if (!plan || phase !== "waiting") return;
-    await audioContext.current?.resume();
-    setCountdown(3);
-    setFrameIndex(0);
-    setRenderFrameIndex(0);
-    playbackClock.current = createRacePlaybackClock();
-    lastPlaybackTimestamp.current = null;
-    setFinalOvertakeCue(null);
-    setResultHoldRemainingMs(RESULT_HOLD_DURATION_MS);
-    setPlaybackEpoch((value) => value + 1);
-    setPhase("countdown");
+    if (!plan || phase !== "waiting" || raceStartPendingRef.current) return;
+    const startRequest = raceStartRequestRef.current + 1;
+    const startGeneration = generationKey.current;
+    raceStartRequestRef.current = startRequest;
+    raceStartPendingRef.current = true;
+    setRaceStartPending(true);
+    try {
+      let audioReady = true;
+      if (audioContext.current) {
+        audioReady = await Promise.race([
+          audioContext.current.resume().then(
+            () => true,
+            () => false,
+          ),
+          new Promise<boolean>((resolve) => {
+            window.setTimeout(
+              () => resolve(false),
+              AUDIO_RESUME_TIMEOUT_MS,
+            );
+          }),
+        ]);
+      }
+      if (
+        startRequest !== raceStartRequestRef.current
+        || startGeneration !== generationKey.current
+      ) return;
+      if (!audioReady) setSoundEnabled(false);
+      setCountdown(3);
+      setFrameIndex(0);
+      setRenderFrameIndex(0);
+      playbackClock.current = createRacePlaybackClock();
+      lastPlaybackTimestamp.current = null;
+      setFinalOvertakeCue(null);
+      setResultHoldRemainingMs(RESULT_HOLD_DURATION_MS);
+      setPlaybackEpoch((value) => value + 1);
+      setPhase("countdown");
+    } finally {
+      if (startRequest === raceStartRequestRef.current) {
+        raceStartPendingRef.current = false;
+        setRaceStartPending(false);
+      }
+    }
   };
 
   const handleRegenerateLayout = () => {
@@ -1643,6 +1678,9 @@ export function ShowdownGame({
 
   const handleNewRace = () => {
     generationKey.current += 1;
+    raceStartRequestRef.current += 1;
+    raceStartPendingRef.current = false;
+    setRaceStartPending(false);
     cancelResultPresentationTimers();
     const previousRunId = resultPresentationRef.current.runId;
     dispatchResultPresentation({
@@ -1887,15 +1925,18 @@ export function ShowdownGame({
                   <button
                     className="secondary-button"
                     onClick={handleNewRace}
+                    disabled={raceStartPending}
                   >
                     설정으로 돌아가기
                   </button>
                   <button
                     className="primary-button"
                     onClick={handleRaceStart}
+                    disabled={raceStartPending}
+                    aria-busy={raceStartPending || undefined}
                     autoFocus
                   >
-                    경기 시작
+                    {raceStartPending ? "경기 시작 준비 중…" : "경기 시작"}
                   </button>
                 </div>
               </div>
@@ -2001,6 +2042,7 @@ export function ShowdownGame({
                 className="icon-button"
                 onClick={() => setSoundEnabled((value) => !value)}
                 aria-label={soundEnabled ? "음소거" : "소리 켜기"}
+                aria-pressed={soundEnabled}
               >
                 {soundEnabled ? "소리 켜짐" : "음소거"}
               </button>
@@ -2235,6 +2277,7 @@ export function ShowdownGame({
                   <select
                     id="winner-count"
                     value={effectiveWinnerCount}
+                    disabled={phase === "generating"}
                     onChange={(event) =>
                       setWinnerCount(Number(event.target.value))
                     }
@@ -2320,6 +2363,7 @@ export function ShowdownGame({
               <button
                 type="button"
                 className="secondary-button"
+                disabled={phase === "generating"}
                 onClick={handleRegenerateLayout}
               >
                 새 배치
@@ -2382,12 +2426,12 @@ export function ShowdownGame({
     >
       {!embedded && (
         <header className="product-header">
-          <a className="brand" href="#" aria-label="exlab 처음으로">
+          <span className="brand" aria-label="exlab">
             <span aria-hidden="true">●</span>
             exlab
-          </a>
+          </span>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.21</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.22</span>
           </div>
         </header>
       )}

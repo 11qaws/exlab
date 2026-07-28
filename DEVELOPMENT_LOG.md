@@ -1,5 +1,14 @@
 # Development Log
 
+## 2026-07-29 1.3.22 전체 버튼 상호작용 피드백
+
+- 공통 셸·테마 선택·명단 편집·Roulette·Showdown의 클릭 요소를 `hover / pressed / selected / focus / disabled / busy` 상태로 전수 감사하고, 대안·상태 전이·다중 화면 수용 기준을 `BUTTON_INTERACTION_AUDIT_2026-07-29.md`에 기록했다.
+- 보이는 버튼과 disclosure에 테마 상대 130~140ms 표면 전환과 60ms press 압축을 공통 적용했다. `prefers-reduced-motion`에서는 scale을 제거하고 명도·테두리 변화만 유지한다.
+- Showdown 음향 토글에 `aria-pressed`와 선택색을 추가하고, 경기 시작의 오디오 준비 중 중복 클릭을 ref와 busy 문구로 차단했다. 오디오 재개는 350ms 뒤 무음으로 계속하며 오래된 요청은 토큰으로 폐기한다. 생성 중에는 물리 설정 영역만 `inert`·disabled 처리해 맵 테마와 범례 같은 안전한 표시 제어는 유지한다.
+- Roulette의 disabled compact 버튼이 hover·active 변형을 받던 선택자 충돌을 제거하고, 미리보기 재생과 명단 복사에 `aria-busy`·진행 문구·중복 실행 차단을 추가했다.
+- 비어 있는 명단 복사·제외 초기화·CSV·기록 삭제는 명시적인 disabled 상태로 바꾸고, segmented control과 live tab의 포커스 링을 overflow 안쪽에서 보이도록 수정했다.
+- 공통 상호작용 회귀 테스트를 추가하고 1280×720 인앱 브라우저, 1024×768·390×844 Edge 렌더에서 버튼 상태·선택 유지·가로 넘침을 확인했다.
+
 ## 2026-07-28 1.3.21 현재 테마 아바타 구도 조정
 
 - 우상단 `StreamerThemeCurrent` 전용 프로필 배율을 프레젠테이션 계층에 추가해 아모레또와 망징이만 기존 배율의 90%로 표시한다.

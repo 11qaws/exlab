@@ -592,6 +592,14 @@
   color: #fff;
 }
 
+.settings-choice button:focus-visible {
+  outline: 3px solid
+    color-mix(in srgb, var(--hot-pink-strong) 55%, transparent);
+  outline-offset: -3px;
+  position: relative;
+  z-index: 1;
+}
+
 .settings-number,
 .settings-recipient {
   display: flex;
@@ -1087,6 +1095,14 @@
   color: var(--magenta);
 }
 
+.live-tabs button:focus-visible {
+  outline: 3px solid
+    color-mix(in srgb, var(--hot-pink-strong) 55%, transparent);
+  outline-offset: -3px;
+  position: relative;
+  z-index: 1;
+}
+
 .live-tabs span {
   display: inline-grid;
   min-width: 18px;
@@ -1228,6 +1244,11 @@
 .panel-wide-button--soft {
   border-color: var(--line);
   background: var(--cream);
+}
+
+.panel-wide-button[aria-busy='true'] {
+  cursor: progress;
+  opacity: 0.68;
 }
 
 .winner-prize-choices {

@@ -422,6 +422,7 @@ function SharedRosterDialog({
       <button
         className="exlab-roster-dialog-scrim"
         type="button"
+        tabIndex={-1}
         aria-label="참가자 명단 닫기"
         onClick={requestCancel}
       />

@@ -243,6 +243,12 @@
   cursor: not-allowed;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .preparation-preview__primary:is(:hover, :active):not(:disabled) {
+    transform: none;
+  }
+}
+
 .roulette-setup-workspace .exlab-setup-workspace__action-bar:has(.roulette-session-hub) {
   grid-template-columns: minmax(0, 1fr);
   align-items: stretch;

@@ -121,6 +121,7 @@ export function SetupWorkspace({
       <aside
         className="exlab-setup-workspace__settings"
         aria-label="설정"
+        inert={busy || undefined}
       >
         <header className="exlab-setup-workspace__intro">
           {eyebrow != null && (

@@ -198,6 +198,10 @@
   .broadcast-action-dock__button {
     transition: none;
   }
+
+  .broadcast-action-dock__button:is(:hover, :active):not(:disabled) {
+    transform: none;
+  }
 }
 
 }

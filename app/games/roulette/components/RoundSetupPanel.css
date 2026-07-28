@@ -629,8 +629,18 @@
 .round-setup--compact input:focus-visible,
 .round-setup--compact textarea:focus-visible,
 .round-setup--compact summary:focus-visible {
-  outline: 3px solid rgb(255 182 193 / 48%);
+  outline: 3px solid
+    color-mix(in srgb, var(--hot-pink-strong) 55%, transparent);
   outline-offset: 2px;
+}
+
+.round-setup__count-control button:focus-visible,
+.round-setup__segmented button:focus-visible {
+  outline: 3px solid
+    color-mix(in srgb, var(--hot-pink-strong) 55%, transparent);
+  outline-offset: -3px;
+  position: relative;
+  z-index: 1;
 }
 
 @container round-setup (max-width: 470px) {

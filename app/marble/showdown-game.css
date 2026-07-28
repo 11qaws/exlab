@@ -40,10 +40,33 @@ textarea {
 
 button {
   cursor: pointer;
+  transform-origin: center;
+  transition:
+    scale 130ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 130ms ease-out,
+    background-color 140ms ease-out,
+    border-color 140ms ease-out,
+    box-shadow 140ms ease-out,
+    color 140ms ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:hover:not(:disabled):not([aria-disabled="true"]) {
+    filter: brightness(0.985) saturate(1.04);
+  }
 }
 
 button:disabled {
   cursor: not-allowed;
+  filter: none;
+  opacity: 0.58;
+  scale: 1;
+}
+
+button:active:not(:disabled):not([aria-disabled="true"]) {
+  filter: brightness(0.91) saturate(1.08);
+  scale: 0.97;
+  transition-duration: 60ms;
 }
 
 :scope.preparation-screen,
@@ -101,6 +124,16 @@ button:disabled {
 .map-theme-toggle button[aria-pressed="true"] {
   background: var(--accent-dark);
   color: var(--exlab-surface, white);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .map-theme-toggle button:hover:not([aria-pressed="true"]) {
+    background: color-mix(
+      in srgb,
+      var(--accent) 12%,
+      transparent
+    );
+  }
 }
 
 .map-theme-toggle.is-compact {
@@ -333,6 +366,13 @@ button:disabled {
   color: white;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .group-tabs button:hover:not(.is-active) {
+    border-color: var(--accent);
+    color: var(--accent-dark);
+  }
+}
+
 .group-planner > p {
   color: var(--muted);
   font-size: 10px;
@@ -364,10 +404,17 @@ button:disabled {
 .icon-button {
   background: transparent;
   border: 0;
+  border-radius: 8px;
   color: var(--accent-dark);
   font-size: 12px;
   font-weight: 800;
   padding: 8px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :is(.text-button, .icon-button):hover:not(:disabled) {
+    background: var(--exlab-accent-bg, #f9e8ee);
+  }
 }
 
 .roster-grid {
@@ -510,12 +557,21 @@ summary {
 
 .toggle-button {
   background: var(--exlab-accent-bg, #f8e8e2);
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 999px;
   color: var(--ink);
   font-size: 12px;
   font-weight: 850;
   padding: 9px 14px;
+}
+
+.toggle-button[aria-pressed="true"],
+.icon-button[aria-pressed="true"] {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, white 32%, transparent);
+  color: var(--exlab-on-accent, white);
 }
 
 .venue-copy {
@@ -707,7 +763,8 @@ summary {
 }
 
 .primary-button:hover:not(:disabled) {
-  background: #8f1740;
+  background: color-mix(in srgb, var(--accent-dark) 88%, black);
+  border-color: color-mix(in srgb, var(--accent-dark) 88%, black);
 }
 
 .primary-button:disabled {
@@ -719,6 +776,23 @@ summary {
   background: transparent;
   border: 1px solid #d5bdb8;
   color: var(--ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .secondary-button:hover:not(:disabled) {
+    background: var(--exlab-accent-bg, #f9e8ee);
+    border-color: var(--accent);
+    color: var(--accent-dark);
+  }
+
+  :scope.race-screen
+    :is(.secondary-button, .text-button, .icon-button):hover:not(
+      :disabled
+    ):not([aria-pressed="true"]) {
+    background: var(--stage-accent-bg);
+    border-color: var(--stage-accent-line);
+    color: var(--stage-ink);
+  }
 }
 
 .start-bar {
@@ -962,6 +1036,12 @@ summary {
 .leaderboard .icon-button {
   color: var(--stage-accent);
   font-size: 10px;
+}
+
+.leaderboard .icon-button[aria-pressed="true"] {
+  background: var(--stage-accent);
+  border-color: var(--stage-accent);
+  color: var(--stage);
 }
 
 .leaderboard ol {
@@ -1798,6 +1878,10 @@ summary {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  button:active:not(:disabled):not([aria-disabled="true"]) {
+    scale: 1;
+  }
+
   *,
   *::before,
   *::after {

@@ -489,6 +489,8 @@ export function RouletteGame({
   const [rosterEditorDirty, setRosterEditorDirty] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [copyingParticipantList, setCopyingParticipantList] =
+    useState(false);
   const rouletteRootRef = useRef<HTMLDivElement>(null);
   const setupSessionHeadingRef = useRef<HTMLHeadingElement>(null);
   const liveStageTitleRef = useRef<HTMLElement>(null);
@@ -2037,13 +2039,16 @@ export function RouletteGame({
   };
 
   const copyParticipantList = async () => {
-    if (participants.length === 0) return;
+    if (participants.length === 0 || copyingParticipantList) return;
     const numbered = participants.map((participant, index) => `${index + 1}. ${participant.name}`).join('\n');
+    setCopyingParticipantList(true);
     try {
       await navigator.clipboard.writeText(numbered);
       showToast(`${participants.length}명의 참여자 목록을 복사했어요.`);
     } catch {
       showToast('클립보드 권한을 허용한 뒤 다시 시도해 주세요.');
+    } finally {
+      setCopyingParticipantList(false);
     }
   };
 
@@ -2497,8 +2502,17 @@ export function RouletteGame({
               );
             })}
           </ol>
-          <button className="panel-wide-button" type="button" onClick={copyParticipantList}>번호가 붙은 명단 복사</button>
-          <button className="panel-wide-button panel-wide-button--soft" type="button" disabled={isStageLocked} onClick={resetWinnerState}>당첨 제외 상태 초기화</button>
+          <button
+            className="panel-wide-button"
+            type="button"
+            disabled={participants.length === 0}
+            aria-disabled={copyingParticipantList || undefined}
+            aria-busy={copyingParticipantList || undefined}
+            onClick={copyParticipantList}
+          >
+            {copyingParticipantList ? "명단 복사 중…" : "번호가 붙은 명단 복사"}
+          </button>
+          <button className="panel-wide-button panel-wide-button--soft" type="button" disabled={isStageLocked || excludedParticipantIds.length === 0} onClick={resetWinnerState}>당첨 제외 상태 초기화</button>
           <button className="panel-wide-button panel-wide-button--soft" type="button" disabled={isStageLocked} onClick={() => openParticipantEditor(raffleStatus === 'completed' ? 'completed' : 'ready')}>명단 교체 · 비우기</button>
         </section>
       )}
@@ -2543,8 +2557,8 @@ export function RouletteGame({
               <p>최근 {history.length}건</p>
             </div>
             <div className="live-panel__actions">
-              <button className="compact-button" type="button" onClick={exportHistory}>CSV</button>
-              <button className="compact-button compact-button--danger" type="button" disabled={isStageLocked} onClick={clearHistory}>기록 비우기</button>
+              <button className="compact-button" type="button" disabled={history.length === 0} onClick={exportHistory}>CSV</button>
+              <button className="compact-button compact-button--danger" type="button" disabled={isStageLocked || history.length === 0} onClick={clearHistory}>기록 비우기</button>
             </div>
           </div>
           {history.length === 0 ? (
@@ -2815,6 +2829,7 @@ export function RouletteGame({
                 <button
                   className="roster-drawer__scrim"
                   type="button"
+                  tabIndex={-1}
                   aria-label="명단 편집 닫기"
                   onClick={cancelParticipantEditor}
                 />
@@ -2929,7 +2944,7 @@ export function RouletteGame({
 
         {editorOpen && (
           <div className="roster-drawer" role="dialog" aria-modal="true" aria-label="명단 편집">
-            <button className="roster-drawer__scrim" type="button" aria-label="명단 편집 닫기" onClick={cancelParticipantEditor} />
+            <button className="roster-drawer__scrim" type="button" tabIndex={-1} aria-label="명단 편집 닫기" onClick={cancelParticipantEditor} />
             <ParticipantSetup
               key={setupSession}
               initialParticipants={participants}

@@ -154,12 +154,24 @@
 }
 
 .exlab-setup-workspace__advanced summary {
+  border-radius: 8px;
   color: var(--exlab-text, #3b2426);
   cursor: pointer;
   font-size: 0.8125rem;
   font-weight: 800;
   line-height: 1.4;
-  padding-block: 6px;
+  margin-inline: -6px;
+  padding: 6px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .exlab-setup-workspace__advanced summary:hover {
+    background: var(--exlab-accent-bg, #f9e8ee);
+  }
+}
+
+.exlab-setup-workspace__advanced details[open] > summary {
+  color: var(--exlab-accent-ink, #8f1740);
 }
 
 .exlab-setup-workspace__advanced summary span {
@@ -179,6 +191,13 @@
 .exlab-setup-workspace__advanced-content {
   animation: exlab-setup-advanced-enter 180ms ease-out both;
   padding-block-start: 14px;
+}
+
+.exlab-setup-workspace[data-busy="true"]
+  .exlab-setup-workspace__settings {
+  cursor: wait;
+  opacity: 0.72;
+  transition: opacity 140ms ease-out;
 }
 
 .exlab-setup-workspace__preview {

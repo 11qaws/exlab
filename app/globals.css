@@ -56,6 +56,70 @@ body {
   font-family: inherit;
 }
 
+.exlab-shell
+  :where(
+    button:not(.exlab-roster-dialog-scrim):not(.roster-drawer__scrim):not(
+        .broadcast-tools-scrim
+      ),
+    summary
+  ) {
+  -webkit-tap-highlight-color: transparent;
+  transform-origin: center;
+  transition:
+    scale 130ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 120ms ease-out,
+    filter 130ms ease-out,
+    background-color 140ms ease-out,
+    border-color 140ms ease-out,
+    box-shadow 140ms ease-out,
+    color 140ms ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .exlab-shell
+    :where(
+      button:not(.exlab-roster-dialog-scrim):not(.roster-drawer__scrim):not(
+          .broadcast-tools-scrim
+        ):not(:disabled):not([aria-disabled="true"]),
+      summary
+    ):hover {
+    filter: brightness(0.985) saturate(1.04);
+  }
+}
+
+.exlab-shell
+  :where(
+    button:not(.exlab-roster-dialog-scrim):not(.roster-drawer__scrim):not(
+        .broadcast-tools-scrim
+      ):not(:disabled):not([aria-disabled="true"]),
+    summary
+  ):active {
+  filter: brightness(0.91) saturate(1.08);
+  scale: 0.97;
+  transition-duration: 60ms;
+}
+
+.exlab-shell
+  .roulette-game
+  :where(
+    .broadcast-action-dock__button,
+    .preparation-preview__primary,
+    .ghost-button,
+    .compact-button,
+    .primary-button,
+    .draw-mode-button,
+    .target-button
+  ):active:not(:disabled):not([aria-disabled="true"]) {
+  filter: none;
+  scale: 1;
+}
+
+.exlab-shell :where(button:disabled, button[aria-disabled="true"]) {
+  cursor: not-allowed;
+  filter: none;
+  scale: 1;
+}
+
 .exlab-header {
   align-items: center;
   background: color-mix(in srgb, var(--exlab-surface) 94%, transparent);
@@ -556,12 +620,14 @@ body {
 
 .exlab-roster-import > summary {
   align-items: center;
+  border-radius: 9px;
   color: var(--exlab-accent);
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   list-style: none;
   min-height: 44px;
+  padding-inline: 6px;
 }
 
 .exlab-roster-import > summary::-webkit-details-marker {
@@ -666,10 +732,42 @@ body {
 .exlab-roster-duplicate-policy {
   align-items: center;
   background: var(--exlab-surface-subtle);
+  border: 1px solid transparent;
   border-radius: 12px;
+  cursor: pointer;
   display: flex;
   gap: 10px;
   padding: 11px 12px;
+  transition:
+    background-color 140ms ease-out,
+    border-color 140ms ease-out,
+    scale 130ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .exlab-roster-duplicate-policy:hover {
+    background: color-mix(
+      in srgb,
+      var(--exlab-accent-bg) 76%,
+      var(--exlab-surface-subtle)
+    );
+    border-color: var(--exlab-accent-line);
+  }
+}
+
+.exlab-roster-duplicate-policy:active {
+  scale: 0.985;
+}
+
+.exlab-roster-duplicate-policy:focus-within {
+  border-color: var(--exlab-accent);
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--exlab-accent) 24%, transparent);
+}
+
+.exlab-roster-duplicate-policy:has(input:checked) {
+  background: var(--exlab-accent-bg);
+  border-color: var(--exlab-accent-line);
 }
 
 .exlab-roster-duplicate-policy input {
@@ -918,5 +1016,30 @@ body {
     animation-duration: 0.01ms !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .exlab-shell
+    :where(
+      button:not(.exlab-roster-dialog-scrim):not(.roster-drawer__scrim):not(
+          .broadcast-tools-scrim
+        ),
+      summary
+    ):active,
+  .exlab-roster-duplicate-policy:active {
+    scale: 1;
+  }
+
+  .exlab-shell
+    .roulette-game
+    :where(
+      .broadcast-action-dock__button,
+      .preparation-preview__primary,
+      .ghost-button,
+      .compact-button,
+      .primary-button,
+      .draw-mode-button,
+      .target-button
+    ):is(:hover, :active):not(:disabled) {
+    transform: none !important;
   }
 }
