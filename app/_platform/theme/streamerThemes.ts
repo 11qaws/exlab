@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import streamerPortraitAssets from "./streamerPortraitAssets.json";
 
 /**
  * The five public product identities. Keep this list intentionally narrow:
@@ -15,6 +16,18 @@ export const STREAMER_THEME_IDS = [
 export type StreamerThemeId = (typeof STREAMER_THEME_IDS)[number];
 export type StreamerThemeColorMode = "light" | "dark";
 export type StreamerThemeTone = "solid" | "pale";
+
+export interface StreamerThemePortraitAsset {
+  readonly path: string;
+  readonly width: number;
+  readonly height: number;
+  readonly mimeType: "image/webp";
+}
+
+export const STREAMER_THEME_PORTRAIT_ASSETS =
+  streamerPortraitAssets as Readonly<
+    Record<StreamerThemeId, StreamerThemePortraitAsset>
+  >;
 
 export interface StreamerThemeTokens {
   readonly accent: string;
@@ -35,9 +48,8 @@ export interface StreamerThemeTokens {
   readonly railEnd: string;
 }
 
-export interface StreamerThemePortrait {
-  /** File relative to the app's public base. */
-  readonly path: string;
+export interface StreamerThemePortrait
+  extends StreamerThemePortraitAsset {
   /** CSS object-position, validated against the 440×120 reference card. */
   readonly focus: string;
   /** Additional scale above cover, around the validated focus point. */
@@ -74,7 +86,7 @@ export const STREAMER_THEMES = [
     chroma: 0.48,
     tone: "solid",
     portrait: {
-      path: "themes/streamers/amoretto.jpg",
+      ...STREAMER_THEME_PORTRAIT_ASSETS.amoretto,
       focus: "53% 41%",
       zoom: 2.15,
       offsetY: 0,
@@ -125,7 +137,7 @@ export const STREAMER_THEMES = [
     chroma: 0.95,
     tone: "solid",
     portrait: {
-      path: "themes/streamers/eureka.png",
+      ...STREAMER_THEME_PORTRAIT_ASSETS.eureka,
       focus: "60% 82%",
       zoom: 1.15,
       offsetY: 0,
@@ -176,7 +188,7 @@ export const STREAMER_THEMES = [
     chroma: 0.3,
     tone: "solid",
     portrait: {
-      path: "themes/streamers/sena.jpg",
+      ...STREAMER_THEME_PORTRAIT_ASSETS.sena,
       focus: "22% 70%",
       zoom: 1.15,
       offsetY: 0,
@@ -227,7 +239,7 @@ export const STREAMER_THEMES = [
     chroma: 1.04,
     tone: "pale",
     portrait: {
-      path: "themes/streamers/torori.webp",
+      ...STREAMER_THEME_PORTRAIT_ASSETS.torori,
       focus: "40% 61%",
       zoom: 1.8,
       offsetY: 0,
@@ -278,7 +290,7 @@ export const STREAMER_THEMES = [
     chroma: 0.78,
     tone: "solid",
     portrait: {
-      path: "themes/streamers/mangjing.jpg",
+      ...STREAMER_THEME_PORTRAIT_ASSETS.mangjing,
       focus: "54% 38%",
       zoom: 3.5,
       offsetY: 0,
@@ -451,6 +463,14 @@ export function resolveStreamerThemePortraitUrl(
   const base = assetBasePath.trim() || ".";
   const prefix = base.endsWith("/") ? base : `${base}/`;
   return `${prefix}${resolved.portrait.path.replace(/^\.?\//, "")}`;
+}
+
+export function streamerThemePortraitUrls(
+  assetBasePath = ".",
+): readonly string[] {
+  return STREAMER_THEMES.map((theme) =>
+    resolveStreamerThemePortraitUrl(theme, assetBasePath)
+  );
 }
 
 type Rgb = readonly [number, number, number];

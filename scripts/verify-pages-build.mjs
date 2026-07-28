@@ -4,6 +4,15 @@ import { resolve } from "node:path";
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const outputRoot = resolve(repositoryRoot, "dist-pages");
 const pagesBase = "/exlab/";
+const streamerPortraitAssets = JSON.parse(
+  await readFile(
+    resolve(
+      repositoryRoot,
+      "app/_platform/theme/streamerPortraitAssets.json",
+    ),
+    "utf8",
+  ),
+);
 
 function invariant(condition, message) {
   if (!condition) {
@@ -95,14 +104,11 @@ for (const expectedModule of [
   );
 }
 
-for (const imagePath of [
-  "og.png",
-  "themes/streamers/amoretto.jpg",
-  "themes/streamers/eureka.png",
-  "themes/streamers/sena.jpg",
-  "themes/streamers/torori.webp",
-  "themes/streamers/mangjing.jpg",
-]) {
+const streamerPortraitPaths = Object.values(
+  streamerPortraitAssets,
+).map(({ path }) => path);
+
+for (const imagePath of ["og.png", ...streamerPortraitPaths]) {
   invariant(
     await exists(resolve(outputRoot, imagePath)),
     `public image ${imagePath} is missing.`,
@@ -115,12 +121,26 @@ const bundleFiles = outputFiles.filter(
 );
 invariant(bundleFiles.length > 0, "no JavaScript or CSS bundles were emitted.");
 
+const legacyStreamerPortraitPaths = [
+  "themes/streamers/amoretto.jpg",
+  "themes/streamers/eureka.png",
+  "themes/streamers/sena.jpg",
+  "themes/streamers/torori.webp",
+  "themes/streamers/mangjing.jpg",
+];
+
 for (const bundleFile of bundleFiles) {
   const contents = await readFile(resolve(outputRoot, bundleFile), "utf8");
   invariant(
     !/[("'`]\/(?:themes|fonts|images)\//.test(contents),
     `${bundleFile} contains a domain-root public asset reference.`,
   );
+  for (const legacyPath of legacyStreamerPortraitPaths) {
+    invariant(
+      !contents.includes(legacyPath),
+      `${bundleFile} still references legacy portrait ${legacyPath}.`,
+    );
+  }
 }
 
 console.log(

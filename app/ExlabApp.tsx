@@ -40,6 +40,7 @@ import {
   getStreamerTheme,
   StreamerThemeCurrent,
   StreamerThemePicker,
+  streamerThemePortraitUrls,
   streamerThemeCssVariables,
   themeSelectionReducer,
   type ThemeSelectionPhase,
@@ -56,6 +57,22 @@ const GAME_SURFACES = {
     return { default: game.ShowdownGame };
   }),
 } as const;
+
+type NavigatorWithSaveData = Navigator & {
+  readonly connection?: {
+    readonly saveData?: boolean;
+  };
+};
+
+type WindowWithIdleCallback = Window & {
+  readonly requestIdleCallback?: (
+    callback: () => void,
+    options?: { readonly timeout?: number },
+  ) => number;
+  readonly cancelIdleCallback?: (handle: number) => void;
+};
+
+const THEME_PORTRAIT_IDLE_TIMEOUT_MS = 1_500;
 
 type SharedRosterDialogProps = {
   rosterText: string;
@@ -578,7 +595,17 @@ export function ExlabApp() {
   const themeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const themeReturnFocusRef = useRef<HTMLElement | null>(null);
   const themeDialogWasOpenRef = useRef(false);
+  const themePortraitPreloadImagesRef = useRef(
+    new Set<HTMLImageElement>(),
+  );
+  const themePortraitsWarmedRef = useRef(false);
   const gameSurfaceRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (themePickerOpen) {
+      themePortraitsWarmedRef.current = true;
+    }
+  }, [themePickerOpen]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -610,6 +637,48 @@ export function ExlabApp() {
 
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (
+      !preferencesReady
+      || themePickerOpen
+      || themePortraitsWarmedRef.current
+      || (navigator as NavigatorWithSaveData).connection?.saveData
+    ) {
+      return;
+    }
+
+    const warmPortraits = () => {
+      themePortraitsWarmedRef.current = true;
+      for (const src of streamerThemePortraitUrls(".")) {
+        const image = new Image();
+        const pendingImages = themePortraitPreloadImagesRef.current;
+        const releaseImage = () => {
+          pendingImages.delete(image);
+        };
+        image.decoding = "async";
+        image.fetchPriority = "low";
+        image.addEventListener("error", releaseImage, { once: true });
+        image.addEventListener("load", releaseImage, { once: true });
+        pendingImages.add(image);
+        image.src = src;
+      }
+    };
+    const idleWindow = window as WindowWithIdleCallback;
+
+    if (idleWindow.requestIdleCallback) {
+      const handle = idleWindow.requestIdleCallback(warmPortraits, {
+        timeout: THEME_PORTRAIT_IDLE_TIMEOUT_MS,
+      });
+      return () => idleWindow.cancelIdleCallback?.(handle);
+    }
+
+    const timer = window.setTimeout(
+      warmPortraits,
+      THEME_PORTRAIT_IDLE_TIMEOUT_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [preferencesReady, themePickerOpen]);
 
   useEffect(() => {
     if (!preferencesReady) return;
@@ -771,6 +840,7 @@ export function ExlabApp() {
               테마
             </span>
             <StreamerThemeCurrent
+              loadImage={preferencesReady}
               value={activeStreamerThemeId}
             />
             <button

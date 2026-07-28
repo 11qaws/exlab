@@ -31,29 +31,47 @@ test("streamer theme registry exposes the five canonical profile assets", async 
   );
   assert.deepEqual(
     STREAMER_THEMES.map(({ id, portrait }) => ({
+      height: portrait.height,
       id,
+      mimeType: portrait.mimeType,
       path: portrait.path,
+      width: portrait.width,
     })),
     [
       {
+        height: 720,
         id: "amoretto",
-        path: "themes/streamers/amoretto.jpg",
+        mimeType: "image/webp",
+        path: "themes/streamers/amoretto-portrait.webp",
+        width: 1280,
       },
       {
+        height: 441,
         id: "eureka",
-        path: "themes/streamers/eureka.png",
+        mimeType: "image/webp",
+        path: "themes/streamers/eureka-portrait.webp",
+        width: 439,
       },
       {
+        height: 400,
         id: "sena",
-        path: "themes/streamers/sena.jpg",
+        mimeType: "image/webp",
+        path: "themes/streamers/sena-portrait.webp",
+        width: 400,
       },
       {
+        height: 960,
         id: "torori",
-        path: "themes/streamers/torori.webp",
+        mimeType: "image/webp",
+        path: "themes/streamers/torori-portrait.webp",
+        width: 960,
       },
       {
+        height: 720,
         id: "mangjing",
-        path: "themes/streamers/mangjing.jpg",
+        mimeType: "image/webp",
+        path: "themes/streamers/mangjing-portrait.webp",
+        width: 1280,
       },
     ],
   );

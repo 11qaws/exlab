@@ -1,0 +1,32 @@
+{
+  "amoretto": {
+    "path": "themes/streamers/amoretto-portrait.webp",
+    "width": 1280,
+    "height": 720,
+    "mimeType": "image/webp"
+  },
+  "eureka": {
+    "path": "themes/streamers/eureka-portrait.webp",
+    "width": 439,
+    "height": 441,
+    "mimeType": "image/webp"
+  },
+  "sena": {
+    "path": "themes/streamers/sena-portrait.webp",
+    "width": 400,
+    "height": 400,
+    "mimeType": "image/webp"
+  },
+  "torori": {
+    "path": "themes/streamers/torori-portrait.webp",
+    "width": 960,
+    "height": 960,
+    "mimeType": "image/webp"
+  },
+  "mangjing": {
+    "path": "themes/streamers/mangjing-portrait.webp",
+    "width": 1280,
+    "height": 720,
+    "mimeType": "image/webp"
+  }
+}

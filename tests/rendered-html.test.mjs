@@ -43,9 +43,10 @@ test("server-renders the practical exlab shell while preferences load", async ()
   assert.doesNotMatch(html, /모든 이름이 조별 Race로 이어집니다/);
   assert.doesNotMatch(html, /codex-preview/i);
   assert.doesNotMatch(html, /react-loading-skeleton/i);
+  assert.doesNotMatch(html, /themes\/streamers\//);
 });
 
-test("pins the integrated package and both game catalog entries to 1.3.22", async () => {
+test("pins the integrated package and both game catalog entries to 1.3.23", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
@@ -55,12 +56,12 @@ test("pins the integrated package and both game catalog entries to 1.3.22", asyn
     readFile(new URL("../README.md", import.meta.url), "utf8"),
   ]);
 
-  assert.equal(packageJson.version, "1.3.22");
-  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.22"/);
+  assert.equal(packageJson.version, "1.3.23");
+  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.23"/);
   assert.match(
     catalogSource,
-    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.22"/,
+    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.23"/,
   );
-  assert.match(showdownSource, /SHOWDOWN · VERSION 1\.3\.22/);
-  assert.match(readmeSource, /현재 버전은 `1\.3\.22`/);
+  assert.match(showdownSource, /SHOWDOWN · VERSION 1\.3\.23/);
+  assert.match(readmeSource, /현재 버전은 `1\.3\.23`/);
 });

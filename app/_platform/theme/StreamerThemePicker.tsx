@@ -39,6 +39,7 @@ export interface StreamerThemeCurrentProps {
   readonly colorMode?: StreamerThemeColorMode;
   readonly assetBasePath?: string;
   readonly className?: string;
+  readonly loadImage?: boolean;
 }
 
 type ThemeCardStyle = CSSProperties &
@@ -49,11 +50,18 @@ type ThemeCardStyle = CSSProperties &
   };
 
 interface ThemePortraitProps {
+  readonly fetchPriority?: "high" | "low" | "auto";
+  readonly loadImage?: boolean;
   readonly theme: StreamerTheme;
   readonly src: string;
 }
 
-function ThemePortrait({ theme, src }: ThemePortraitProps) {
+function ThemePortrait({
+  fetchPriority = "auto",
+  loadImage = true,
+  theme,
+  src,
+}: ThemePortraitProps) {
   const [imageFailed, setImageFailed] = useState(false);
 
   return (
@@ -66,15 +74,23 @@ function ThemePortrait({ theme, src }: ThemePortraitProps) {
       <span className="exlab-theme-card-fallback">
         {theme.portrait.fallback}
       </span>
-      {/* Public-base URLs must remain document-relative for static hosting. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        alt=""
-        draggable={false}
-        loading="lazy"
-        onError={() => setImageFailed(true)}
-        src={src}
-      />
+      {loadImage ? (
+        <>
+          {/* Public-base URLs must remain document-relative for static hosting. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt=""
+            decoding="async"
+            draggable={false}
+            fetchPriority={fetchPriority}
+            height={theme.portrait.height}
+            loading="eager"
+            onError={() => setImageFailed(true)}
+            src={src}
+            width={theme.portrait.width}
+          />
+        </>
+      ) : null}
     </span>
   );
 }
@@ -90,6 +106,7 @@ export function StreamerThemeCurrent({
   colorMode = "light",
   assetBasePath = ".",
   className,
+  loadImage = true,
 }: StreamerThemeCurrentProps) {
   const theme = STREAMER_THEMES.find((candidate) => candidate.id === value)
     ?? STREAMER_THEMES[0];
@@ -115,7 +132,9 @@ export function StreamerThemeCurrent({
       style={style}
     >
       <ThemePortrait
+        fetchPriority="high"
         key={portraitUrl}
+        loadImage={loadImage}
         src={portraitUrl}
         theme={theme}
       />
@@ -207,6 +226,9 @@ export function StreamerThemePicker({
                   className="exlab-theme-card-rail"
                 />
                 <ThemePortrait
+                  fetchPriority={
+                    value === theme.id ? "high" : "auto"
+                  }
                   key={portraitUrl}
                   src={portraitUrl}
                   theme={theme}
