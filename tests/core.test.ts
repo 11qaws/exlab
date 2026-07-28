@@ -42,12 +42,14 @@ import {
   ROTATING_BAR_CLEARANCE_RADIUS,
 } from "../app/marble/course-clearance";
 import {
+  assignParticipantThemes,
   buildRacePlan,
   contrastRatio,
   createRaceSlotAssignment,
   minimumGroupCount,
   parseRoster,
   PARTICIPANT_THEMES,
+  resolveFixedParticipantTheme,
   shuffleSeeded,
   splitCandidatesIntoGroups,
 } from "../app/marble/core";
@@ -73,6 +75,7 @@ import {
   restoreStaticCollisionMaterial,
   sharedGravityMultiplier,
   simulateRace,
+  simulateRacePreview,
 } from "../app/marble/simulation";
 import {
   OFFSCREEN_PODIUM_MAX_SCALE,
@@ -146,6 +149,64 @@ test("participant themes meet the common contrast rules", () => {
     assert.ok(contrastRatio(theme.onPrimary, theme.primary) >= 4.5);
     assert.ok(contrastRatio(theme.onSurface, theme.surface) >= 6.5);
   }
+});
+
+test("canonical streamer marbles keep their own palette main by name", () => {
+  const aliasGroups = [
+    [["아모레또", "레또"], "rose"],
+    [["유레카", "레카"], "mint"],
+    [["세나", "세나아르벨", "세나 아르벨"], "violet"],
+    [["코코", "토로리코코", "토로리 코코", "토로리"], "sky"],
+    [["망징", "망징이"], "blue"],
+  ] as const;
+
+  for (const [aliases, expectedKey] of aliasGroups) {
+    for (const alias of aliases) {
+      assert.equal(resolveFixedParticipantTheme(alias)?.key, expectedKey);
+      assert.equal(
+        resolveFixedParticipantTheme(`  ${alias.normalize("NFKD")}  `)?.key,
+        expectedKey,
+      );
+    }
+  }
+});
+
+test("group palette deals are deterministic and reserve five streamer colours", () => {
+  const validation = parseRoster(
+    [
+      "아모레또",
+      "유레카",
+      "세나 아르벨",
+      "토로리 코코",
+      "망징이",
+      "참가자 1",
+      "참가자 2",
+      "참가자 3",
+      "참가자 4",
+      "참가자 5",
+    ].join("\n"),
+  );
+  const first = assignParticipantThemes(validation.candidates, "palette-a");
+  const replay = assignParticipantThemes(validation.candidates, "palette-a");
+  const alternate = assignParticipantThemes(
+    validation.candidates,
+    "palette-b",
+  );
+
+  assert.deepEqual(first, replay);
+  assert.deepEqual(
+    first.slice(0, 5).map(({ theme }) => theme.key),
+    ["rose", "mint", "violet", "sky", "blue"],
+  );
+  assert.equal(
+    new Set(first.map(({ theme }) => theme.key)).size,
+    10,
+    "a full group should not reuse a participant colour",
+  );
+  assert.notDeepEqual(
+    first.slice(5).map(({ theme }) => theme.key),
+    alternate.slice(5).map(({ theme }) => theme.key),
+  );
 });
 
 test("shared interface tokens meet small-text contrast targets", () => {
@@ -274,6 +335,40 @@ test("physics simulation produces a stable winner for the same seeds", () => {
   assert.equal(first.resultGateCount, 3);
   assert.ok(first.podiumFrameIndex >= first.awardFrameIndex);
   assert.ok(first.resultGateFrameIndex >= first.podiumFrameIndex);
+});
+
+test("ten-second race previews are deterministic partial simulations", () => {
+  const slots = simulationSlots(5);
+  const first = simulateRacePreview(
+    slots,
+    "preview-race-fixed",
+    "preview-layout-fixed",
+    10_000,
+  );
+  const replay = simulateRacePreview(
+    slots,
+    "preview-race-fixed",
+    "preview-layout-fixed",
+    10_000,
+  );
+
+  assert.equal(first.frames.length, 300);
+  assert.equal(first.durationMs, 10_000);
+  assert.deepEqual(first, replay);
+  assert.equal(first.physicallyFinishedCount, 0);
+  assert.equal(first.visibleFinishedCount, 0);
+  assert.equal(first.awardFrameIndex, -1);
+  assert.equal(first.podiumFrameIndex, -1);
+  assert.equal(first.resultGateFrameIndex, -1);
+  assert.equal(first.timedOut, true);
+
+  const expectedSlotIds = Object.keys(slots).sort();
+  for (const frame of first.frames) {
+    assert.deepEqual(
+      frame.poses.map(({ slotId }) => slotId).sort(),
+      expectedSlotIds,
+    );
+  }
 });
 
 test("countdown exposes 3, 2, 1, and GO before the race starts", () => {

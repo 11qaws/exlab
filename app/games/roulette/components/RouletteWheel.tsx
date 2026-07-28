@@ -131,13 +131,21 @@ export interface RouletteRevealEvent {
 }
 
 const WHEEL_COLORS = [
-  'var(--hot-pink, #ffb6c1)',
-  'var(--lemon, #ffd166)',
-  'var(--mint, #34e0a8)',
-  'var(--sky, #4ea9f0)',
-  'var(--lavender, #7e57c2)',
-  'var(--orange, #ff9d54)',
+  'var(--roulette-palette-main, #e84f83)',
+  'var(--roulette-palette-light, #f6c8d8)',
+  'var(--roulette-palette-dark, #8f3655)',
+  'var(--roulette-palette-light, #f6c8d8)',
+  'var(--roulette-palette-main, #e84f83)',
+  'var(--roulette-palette-dark, #8f3655)',
 ];
+const WHEEL_PALETTE_ROLES = [
+  'main',
+  'light',
+  'dark',
+  'light',
+  'main',
+  'dark',
+] as const;
 
 const VIEWBOX_CENTER = 300;
 const WHEEL_RADIUS = VIEWBOX_CENTER + 4;
@@ -748,6 +756,8 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
         index,
         path: makeSlicePath(geometry.startAngle, geometry.endAngle),
         color: WHEEL_COLORS[index % WHEEL_COLORS.length],
+        paletteRole:
+          WHEEL_PALETTE_ROLES[index % WHEEL_PALETTE_ROLES.length],
         label: labelDecision.text,
         labelKind: labelDecision.kind,
         labelFontSize: labelDecision.fontSizeInViewBox,
@@ -1510,7 +1520,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
                     )}
                     {slice.showLabel && (
                       <text
-                        className={`roulette-wheel__label roulette-wheel__label--${slice.labelKind}`}
+                        className={`roulette-wheel__label roulette-wheel__label--${slice.labelKind} roulette-wheel__label--palette-${slice.paletteRole}`}
                         style={{
                           fontSize: `${slice.labelFontSize}px`,
                           fontWeight: slice.labelKind === 'number' ? 800 : undefined,

@@ -14,7 +14,7 @@
   min-height: 0;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: #fff;
+  background: var(--card);
   color: var(--ink);
   font-family: 'Fredoka', 'Jua', sans-serif;
 }
@@ -45,7 +45,7 @@
   min-height: 0;
   overflow: hidden;
   border-bottom: 1px solid var(--line);
-  background: #fffafc;
+  background: color-mix(in srgb, var(--card) 84%, var(--cream));
 }
 
 .round-setup__data-slot--people {
@@ -63,7 +63,7 @@
 
 .round-setup__data-slot--prizes .round-setup__row--source {
   border-bottom: 1px solid var(--line);
-  background: #fff;
+  background: var(--card);
 }
 
 .round-setup__label {
@@ -79,7 +79,7 @@
   padding: 0 11px;
   border: 1px solid var(--line);
   border-radius: 11px;
-  background: #fffdfd;
+  background: color-mix(in srgb, var(--card) 94%, var(--cream));
   color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-size: 14px;
@@ -93,7 +93,7 @@
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 11px;
-  background: #fffdfd;
+  background: color-mix(in srgb, var(--card) 94%, var(--cream));
 }
 
 .round-setup__count-control button,
@@ -139,7 +139,7 @@
   min-height: 58px;
   padding: 8px 14px;
   border-bottom: 1px solid var(--line);
-  background: #fffafc;
+  background: color-mix(in srgb, var(--card) 84%, var(--cream));
 }
 
 .round-setup__external-roster-summary {
@@ -169,7 +169,7 @@
   padding-inline: 10px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: #fff;
+  background: var(--card);
   color: var(--ink);
   font: inherit;
   font-size: 12px;
@@ -202,7 +202,7 @@
 }
 
 .round-setup__segmented button[aria-pressed='true'] {
-  background: #ffdce5;
+  background: color-mix(in srgb, var(--hot-pink) 42%, var(--card));
   color: var(--ink);
   box-shadow: inset 0 -3px 0 var(--hot-pink-strong);
 }
@@ -259,7 +259,7 @@
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: #fffdfd;
+  background: color-mix(in srgb, var(--card) 94%, var(--cream));
   color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-size: 12px;
@@ -298,7 +298,7 @@
   padding: 7px 10px;
   border: 1px solid var(--hot-pink);
   border-radius: 9px;
-  background: #fff;
+  background: var(--card);
   color: var(--magenta);
   font-family: 'Jua', sans-serif;
   font-size: 12px;
@@ -315,7 +315,7 @@
 .round-setup__prizes {
   min-height: 0;
   overflow: auto;
-  background: #fffafc;
+  background: color-mix(in srgb, var(--card) 84%, var(--cream));
 }
 
 .round-setup__prizes .prize-editor {
@@ -515,7 +515,7 @@
   padding: 10px;
   border: 1px dashed var(--hot-pink);
   border-radius: 11px;
-  background: #fff8fa;
+  background: color-mix(in srgb, var(--card) 84%, var(--cream));
 }
 
 .round-setup__pool header {
@@ -561,7 +561,7 @@
   padding: 10px;
   border: 1px dashed var(--hot-pink);
   border-radius: 11px;
-  background: #fff8fa;
+  background: color-mix(in srgb, var(--card) 84%, var(--cream));
 }
 
 .round-setup__weight-editor > header {
@@ -595,7 +595,7 @@
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--card);
   font-size: 11px;
 }
 

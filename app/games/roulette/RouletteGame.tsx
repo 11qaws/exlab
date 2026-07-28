@@ -1379,7 +1379,9 @@ export function RouletteGame({
         setCinematicRevealPhase('idle');
         transitionRaffle('complete-round');
         window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(() => completedPrimaryActionRef.current?.focus());
+          window.requestAnimationFrame(() =>
+            completedPrimaryActionRef.current?.focus({ preventScroll: true })
+          );
         });
       }, reduceMotion ? 0 : WINNER_DOCK_DURATION_MS);
     }, reduceMotion ? 0 : WINNER_HERO_HOLD_MS);
@@ -1822,13 +1824,6 @@ export function RouletteGame({
     finishBroadcast();
   };
 
-  const replayLatestResult = () => {
-    if (raffleStatus !== 'completed' || !lastCommittedPresentation) return;
-    if (!launchCommittedPresentation(lastCommittedPresentation, true)) {
-      showToast('직전 결과 연출을 다시 시작할 수 없어요. 결과 기록은 그대로 유지됩니다.');
-    }
-  };
-
   const addOneMoreResult = () => {
     const session = broadcastSession;
     if (raffleStatus !== 'completed' || !session) return;
@@ -2089,7 +2084,6 @@ export function RouletteGame({
   const sessionProgress = sessionResults.length;
   const sessionPendingCount = Math.max(0, sessionGoal - sessionProgress);
   const sessionGoalReached = sessionProgress >= sessionGoal;
-  const canReplayLatestResult = lastCommittedPresentation !== null && resultPresentation.phase === 'settled';
   const canAddOneMoreResult = drawOptions.length > 0 && (
     drawTarget !== 'prizes' || prizeRecipients.length === 0 || Boolean(nextPrizeRecipient)
   );
@@ -2276,9 +2270,7 @@ export function RouletteGame({
     onClick: noAvailableDrawOptions ? recoverReadyDraw : startDraw,
     disabled: toolsOpen || (!noAvailableDrawOptions && !rotorReady),
   };
-  const completedPrimaryLabel = sessionGoalReached
-    ? '추첨 마치기 · 설계로'
-    : noAvailableDrawOptions
+  const completedPrimaryLabel = noAvailableDrawOptions
       ? drawTarget === 'people'
         ? eligibleParticipants.length === 0 && excludedParticipantIds.length > 0
           ? '당첨 제외 초기화 후 다음 추첨'
@@ -2289,18 +2281,31 @@ export function RouletteGame({
         : prizeRecipients.length > 0 && nextPrizeRecipient
           ? `다음: ${nextPrizeRecipient.name}의 상품 추첨`
           : `다음 ${sessionProgress + 1}/${sessionGoal}번째 상품 뽑기`;
+  const addOneMoreLabel = roundTarget === 'people'
+    ? '한 명 추가로 뽑기'
+    : '결과 하나 추가하기';
+  const completedPrimaryAction: BroadcastDockAction =
+    sessionGoalReached && canAddOneMoreResult
+      ? {
+          id: 'add-one-more',
+          label: addOneMoreLabel,
+          onClick: addOneMoreResult,
+        }
+      : {
+          id: sessionGoalReached ? 'finish-session' : 'next-round',
+          label: sessionGoalReached
+            ? '추첨 마치기 · 설계로'
+            : completedPrimaryLabel,
+          onClick: sessionGoalReached
+            ? () => finishBroadcast()
+            : continueCompletedRound,
+        };
   const completedSecondaryActions: BroadcastDockAction[] = [
-    ...(canReplayLatestResult ? [{
-      id: 'replay-result',
-      label: '같은 결과 다시 보기',
-      onClick: replayLatestResult,
-      tone: 'quiet' as const,
-      title: '직전 결과의 화면 연출만 다시 재생합니다. 기록, 제외 상태, 재고는 바뀌지 않습니다.',
-    }] : []),
     ...(sessionGoalReached && canAddOneMoreResult ? [{
-      id: 'add-one-more',
-      label: roundTarget === 'people' ? '한 명 추가로 뽑기' : '결과 하나 추가하기',
-      onClick: addOneMoreResult,
+      id: 'finish-session',
+      label: '추첨 마치기 · 설계로',
+      onClick: () => finishBroadcast(),
+      tone: 'quiet' as const,
     }] : []),
     ...(!sessionGoalReached ? [{
       id: 'pause-draw',
@@ -3023,7 +3028,7 @@ export function RouletteGame({
       </div>
 
       <p
-        className="current-round-winners__announcement"
+        className="current-round-winners__announcement roulette-live-announcement"
         role="status"
         aria-live="polite"
         aria-atomic="true"
@@ -3122,11 +3127,7 @@ export function RouletteGame({
                 phase="completed"
                 primaryActionRef={completedPrimaryActionRef}
                 note={actionNote}
-                primaryAction={{
-                  id: sessionGoalReached ? 'finish-session' : 'next-round',
-                  label: completedPrimaryLabel,
-                  onClick: sessionGoalReached ? () => finishBroadcast() : continueCompletedRound,
-                }}
+                primaryAction={completedPrimaryAction}
                 secondaryActions={completedSecondaryActions}
               />
             )}

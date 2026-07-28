@@ -9,12 +9,12 @@
 /* The status path sits on Roulette's dark header. Keep every live-state
    label readable, including the quieter completed steps. */
 .app-shell--live .raffle-status-path li {
-  color: #f1d9de;
+  color: color-mix(in srgb, var(--card) 76%, var(--hot-pink));
   text-shadow: 0 1px 0 rgb(0 0 0 / 24%);
 }
 
 .app-shell--live .raffle-status-path li:not(:last-child)::after {
-  color: #dcaeb8;
+  color: color-mix(in srgb, var(--hot-pink) 58%, var(--muted));
 }
 
 .app-shell--live .raffle-status-path .is-complete,
@@ -24,7 +24,7 @@
 
 .app-shell--live .raffle-status-path .is-complete > span {
   border-color: #fff;
-  background: #fff1f4;
+  background: color-mix(in srgb, var(--cream) 84%, var(--card));
   color: var(--magenta);
   box-shadow: 0 0 0 2px rgb(255 255 255 / 12%);
 }
@@ -32,8 +32,8 @@
 .app-shell--live .raffle-status-path .is-current > span {
   border-color: #fff;
   background: var(--hot-pink-strong);
-  color: #4e342e;
-  box-shadow: 0 0 0 3px rgb(255 182 193 / 28%);
+  color: var(--exlab-stage-text, #fff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hot-pink) 28%, transparent);
 }
 
 /* Prevent the live shell's outer margin from collapsing through #root and
@@ -254,8 +254,8 @@
   padding: 7px 11px;
   border: 1px solid rgb(255 255 255 / 84%);
   border-radius: 999px;
-  background: rgb(78 52 46 / 88%);
-  box-shadow: 0 5px 18px rgb(78 52 46 / 22%);
+  background: color-mix(in srgb, var(--ink) 88%, transparent);
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--ink) 22%, transparent);
   color: #fff;
   content: '결과 고정 · 클릭 순간 확정';
   font-family: 'Jua', sans-serif;
@@ -359,8 +359,8 @@
       .reveal-phase--proof-hold-done
     )
   ) .broadcast-phase-bar {
-    border-color: rgb(255 182 193 / 22%);
-    background: rgb(255 250 252 / 46%);
+    border-color: color-mix(in srgb, var(--hot-pink) 22%, transparent);
+    background: color-mix(in srgb, var(--card) 46%, transparent);
     box-shadow: none;
   }
 
@@ -441,7 +441,7 @@
   background: var(--hot-pink);
   box-shadow:
     0 0 0 2px var(--hot-pink-strong),
-    0 0 0 10px rgb(255 182 193 / 30%);
+    0 0 0 10px color-mix(in srgb, var(--hot-pink) 30%, transparent);
   pointer-events: none;
   transform: translate(-50%, -50%);
   animation: cinematic-result-anchor 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -469,10 +469,10 @@
   border: 2px solid var(--hot-pink);
   border-left-width: 9px;
   border-radius: 18px;
-  background: rgb(255 255 255 / 93%);
+  background: color-mix(in srgb, var(--card) 93%, transparent);
   box-shadow:
     0 7px 0 var(--hot-pink-strong),
-    0 18px 38px rgb(78 52 46 / 28%);
+    0 18px 38px color-mix(in srgb, var(--ink) 28%, transparent);
   text-align: left;
   backdrop-filter: blur(12px);
   transform-origin: 100% 50%;
@@ -751,7 +751,7 @@
     border-width: 2px;
     box-shadow:
       0 5px 0 var(--hot-pink-strong),
-      0 9px 20px rgb(255 159 176 / 24%);
+      0 9px 20px color-mix(in srgb, var(--hot-pink-strong) 24%, transparent);
   }
 
   .broadcast-focus.is-completed .current-round-winners__header {
@@ -869,9 +869,9 @@
     width: min(380px, 38%);
     max-width: none;
     padding: 8px 10px;
-    border: 1px solid rgb(255 182 193 / 38%);
+    border: 1px solid color-mix(in srgb, var(--hot-pink) 38%, transparent);
     border-radius: 11px;
-    background: rgb(255 250 252 / 82%);
+    background: color-mix(in srgb, var(--card) 82%, transparent);
     backdrop-filter: blur(8px);
   }
 
@@ -1137,19 +1137,19 @@
 
 @keyframes cinematic-result-row-receive {
   0% {
-    background: #fff;
+    background: var(--card);
     box-shadow: inset 0 0 0 var(--hot-pink);
     transform: translateX(16px);
   }
   58% {
-    background: #fff0f4;
+    background: color-mix(in srgb, var(--cream) 86%, var(--card));
     box-shadow:
       inset 7px 0 0 var(--hot-pink),
-      0 0 0 4px rgb(255 182 193 / 22%);
+      0 0 0 4px color-mix(in srgb, var(--hot-pink) 22%, transparent);
     transform: translateX(0);
   }
   100% {
-    background: #fff8fa;
+    background: color-mix(in srgb, var(--card) 84%, var(--cream));
     box-shadow: inset 4px 0 0 var(--hot-pink);
     transform: translateX(0);
   }

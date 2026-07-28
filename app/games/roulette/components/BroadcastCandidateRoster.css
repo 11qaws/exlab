@@ -10,10 +10,10 @@
   align-self: center;
   gap: 0.55rem;
   padding: clamp(0.65rem, 1vw, 0.85rem);
-  border: 1px solid rgb(255 182 193 / 62%);
+  border: 1px solid color-mix(in srgb, var(--hot-pink) 62%, transparent);
   border-radius: 0.9rem;
-  background: rgb(255 255 255 / 82%);
-  box-shadow: 0 0.3rem 0 rgb(255 159 176 / 28%);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  box-shadow: 0 0.3rem 0 color-mix(in srgb, var(--hot-pink-strong) 28%, transparent);
   backdrop-filter: blur(8px);
 }
 
@@ -97,9 +97,9 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0 0.42rem;
-  border: 1px solid rgb(255 182 193 / 42%);
+  border: 1px solid color-mix(in srgb, var(--hot-pink) 42%, transparent);
   border-radius: 0.5rem;
-  background: rgb(255 250 252 / 92%);
+  background: color-mix(in srgb, var(--card) 88%, var(--cream));
 }
 
 .broadcast-candidate-roster__number {

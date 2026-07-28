@@ -236,7 +236,6 @@ test("the exact finish marker is rendered beside the line above race objects", (
     canvasSource,
     /context\.fillText\(\s*"FINISH",\s*startX/,
   );
-  assert.match(gameSource, /className="preview-finish-flag"/);
 });
 
 test("result presentation waits three visible seconds after the full result gate", () => {
@@ -275,12 +274,31 @@ test("slow-motion renders fractional source frames without reallocating the canv
   );
 });
 
-test("a failed random preview seed retries instead of freezing on the static map", () => {
+test("preview preparation never renders the retired static SVG map", () => {
+  assert.doesNotMatch(gameSource, /function StartPreview/);
+  assert.doesNotMatch(gameSource, /className="preview-course"/);
+  assert.doesNotMatch(gameSource, /<svg/);
+  assert.match(
+    gameSource,
+    /showdownWallColor\([\s\S]*?getStreamerTheme\(streamerThemeId\)\.palette,[\s\S]*?mapMode/,
+    "the selected streamer triad owns a contrast-safe physical course wall",
+  );
+  assert.match(
+    gameSource,
+    /className="map-preview live-preview preview-loading"[\s\S]*?role="status"[\s\S]*?aria-busy="true"/,
+  );
+});
+
+test("a failed random preview seed keeps the neutral loader and retries", () => {
   assert.match(
     gameSource,
     /catch \{[\s\S]*?setPreviewPlan\(null\);[\s\S]*?setPreviewCycle\(\(value\) => value \+ 1\)/,
   );
   assert.match(gameSource, /window\.clearTimeout\(retryTimer\);/);
+  assert.match(
+    gameSource,
+    /if \(!previewPlan\) \{[\s\S]*?preview-loading[\s\S]*?aria-busy="true"/,
+  );
 });
 
 test("Showdown commits roster changes only when the 10-second preview cycle ends", () => {

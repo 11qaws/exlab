@@ -15,59 +15,61 @@
 }
 
 .roulette-wheel__stage::after {
-  background: rgb(255 182 193 / 34%);
+  background: color-mix(in srgb, var(--hot-pink) 34%, transparent);
 }
 
 .roulette-wheel__rim {
-  border-color: #ffb6c1;
-  background: #fff;
+  border-color: var(--hot-pink);
+  background: var(--card);
   box-shadow:
-    0 0 0 0.25rem #fff,
-    0 0 0 0.52rem #ffb6c1,
-    0 0.7rem 0 #ff9fb0,
-    0 1.2rem 2.2rem rgb(255 182 193 / 38%);
+    0 0 0 0.25rem var(--card),
+    0 0 0 0.52rem var(--hot-pink),
+    0 0.7rem 0 var(--hot-pink-strong),
+    0 1.2rem 2.2rem color-mix(in srgb, var(--hot-pink) 38%, transparent);
 }
 
 .roulette-wheel__slice {
-  stroke: #fff0f3;
+  stroke: var(--cream);
 }
 
 .roulette-wheel__label,
 .roulette-wheel__empty-copy {
-  fill: #4e342e;
-  stroke: rgb(255 255 255 / 88%);
+  fill: var(--ink);
+  stroke: color-mix(in srgb, var(--card) 88%, transparent);
   font-family: 'Jua', 'Fredoka', sans-serif;
   font-weight: 400;
 }
 
 .roulette-wheel__hub {
-  border-color: #ffb6c1;
-  background: #fff0f3;
-  box-shadow: inset 0.2rem 0.2rem 0 rgb(255 255 255 / 72%), 0 0.28rem 0 #ff9fb0;
+  border-color: var(--hot-pink);
+  background: var(--cream);
+  box-shadow:
+    inset 0.2rem 0.2rem 0 color-mix(in srgb, var(--card) 72%, transparent),
+    0 0.28rem 0 var(--hot-pink-strong);
 }
 
 .roulette-wheel__hub span,
 .roulette-wheel__hub small {
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Jua', 'Fredoka', sans-serif;
   font-weight: 400;
 }
 
 .roulette-wheel__hub small {
-  color: #e91e63;
+  color: var(--magenta);
 }
 
 .roulette-wheel__pointer {
-  filter: drop-shadow(0 0.3rem 0 #ff9fb0);
+  filter: drop-shadow(0 0.3rem 0 var(--hot-pink-strong));
 }
 
 .roulette-wheel__pointer::before {
-  background: #ffb6c1;
+  background: var(--hot-pink);
 }
 
 .roulette-wheel__pointer-pin {
-  border-color: #ffb6c1;
-  background: #fff;
+  border-color: var(--hot-pink);
+  background: var(--card);
 }
 
 .roulette-wheel__spark {

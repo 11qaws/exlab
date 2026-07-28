@@ -15,7 +15,10 @@
   --mint: #34e0a8;
   --sky: #4ea9f0;
   --orange: #ff9d54;
-  --shadow: 0 10px 30px rgb(255 182 193 / 30%);
+  --roulette-palette-dark: #8f3655;
+  --roulette-palette-main: #e84f83;
+  --roulette-palette-light: #f6c8d8;
+  --shadow: 0 10px 30px color-mix(in srgb, var(--hot-pink) 30%, transparent);
   font-family: 'Jua', 'Fredoka', sans-serif;
 }
 
@@ -26,10 +29,10 @@
 
 :scope {
   color: var(--ink);
-  background-color: #fcf5f5;
+  background-color: var(--page);
   background-image:
-    radial-gradient(#ffc0cb 1px, transparent 1px),
-    radial-gradient(#ffc0cb 1px, transparent 1px);
+    radial-gradient(color-mix(in srgb, var(--hot-pink) 76%, transparent) 1px, transparent 1px),
+    radial-gradient(color-mix(in srgb, var(--hot-pink) 76%, transparent) 1px, transparent 1px);
   background-position: 0 0, 10px 10px;
   background-size: 20px 20px;
 }
@@ -108,10 +111,10 @@ select:focus-visible {
   margin: 20px auto;
   padding: 30px;
   overflow: hidden;
-  border: 3px solid #ffb6c1;
+  border: 3px solid var(--hot-pink);
   border-radius: 20px;
-  background: #fff;
-  box-shadow: 0 10px 30px rgb(255 182 193 / 30%);
+  background: var(--card);
+  box-shadow: var(--shadow);
 }
 
 .app-shell::before {
@@ -119,7 +122,7 @@ select:focus-visible {
   inset: 8px;
   z-index: 0;
   content: '';
-  border: 2px dashed #ffb6c1;
+  border: 2px dashed var(--hot-pink);
   border-radius: 14px;
   pointer-events: none;
 }
@@ -134,8 +137,8 @@ select:focus-visible {
   margin: 0 0 24px;
   padding: 10px 18px;
   border-radius: 12px;
-  background: #4e342e;
-  box-shadow: 0 4px 10px rgb(78 52 46 / 25%);
+  background: var(--ink);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
 .brand {
@@ -179,7 +182,7 @@ select:focus-visible {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #d7ccc8;
+  color: color-mix(in srgb, var(--card) 76%, var(--muted));
   font-family: 'Jua', sans-serif;
   font-size: 13px;
   font-weight: 400;
@@ -199,10 +202,10 @@ select:focus-visible {
 .ghost-button,
 .compact-button {
   padding: 8px 13px;
-  border: 2px solid #ffb6c1;
-  background: #fff;
-  box-shadow: 0 3px 0 #ffb6c1;
-  color: #8d6e63;
+  border: 2px solid var(--hot-pink);
+  background: var(--card);
+  box-shadow: 0 3px 0 var(--hot-pink);
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -210,9 +213,9 @@ select:focus-visible {
 .compact-button:hover:not(:disabled),
 .target-button:hover:not(:disabled),
 .draw-mode-button:hover:not(:disabled) {
-  background: #fff8f9;
+  background: color-mix(in srgb, var(--card) 84%, var(--cream));
   transform: translateY(1px);
-  box-shadow: 0 2px 0 #ffb6c1;
+  box-shadow: 0 2px 0 var(--hot-pink);
 }
 
 .ghost-button:active:not(:disabled),
@@ -226,15 +229,15 @@ select:focus-visible {
 .primary-button {
   padding: 12px 20px;
   border: 0;
-  background: #ffb6c1;
-  box-shadow: 0 4px 0 #ff9fb0;
-  color: #fff;
+  background: var(--hot-pink);
+  box-shadow: 0 4px 0 var(--hot-pink-strong);
+  color: var(--exlab-on-accent, #fff);
   font-size: 17px;
 }
 
 .primary-button:hover:not(:disabled) {
-  background: #ffb6c1;
-  box-shadow: 0 2px 0 #ff9fb0;
+  background: var(--hot-pink);
+  box-shadow: 0 2px 0 var(--hot-pink-strong);
   transform: translateY(2px);
 }
 
@@ -261,9 +264,9 @@ select:focus-visible {
 .control-panel,
 .stage-panel,
 .history-panel {
-  border: 1px solid rgb(255 182 193 / 50%);
+  border: 1px solid color-mix(in srgb, var(--hot-pink) 50%, transparent);
   border-radius: 16px;
-  background: #fff0f3;
+  background: var(--cream);
   box-shadow: none;
 }
 
@@ -273,9 +276,9 @@ select:focus-visible {
 
 .stage-panel {
   min-height: 660px;
-  border: 1px solid rgb(255 182 193 / 50%);
+  border: 1px solid color-mix(in srgb, var(--hot-pink) 50%, transparent);
   border-radius: 16px;
-  background: #fff0f3;
+  background: var(--cream);
 }
 
 .stage-panel::before {
@@ -286,7 +289,7 @@ select:focus-visible {
 .settings-heading h2,
 .history-header h2,
 .stage-title-row h2 {
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-size: 18px;
   font-weight: 400;
@@ -300,7 +303,7 @@ select:focus-visible {
 .helper-note,
 .helper-steps,
 .history-empty {
-  color: #8d6e63;
+  color: var(--muted);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: 12px;
 }
@@ -309,24 +312,24 @@ select:focus-visible {
 .setting-card,
 .prize-card,
 .history-panel {
-  border: 1px solid rgb(255 182 193 / 50%);
+  border: 1px solid color-mix(in srgb, var(--hot-pink) 50%, transparent);
   border-radius: 16px;
-  background: #fff0f3;
+  background: var(--cream);
 }
 
 .clipboard-import-card,
 .author-list-card {
   margin-top: 15px;
   padding: 16px;
-  border: 1px solid rgb(255 182 193 / 50%);
+  border: 1px solid color-mix(in srgb, var(--hot-pink) 50%, transparent);
   border-radius: 16px;
-  background: #fff0f3;
+  background: var(--cream);
 }
 
 .clipboard-import-card h3,
 .author-list-card h3 {
   margin: 0 0 9px;
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-size: 16px;
   font-weight: 400;
@@ -349,7 +352,7 @@ select:focus-visible {
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 5px 8px;
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: 12px;
 }
@@ -368,7 +371,7 @@ select:focus-visible {
 
 .clipboard-import-options small {
   grid-column: auto;
-  color: #8d6e63;
+  color: var(--muted);
   font-size: 11px;
 }
 
@@ -378,7 +381,7 @@ select:focus-visible {
   justify-content: space-between;
   gap: 10px;
   margin-top: 9px;
-  color: #8d6e63;
+  color: var(--muted);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: 12px;
 }
@@ -401,7 +404,7 @@ select:focus-visible {
   overflow: auto;
   list-style: none;
   counter-reset: author;
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: 13px;
   line-height: 1.55;
@@ -418,7 +421,7 @@ select:focus-visible {
 
 .author-list li::before {
   min-width: 23px;
-  color: #f26b91;
+  color: var(--magenta);
   content: counter(author) '.';
   counter-increment: author;
   font-family: 'Share Tech Mono', monospace;
@@ -430,7 +433,7 @@ select:focus-visible {
 }
 
 .import-card__title {
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-size: 16px;
   font-weight: 400;
@@ -439,7 +442,7 @@ select:focus-visible {
 .import-status {
   min-height: 18px;
   margin: 9px 0 0;
-  color: #8d6e63;
+  color: var(--muted);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: 12px;
   line-height: 1.45;
@@ -447,7 +450,7 @@ select:focus-visible {
 
 .import-status--loading,
 .import-status--checking {
-  color: #8d6e63;
+  color: var(--muted);
 }
 
 .import-status--complete {
@@ -465,10 +468,10 @@ select:focus-visible {
 .prize-name-input,
 .prize-quantity-input,
 .weight-input {
-  border: 2px solid #ffb6c1;
+  border: 2px solid var(--hot-pink);
   border-radius: 12px;
-  background: #fff;
-  color: #4e342e;
+  background: var(--card);
+  color: var(--ink);
   font-family: 'Fredoka', 'Jua', sans-serif;
 }
 
@@ -479,9 +482,9 @@ select:focus-visible {
 .prize-name-input:focus,
 .prize-quantity-input:focus,
 .weight-input:focus {
-  border-color: #ff9fb0;
+  border-color: var(--hot-pink-strong);
   outline: none;
-  box-shadow: 0 0 0 3px rgb(255 182 193 / 30%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hot-pink) 30%, transparent);
 }
 
 .draw-mode-tabs,
@@ -492,16 +495,16 @@ select:focus-visible {
 .draw-mode-button,
 .target-button {
   min-height: 48px;
-  border: 2px solid #ffd7de;
-  background: #fff;
+  border: 2px solid var(--line);
+  background: var(--card);
   box-shadow: none;
-  color: #8d6e63;
+  color: var(--muted);
   font-size: 15px;
 }
 
 .draw-mode-button small,
 .target-button small {
-  color: #bda8a0;
+  color: color-mix(in srgb, var(--muted) 72%, var(--card));
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: 10px;
   font-weight: 500;
@@ -509,15 +512,15 @@ select:focus-visible {
 
 .draw-mode-button[aria-pressed='true'],
 .target-button[aria-pressed='true'] {
-  border: 2px solid #ff9fb0;
-  background: #ffb6c1;
-  box-shadow: 0 3px 0 #ff9fb0;
-  color: #fff;
+  border: 2px solid var(--hot-pink-strong);
+  background: var(--hot-pink);
+  box-shadow: 0 3px 0 var(--hot-pink-strong);
+  color: var(--exlab-on-accent, #fff);
 }
 
 .draw-mode-button[aria-pressed='true'] small,
 .target-button[aria-pressed='true'] small {
-  color: #fff5f7;
+  color: var(--exlab-on-accent, #fff);
 }
 
 .setting-card {
@@ -528,7 +531,7 @@ select:focus-visible {
 .prize-card label,
 .field-stack label,
 .advanced-options summary {
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-size: 14px;
   font-weight: 400;
@@ -537,7 +540,7 @@ select:focus-visible {
 .setting-card small,
 .switch-row small,
 .advanced-options p {
-  color: #8d6e63;
+  color: var(--muted);
   font-family: 'Fredoka', 'Jua', sans-serif;
 }
 
@@ -546,36 +549,36 @@ select:focus-visible {
 }
 
 .switch-row input {
-  accent-color: #ff9fb0;
+  accent-color: var(--hot-pink-strong);
 }
 
 .switch-row span {
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-weight: 400;
 }
 
 .pool-summary {
-  border: 2px dashed #ffb6c1;
+  border: 2px dashed var(--hot-pink);
   border-radius: 12px;
-  background: #fff;
+  background: var(--card);
 }
 
 .pool-summary strong {
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-weight: 400;
 }
 
 .pool-summary span {
-  color: #e91e63;
+  color: var(--magenta);
 }
 
 .name-chip,
 .weight-editor__row {
-  border: 1px solid #ffb6c1;
-  background: #fff;
-  color: #4e342e;
+  border: 1px solid var(--hot-pink);
+  background: var(--card);
+  color: var(--ink);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-weight: 500;
 }
@@ -591,11 +594,11 @@ select:focus-visible {
 }
 
 .prize-row {
-  border-bottom-color: #ffd7de;
+  border-bottom-color: var(--line);
 }
 
 .advanced-options {
-  border-top-color: #ffd7de;
+  border-top-color: var(--line);
 }
 
 .stage-heading {
@@ -603,9 +606,9 @@ select:focus-visible {
 }
 
 .mode-chip {
-  border: 1px solid #ffb6c1;
-  background: #fff;
-  color: #8d6e63;
+  border: 1px solid var(--hot-pink);
+  background: var(--card);
+  color: var(--muted);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: 11px;
   font-weight: 600;
@@ -617,14 +620,14 @@ select:focus-visible {
 
 .result-ribbon {
   min-height: 84px;
-  border: 1px solid #ffb6c1;
+  border: 1px solid var(--hot-pink);
   border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 3px 0 #ffb6c1;
+  background: var(--card);
+  box-shadow: 0 3px 0 var(--hot-pink);
 }
 
 .result-ribbon__label {
-  color: #8d6e63;
+  color: var(--muted);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: 11px;
   font-weight: 600;
@@ -632,7 +635,7 @@ select:focus-visible {
 }
 
 .result-ribbon strong {
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-weight: 400;
   letter-spacing: -0.02em;
@@ -647,58 +650,58 @@ select:focus-visible {
 }
 
 .history-item {
-  border: 1px solid #ffb6c1;
+  border: 1px solid var(--hot-pink);
   border-radius: 12px;
-  background: #fff;
+  background: var(--card);
 }
 
 .history-item small,
 .history-item span {
-  color: #8d6e63;
+  color: var(--muted);
   font-family: 'Fredoka', 'Jua', sans-serif;
 }
 
 .history-item strong {
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-weight: 400;
 }
 
 .modal-backdrop {
-  background: rgb(78 52 46 / 36%);
+  background: color-mix(in srgb, var(--ink) 36%, transparent);
 }
 
 .import-modal {
-  border: 3px solid #ffb6c1;
+  border: 3px solid var(--hot-pink);
   border-radius: 20px;
-  background: #fff;
-  box-shadow: 0 10px 30px rgb(78 52 46 / 25%);
+  background: var(--card);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
 .modal-header h2 {
-  color: #4e342e;
+  color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-weight: 400;
   letter-spacing: 0;
 }
 
 .icon-button {
-  border: 2px solid #ffd7de;
+  border: 2px solid var(--line);
   border-radius: 10px;
-  background: #fff0f3;
-  color: #8d6e63;
+  background: var(--cream);
+  color: var(--muted);
 }
 
 .modal-divider {
-  background: #ffd7de;
+  background: var(--line);
 }
 
 .toast {
-  border: 1px solid #ffb6c1;
+  border: 1px solid var(--hot-pink);
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 4px 0 #ffb6c1;
-  color: #4e342e;
+  background: var(--card);
+  box-shadow: 0 4px 0 var(--hot-pink);
+  color: var(--ink);
   font-family: 'Jua', sans-serif;
   font-weight: 400;
 }

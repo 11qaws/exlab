@@ -5,11 +5,11 @@ export const GAME_CATALOG = [
     id: "roulette",
     label: "Roulette",
     slug: "roulette",
-    version: "1.3.23",
+    version: "1.3.24",
     capabilities: {
       grouping: false,
       configurableWinnerCount: true,
-      replay: true,
+      replay: false,
       maxParticipantsPerRun: null,
     },
   },
@@ -17,7 +17,7 @@ export const GAME_CATALOG = [
     id: "showdown",
     label: "Showdown",
     slug: "showdown",
-    version: "1.3.23",
+    version: "1.3.24",
     capabilities: {
       grouping: "optional",
       configurableWinnerCount: true,

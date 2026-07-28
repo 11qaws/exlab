@@ -1,3 +1,5 @@
+import type { StreamerColorPalette } from "../_platform/theme/streamerPalettes";
+
 export type RaceMapMode = "light" | "dark";
 
 export type RaceObstacleColorKey =
@@ -113,6 +115,18 @@ export function raceMapTheme(
   const theme = RACE_MAP_THEMES[mode];
   if (!wallColor || wallColor === theme.wall) return theme;
   return { ...theme, wall: wallColor };
+}
+
+/**
+ * Keeps the requested streamer identity on course walls without sacrificing
+ * their edge contrast: dense structure in the default light map and the same
+ * palette's pale role on a dark track.
+ */
+export function showdownWallColor(
+  palette: StreamerColorPalette,
+  mode: RaceMapMode,
+): string {
+  return mode === "dark" ? palette.light : palette.dark;
 }
 
 export function obstaclePaletteEntry(index: number): RaceObstacleColor {

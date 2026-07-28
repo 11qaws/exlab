@@ -442,10 +442,10 @@
     width: 100%;
     margin: 0;
     padding: 6px;
-    border: 1px solid rgb(255 182 193 / 52%);
+    border: 1px solid color-mix(in srgb, var(--hot-pink) 52%, transparent);
     border-radius: 14px;
-    background: rgb(255 250 252 / 94%);
-    box-shadow: 0 8px 22px rgb(78 52 46 / 16%);
+    background: color-mix(in srgb, var(--card) 94%, transparent);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--ink) 16%, transparent);
     backdrop-filter: blur(10px);
   }
 

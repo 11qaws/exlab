@@ -21,7 +21,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #cbbab5;
+  color: color-mix(in srgb, var(--muted) 62%, var(--card));
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: 12px;
 }
@@ -34,7 +34,7 @@
 }
 
 .preparation-phase > *:not(:last-child)::after {
-  color: #8f7670;
+  color: var(--muted);
   content: '›';
 }
 
@@ -55,9 +55,9 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid rgb(255 182 193 / 62%);
+  border: 1px solid color-mix(in srgb, var(--hot-pink) 62%, transparent);
   border-radius: 18px;
-  background: #fff;
+  background: var(--card);
 }
 
 .preparation-rail {
@@ -74,7 +74,7 @@
   gap: 12px;
   padding: 11px 14px;
   border-bottom: 1px solid var(--line);
-  background: #fff8fa;
+  background: color-mix(in srgb, var(--card) 84%, var(--cream));
 }
 
 .preparation-rail__heading p,
@@ -138,7 +138,7 @@
 }
 
 .preparation-preview__heading {
-  background: rgb(255 255 255 / 86%);
+  background: color-mix(in srgb, var(--card) 86%, transparent);
 }
 
 .preparation-preview__stage {
@@ -156,7 +156,7 @@
   min-height: 78px;
   padding: 11px 14px 13px;
   border-top: 1px solid var(--line);
-  background: #fff;
+  background: var(--card);
 }
 
 .preparation-preview__summary {
@@ -237,7 +237,7 @@
 
 .preparation-preview__primary:disabled {
   border-color: var(--line);
-  background: #f3eee9;
+  background: color-mix(in srgb, var(--card) 58%, var(--cream));
   box-shadow: none;
   color: var(--muted);
   cursor: not-allowed;
@@ -269,7 +269,7 @@
   padding: 11px 12px;
   border: 1px solid color-mix(in srgb, var(--hot-pink) 58%, var(--line));
   border-radius: 14px;
-  background: color-mix(in srgb, var(--cream) 78%, white);
+  background: color-mix(in srgb, var(--cream) 78%, var(--card));
 }
 
 .preparation-preview__footer > .roulette-session-hub {
@@ -319,7 +319,7 @@
   gap: 1px;
   padding: 7px 8px;
   border-radius: 9px;
-  background: rgb(255 255 255 / 78%);
+  background: color-mix(in srgb, var(--card) 78%, transparent);
 }
 
 .roulette-session-hub__meta dt {
@@ -369,7 +369,7 @@
   width: 100%;
   height: 100%;
   border: 0;
-  background: rgb(78 52 46 / 48%);
+  background: color-mix(in srgb, var(--ink) 48%, transparent);
   cursor: default;
   backdrop-filter: blur(3px);
 }

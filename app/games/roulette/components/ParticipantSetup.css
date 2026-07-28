@@ -7,8 +7,8 @@
   overflow: hidden;
   border: 1px solid var(--hot-pink-strong);
   border-radius: 20px;
-  background: #fff;
-  box-shadow: 0 22px 70px rgb(80 43 34 / 28%);
+  background: var(--card);
+  box-shadow: 0 22px 70px color-mix(in srgb, var(--ink) 28%, transparent);
   color: var(--ink);
 }
 
@@ -26,7 +26,7 @@
   min-height: 74px;
   padding: 15px 18px;
   border-bottom: 1px solid var(--line);
-  background: #fff8fa;
+  background: color-mix(in srgb, var(--card) 78%, var(--cream));
 }
 
 .participant-setup__header h1,
@@ -78,7 +78,7 @@
   height: 36px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: #fff;
+  background: var(--card);
   font-size: 22px;
 }
 
@@ -137,7 +137,7 @@
   padding: 13px;
   border: 1px solid var(--hot-pink);
   border-radius: 12px;
-  background: #fffafc;
+  background: color-mix(in srgb, var(--card) 84%, var(--cream));
   color: var(--ink);
   font: 13px/1.5 'Fredoka', 'Jua', sans-serif;
   resize: vertical;
@@ -155,7 +155,7 @@
 .setup-editor-list input:focus {
   border-color: var(--magenta);
   outline: 0;
-  box-shadow: 0 0 0 3px rgb(255 182 193 / 30%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hot-pink) 30%, transparent);
 }
 
 .setup-actions {
@@ -182,7 +182,7 @@
 
 .setup-secondary {
   border: 1px solid var(--hot-pink);
-  background: #fff;
+  background: var(--card);
   color: var(--magenta);
 }
 
@@ -216,7 +216,7 @@
 .setup-textarea[aria-invalid='true'],
 .setup-editor-list input[aria-invalid='true'] {
   border-color: #b23b54;
-  background: #fff8fa;
+  background: color-mix(in srgb, #b23b54 7%, var(--card));
 }
 
 .setup-primary:disabled {
@@ -363,7 +363,7 @@
   height: 28px;
   border: 1px solid var(--line);
   border-radius: 7px;
-  background: #fff;
+  background: var(--card);
   font-size: 13px;
 }
 
@@ -378,7 +378,7 @@
   margin: 14px -18px -18px;
   padding: 12px 18px 18px;
   border-top: 1px solid var(--line);
-  background: #fff;
+  background: var(--card);
 }
 
 @media (max-width: 620px) {

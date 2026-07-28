@@ -8,7 +8,9 @@ import {
   STREAMER_THEME_CONTRAST_TARGETS,
   streamerThemeContrastReport,
   streamerThemeCssVariables,
+  themeColorContrastRatio,
 } from "../app/_platform/theme/streamerThemes";
+import { STREAMER_COLOR_PALETTES } from "../app/_platform/theme/streamerPalettes";
 import {
   streamerThemeCurrentPortraitZoom,
   streamerThemePickerPortraitOffsetY,
@@ -80,6 +82,66 @@ test("streamer theme registry exposes the five canonical profile assets", async 
     await assert.doesNotReject(
       access(new URL(`../public/${theme.portrait.path}`, import.meta.url)),
       `${theme.id} profile asset should exist`,
+    );
+  }
+});
+
+test("streamer palettes expose one image-derived dark, main, and light triad", () => {
+  assert.deepEqual(STREAMER_COLOR_PALETTES, {
+    amoretto: {
+      dark: "#8f3655",
+      main: "#e84f83",
+      light: "#f6c8d8",
+    },
+    eureka: {
+      dark: "#16664f",
+      main: "#2fbfa7",
+      light: "#f2d76b",
+    },
+    sena: {
+      dark: "#572b43",
+      main: "#443e4b",
+      light: "#bdacbb",
+    },
+    torori: {
+      dark: "#355d8a",
+      main: "#4baedc",
+      light: "#d6f1fb",
+    },
+    mangjing: {
+      dark: "#2f478f",
+      main: "#7d90ca",
+      light: "#cedafa",
+    },
+  });
+
+  const mainLabelColours = {
+    amoretto: "#2a0c16",
+    eureka: "#062c25",
+    sena: "#ffffff",
+    torori: "#041f2b",
+    mangjing: "#01040c",
+  } as const;
+
+  for (const theme of STREAMER_THEMES) {
+    const palette = STREAMER_COLOR_PALETTES[theme.id];
+    const variables = streamerThemeCssVariables(theme, "light");
+    assert.deepEqual(theme.palette, palette);
+    assert.equal(variables["--exlab-palette-dark"], palette.dark);
+    assert.equal(variables["--exlab-palette-main"], palette.main);
+    assert.equal(variables["--exlab-palette-light"], palette.light);
+    assert.ok(
+      themeColorContrastRatio("#ffffff", palette.dark) >= 6.5,
+      `${theme.id} dark should support small white labels`,
+    );
+    assert.ok(
+      themeColorContrastRatio(mainLabelColours[theme.id], palette.main) >=
+        4.5,
+      `${theme.id} main should keep normal labels readable`,
+    );
+    assert.ok(
+      themeColorContrastRatio(theme.light.accentOn, palette.main) >= 4.5,
+      `${theme.id} shared on-accent token should stay readable on palette main`,
     );
   }
 });

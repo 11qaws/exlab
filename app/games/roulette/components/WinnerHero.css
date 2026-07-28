@@ -8,14 +8,19 @@
   place-items: center;
   padding: clamp(1rem, 3vw, 2.5rem);
   overflow: hidden;
-  border: 3px solid var(--hot-pink, #ffb6c1);
+  border: 3px solid var(--hot-pink);
   border-radius: clamp(1.25rem, 3vw, 2rem);
   background:
-    radial-gradient(circle at 50% 30%, rgb(255 255 255 / 96%) 0 18%, transparent 58%),
-    linear-gradient(135deg, var(--cream, #fff0f3), #fff 52%, #fff4f7);
+    radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--card) 96%, transparent) 0 18%, transparent 58%),
+    linear-gradient(
+      135deg,
+      var(--cream),
+      var(--card) 52%,
+      color-mix(in srgb, var(--hot-pink) 12%, var(--card))
+    );
   box-shadow:
-    0 0.55rem 0 var(--hot-pink-strong, #ff9fb0),
-    0 1.4rem 3rem rgb(255 159 176 / 30%);
+    0 0.55rem 0 var(--hot-pink-strong),
+    0 1.4rem 3rem color-mix(in srgb, var(--hot-pink-strong) 30%, transparent);
   isolation: isolate;
   animation: winner-hero-arrive 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -27,7 +32,7 @@
   width: clamp(11rem, 29vw, 19rem);
   aspect-ratio: 1;
   content: '';
-  border: clamp(1rem, 2.5vw, 1.8rem) solid rgb(255 182 193 / 24%);
+  border: clamp(1rem, 2.5vw, 1.8rem) solid color-mix(in srgb, var(--hot-pink) 24%, transparent);
   border-radius: 50%;
 }
 
@@ -75,7 +80,7 @@
   background: repeating-conic-gradient(
     from -4deg,
     transparent 0 9deg,
-    rgb(255 182 193 / 62%) 9deg 12deg,
+    color-mix(in srgb, var(--hot-pink) 62%, transparent) 9deg 12deg,
     transparent 12deg 24deg
   );
   clip-path: polygon(48% 0, 52% 0, 56% 43%, 100% 48%, 100% 52%, 56% 57%, 52% 100%, 48% 100%, 44% 57%, 0 52%, 0 48%, 44% 43%);
@@ -105,12 +110,12 @@
   justify-items: center;
   gap: clamp(0.65rem, 1.6vw, 1rem);
   padding: clamp(1.5rem, 4vw, 3rem);
-  border: 1px solid rgb(255 182 193 / 58%);
+  border: 1px solid color-mix(in srgb, var(--hot-pink) 58%, transparent);
   border-radius: clamp(1rem, 2.5vw, 1.6rem);
-  background: rgb(255 255 255 / 86%);
+  background: color-mix(in srgb, var(--card) 86%, transparent);
   box-shadow:
-    0 1rem 2.5rem rgb(255 159 176 / 20%),
-    inset 0 0 0 0.28rem rgb(255 255 255 / 52%);
+    0 1rem 2.5rem color-mix(in srgb, var(--hot-pink-strong) 20%, transparent),
+    inset 0 0 0 0.28rem color-mix(in srgb, var(--card) 52%, transparent);
   text-align: center;
   backdrop-filter: blur(8px);
 }
@@ -120,7 +125,7 @@
   align-items: center;
   gap: 0.55rem;
   margin: 0;
-  color: var(--magenta, #e91e63);
+  color: var(--magenta);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: clamp(0.7rem, 1.35vw, 0.86rem);
   font-weight: 700;
@@ -149,16 +154,16 @@
 }
 
 .winner-hero__target {
-  color: var(--magenta, #e91e63);
+  color: var(--magenta);
   font-size: clamp(1.1rem, 2.6vw, 1.55rem);
 }
 
 .winner-hero__count {
   padding: 0.25rem 0.62rem;
-  border: 1px solid var(--line, #f0cbd3);
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: #fff;
-  color: var(--ink, #4e342e);
+  background: var(--card);
+  color: var(--ink);
   font-size: clamp(0.7rem, 1.45vw, 0.84rem);
   white-space: nowrap;
 }
@@ -167,7 +172,7 @@
   max-width: 100%;
   margin: 0;
   overflow-wrap: anywhere;
-  color: var(--ink, #4e342e);
+  color: var(--ink);
   font-family: 'Jua', 'Fredoka', sans-serif;
   font-size: clamp(2.8rem, 8vw, 6.5rem);
   font-weight: 400;
@@ -202,14 +207,14 @@
   align-items: baseline;
   gap: 0.5rem;
   padding: 0.55rem 0.78rem;
-  border: 1px solid rgb(255 182 193 / 62%);
+  border: 1px solid color-mix(in srgb, var(--hot-pink) 62%, transparent);
   border-radius: 0.8rem;
-  background: var(--cream, #fff0f3);
+  background: var(--cream);
 }
 
 .winner-hero__details dt {
   flex: 0 0 auto;
-  color: var(--magenta, #e91e63);
+  color: var(--magenta);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: clamp(0.68rem, 1.25vw, 0.78rem);
   font-weight: 700;
@@ -219,7 +224,7 @@
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
-  color: var(--ink, #4e342e);
+  color: var(--ink);
   font-family: 'Jua', 'Fredoka', sans-serif;
   font-size: clamp(1rem, 2.2vw, 1.35rem);
   line-height: 1.15;

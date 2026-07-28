@@ -6,11 +6,14 @@
     --ink: var(--exlab-text);
     --muted: var(--exlab-muted);
     --line: var(--exlab-border);
-    --hot-pink: var(--exlab-accent);
-    --hot-pink-strong: var(--exlab-accent-ink);
-    --magenta: var(--exlab-accent-ink);
+    --hot-pink: var(--exlab-palette-main);
+    --hot-pink-strong: var(--exlab-palette-dark);
+    --magenta: var(--exlab-palette-dark);
+    --roulette-palette-dark: var(--exlab-palette-dark);
+    --roulette-palette-main: var(--exlab-palette-main);
+    --roulette-palette-light: var(--exlab-palette-light);
     --shadow: 0 10px 30px
-      color-mix(in srgb, var(--exlab-accent) 18%, transparent);
+      color-mix(in srgb, var(--exlab-palette-main) 18%, transparent);
     min-height: calc(100svh - var(--exlab-header-height));
     background: var(--page);
     background-image: none;
@@ -253,6 +256,21 @@
 
   .app-shell--live.is-embedded {
     padding-top: 18px;
+  }
+
+  :scope > .app-shell.app-shell--live.is-embedded
+    > .roulette-live-announcement {
+    position: absolute;
+  }
+
+  :scope > .app-shell.app-shell--live.is-embedded
+    > .broadcast-phase-bar {
+    grid-row: 1;
+  }
+
+  :scope > .app-shell.app-shell--live.is-embedded
+    > .broadcast-focus {
+    grid-row: 2;
   }
 
   .broadcast-phase-bar__tools {

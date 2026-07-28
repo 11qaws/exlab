@@ -1,5 +1,9 @@
 import type { CSSProperties } from "react";
 import streamerPortraitAssets from "./streamerPortraitAssets.json";
+import {
+  STREAMER_COLOR_PALETTES,
+  type StreamerColorPalette,
+} from "./streamerPalettes";
 
 /**
  * The five public product identities. Keep this list intentionally narrow:
@@ -67,6 +71,7 @@ export interface StreamerTheme {
   readonly hue: number;
   readonly chroma: number;
   readonly tone: StreamerThemeTone;
+  readonly palette: StreamerColorPalette;
   readonly portrait: StreamerThemePortrait;
   readonly light: StreamerThemeTokens;
   readonly dark: StreamerThemeTokens;
@@ -85,6 +90,7 @@ export const STREAMER_THEMES = [
     hue: 344,
     chroma: 0.48,
     tone: "solid",
+    palette: STREAMER_COLOR_PALETTES.amoretto,
     portrait: {
       ...STREAMER_THEME_PORTRAIT_ASSETS.amoretto,
       focus: "53% 41%",
@@ -94,7 +100,7 @@ export const STREAMER_THEMES = [
     },
     light: {
       accent: "hsl(344 42% 63%)",
-      accentOn: "hsl(344 42% 19%)",
+      accentOn: "#2a0c16",
       accentInk: "hsl(344 42% 42%)",
       accentBg: "hsl(344 42% 94%)",
       accentLine: "hsl(344 42% 84%)",
@@ -136,6 +142,7 @@ export const STREAMER_THEMES = [
     hue: 152,
     chroma: 0.95,
     tone: "solid",
+    palette: STREAMER_COLOR_PALETTES.eureka,
     portrait: {
       ...STREAMER_THEME_PORTRAIT_ASSETS.eureka,
       focus: "60% 82%",
@@ -145,7 +152,7 @@ export const STREAMER_THEMES = [
     },
     light: {
       accent: "hsl(152 53% 56%)",
-      accentOn: "hsl(152 53% 20%)",
+      accentOn: "#062c25",
       accentInk: "hsl(152 53% 27%)",
       accentBg: "hsl(152 53% 94%)",
       accentLine: "hsl(152 53% 84%)",
@@ -187,6 +194,7 @@ export const STREAMER_THEMES = [
     hue: 277,
     chroma: 0.3,
     tone: "solid",
+    palette: STREAMER_COLOR_PALETTES.sena,
     portrait: {
       ...STREAMER_THEME_PORTRAIT_ASSETS.sena,
       focus: "22% 70%",
@@ -195,11 +203,11 @@ export const STREAMER_THEMES = [
       fallback: "세",
     },
     light: {
-      accent: "hsl(277 38% 63%)",
-      accentOn: "hsl(277 38% 19%)",
-      accentInk: "hsl(277 38% 44%)",
+      accent: STREAMER_COLOR_PALETTES.sena.main,
+      accentOn: "#ffffff",
+      accentInk: STREAMER_COLOR_PALETTES.sena.main,
       accentBg: "hsl(277 38% 94%)",
-      accentLine: "hsl(277 38% 84%)",
+      accentLine: STREAMER_COLOR_PALETTES.sena.light,
       background: "hsl(277 22% 97%)",
       surface: "hsl(277 0% 100%)",
       surfaceSubtle: "hsl(277 20% 93%)",
@@ -209,15 +217,15 @@ export const STREAMER_THEMES = [
       textMuted: "hsl(277 20% 32%)",
       textSubtle: "hsl(277 14% 48%)",
       textFaint: "hsl(277 12% 64%)",
-      railStart: "hsl(277 38% 63%)",
-      railEnd: "rgb(135 100 157)",
+      railStart: STREAMER_COLOR_PALETTES.sena.main,
+      railEnd: STREAMER_COLOR_PALETTES.sena.dark,
     },
     dark: {
-      accent: "hsl(277 46% 74%)",
-      accentOn: "hsl(277 46% 30%)",
-      accentInk: "hsl(277 46% 73%)",
+      accent: STREAMER_COLOR_PALETTES.sena.light,
+      accentOn: STREAMER_COLOR_PALETTES.sena.main,
+      accentInk: STREAMER_COLOR_PALETTES.sena.light,
       accentBg: "hsl(277 42% 21%)",
-      accentLine: "hsl(277 40% 35%)",
+      accentLine: STREAMER_COLOR_PALETTES.sena.dark,
       background: "hsl(277 34% 9%)",
       surface: "hsl(277 30% 14%)",
       surfaceSubtle: "hsl(277 28% 20%)",
@@ -227,8 +235,8 @@ export const STREAMER_THEMES = [
       textMuted: "hsl(277 18% 84%)",
       textSubtle: "hsl(277 14% 66%)",
       textFaint: "hsl(277 12% 46%)",
-      railStart: "hsl(277 46% 74%)",
-      railEnd: "rgb(157 127 175)",
+      railStart: STREAMER_COLOR_PALETTES.sena.light,
+      railEnd: STREAMER_COLOR_PALETTES.sena.main,
     },
   },
   {
@@ -238,6 +246,7 @@ export const STREAMER_THEMES = [
     hue: 198,
     chroma: 1.04,
     tone: "pale",
+    palette: STREAMER_COLOR_PALETTES.torori,
     portrait: {
       ...STREAMER_THEME_PORTRAIT_ASSETS.torori,
       focus: "40% 61%",
@@ -247,7 +256,7 @@ export const STREAMER_THEMES = [
     },
     light: {
       accent: "hsl(198 58% 82%)",
-      accentOn: "hsl(198 58% 26%)",
+      accentOn: "#041f2b",
       accentInk: "hsl(198 58% 31%)",
       accentBg: "hsl(198 58% 93%)",
       accentLine: "hsl(198 58% 82%)",
@@ -289,6 +298,7 @@ export const STREAMER_THEMES = [
     hue: 226,
     chroma: 0.78,
     tone: "solid",
+    palette: STREAMER_COLOR_PALETTES.mangjing,
     portrait: {
       ...STREAMER_THEME_PORTRAIT_ASSETS.mangjing,
       focus: "54% 38%",
@@ -298,7 +308,7 @@ export const STREAMER_THEMES = [
     },
     light: {
       accent: "hsl(226 49% 64%)",
-      accentOn: "hsl(226 49% 19%)",
+      accentOn: "#01040c",
       accentInk: "hsl(226 49% 46%)",
       accentBg: "hsl(226 49% 94%)",
       accentLine: "hsl(226 49% 84%)",
@@ -383,6 +393,9 @@ export type StreamerThemeCssVariableName =
   | "--exlab-accent-ink"
   | "--exlab-accent-bg"
   | "--exlab-accent-line"
+  | "--exlab-palette-dark"
+  | "--exlab-palette-main"
+  | "--exlab-palette-light"
   | "--exlab-rail-start"
   | "--exlab-rail-end"
   | "--exlab-stage-background"
@@ -412,8 +425,10 @@ export function streamerThemeCssVariables(
   theme: StreamerTheme | StreamerThemeId,
   mode: StreamerThemeColorMode = "light",
 ): StreamerThemeCssVariables {
-  const tokens = getStreamerThemeTokens(theme, mode);
-  const stageTokens = getStreamerThemeTokens(theme, "dark");
+  const resolved =
+    typeof theme === "string" ? STREAMER_THEME_BY_ID[theme] : theme;
+  const tokens = getStreamerThemeTokens(resolved, mode);
+  const stageTokens = getStreamerThemeTokens(resolved, "dark");
   return {
     "--exlab-background": tokens.background,
     "--exlab-surface": tokens.surface,
@@ -429,6 +444,9 @@ export function streamerThemeCssVariables(
     "--exlab-accent-ink": tokens.accentInk,
     "--exlab-accent-bg": tokens.accentBg,
     "--exlab-accent-line": tokens.accentLine,
+    "--exlab-palette-dark": resolved.palette.dark,
+    "--exlab-palette-main": resolved.palette.main,
+    "--exlab-palette-light": resolved.palette.light,
     "--exlab-rail-start": tokens.railStart,
     "--exlab-rail-end": tokens.railEnd,
     "--exlab-stage-background": stageTokens.background,
@@ -497,6 +515,15 @@ function hslToRgb(hue: number, saturation: number, lightness: number): Rgb {
 }
 
 function parseThemeColor(value: string): Rgb | null {
+  const hexMatch = /^#([\da-f]{6})$/i.exec(value);
+  if (hexMatch !== null) {
+    return [
+      Number.parseInt(hexMatch[1].slice(0, 2), 16) / 255,
+      Number.parseInt(hexMatch[1].slice(2, 4), 16) / 255,
+      Number.parseInt(hexMatch[1].slice(4, 6), 16) / 255,
+    ];
+  }
+
   const hslMatch =
     /^hsl\(\s*(-?\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%\s*\)$/i.exec(
       value,

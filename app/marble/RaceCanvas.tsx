@@ -41,8 +41,13 @@ import {
 } from "./race-theme";
 import type { RaceFrame, RacePlan } from "./types";
 
+export type RaceCanvasPlan = Pick<
+  RacePlan,
+  "runId" | "candidates" | "slotToCandidateId" | "simulation"
+>;
+
 type RaceCanvasProps = {
-  plan: RacePlan;
+  plan: RaceCanvasPlan;
   frameIndex: number;
   reducedMotion: boolean;
   mapMode: RaceMapMode;

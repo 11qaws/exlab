@@ -956,11 +956,7 @@ export function ExlabApp() {
           }
           onConfirm={confirmStreamerTheme}
           onConfirmationComplete={completeStreamerThemeConfirmation}
-          phase={
-            themeSelection.phase === "closed"
-              ? "choosing"
-              : themeSelection.phase
-          }
+          phase={themeSelection.phase}
           confirmationToken={themeSelection.confirmationToken}
           required={themeSelectionRequired}
           onCancel={

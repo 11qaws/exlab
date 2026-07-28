@@ -26,6 +26,12 @@ export {
 } from "./streamerThemes";
 
 export {
+  STREAMER_COLOR_PALETTES,
+  type StreamerColorPalette,
+  type StreamerPaletteRole,
+} from "./streamerPalettes";
+
+export {
   StreamerThemeCurrent,
   StreamerThemePicker,
   type StreamerThemeCurrentProps,

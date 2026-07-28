@@ -5,7 +5,7 @@
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 15px;
-  background: #fff;
+  background: var(--card);
 }
 
 .prize-editor__header {
@@ -50,7 +50,7 @@
   padding: 7px 11px;
   border: 1px solid var(--hot-pink);
   border-radius: 10px;
-  background: #fff;
+  background: var(--card);
   color: var(--magenta);
   font-family: 'Jua', sans-serif;
   font-size: 13px;
@@ -88,7 +88,7 @@
   height: 38px;
   place-items: center;
   border-radius: 11px;
-  background: #fff;
+  background: var(--card);
   font-size: 20px;
 }
 
@@ -137,7 +137,7 @@
 
 .prize-editor__list li.is-unavailable {
   border-style: dashed;
-  background: #fff9fa;
+  background: color-mix(in srgb, var(--card) 84%, var(--cream));
 }
 
 .prize-editor__number {
@@ -185,7 +185,7 @@
   height: 34px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: #fff;
+  background: var(--card);
 }
 
 .prize-editor__name input {
@@ -229,7 +229,7 @@
 .prize-editor__number-control:focus-within {
   border-color: var(--hot-pink-strong);
   outline: 0;
-  box-shadow: 0 0 0 3px rgb(255 182 193 / 24%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hot-pink) 24%, transparent);
 }
 
 .prize-editor__remove {
@@ -249,7 +249,7 @@
 
 .prize-editor__remove:hover:not(:disabled) {
   border-color: #d95b75;
-  background: #fff0f3;
+  background: color-mix(in srgb, #d95b75 10%, var(--card));
   color: #9c2f49;
 }
 
@@ -278,7 +278,7 @@
 }
 
 .prize-editor.is-disabled .prize-editor__list li {
-  background: #fffafa;
+  background: color-mix(in srgb, var(--card) 88%, var(--cream));
 }
 
 @container prize-editor (max-width: 560px) {

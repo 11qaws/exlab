@@ -54,7 +54,7 @@
   border: 0;
   background: var(--hot-pink);
   box-shadow: 0 4px 0 var(--hot-pink-strong);
-  color: #fff;
+  color: var(--exlab-on-accent, #fff);
   font-size: 17px;
 }
 
@@ -70,13 +70,13 @@
 
 .broadcast-action-dock__button--secondary {
   border: 2px solid var(--hot-pink);
-  background: #fff;
+  background: var(--card);
   box-shadow: 0 3px 0 var(--hot-pink);
   color: var(--muted);
 }
 
 .broadcast-action-dock__button--secondary:hover:not(:disabled) {
-  background: #fff8f9;
+  background: color-mix(in srgb, var(--card) 76%, var(--cream));
   box-shadow: 0 2px 0 var(--hot-pink);
   transform: translateY(1px);
 }

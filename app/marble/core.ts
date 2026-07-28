@@ -7,6 +7,7 @@ import type {
   RosterOptions,
   RosterValidation,
 } from "./types";
+import { STREAMER_COLOR_PALETTES } from "../_platform/theme/streamerPalettes";
 
 export const MIN_PARTICIPANTS = 2;
 export const MAX_GROUP_SIZE = 10;
@@ -16,7 +17,7 @@ export const MAX_ROSTER_SIZE = 320;
 export const PARTICIPANT_THEMES: readonly ParticipantTheme[] = [
   {
     key: "rose",
-    primary: "#e84f83",
+    primary: STREAMER_COLOR_PALETTES.amoretto.main,
     onPrimary: "#2a0c16",
     surface: "#fdeaf1",
     onSurface: "#4a1729",
@@ -24,7 +25,7 @@ export const PARTICIPANT_THEMES: readonly ParticipantTheme[] = [
   },
   {
     key: "mint",
-    primary: "#2fbfa7",
+    primary: STREAMER_COLOR_PALETTES.eureka.main,
     onPrimary: "#062c25",
     surface: "#e1f7f2",
     onSurface: "#103d35",
@@ -40,7 +41,7 @@ export const PARTICIPANT_THEMES: readonly ParticipantTheme[] = [
   },
   {
     key: "blue",
-    primary: "#568ce8",
+    primary: STREAMER_COLOR_PALETTES.mangjing.main,
     onPrimary: "#071a38",
     surface: "#e8f0ff",
     onSurface: "#152e59",
@@ -48,8 +49,8 @@ export const PARTICIPANT_THEMES: readonly ParticipantTheme[] = [
   },
   {
     key: "violet",
-    primary: "#9a71e8",
-    onPrimary: "#1d0d3a",
+    primary: STREAMER_COLOR_PALETTES.sena.main,
+    onPrimary: "#ffffff",
     surface: "#f1eaff",
     onSurface: "#34205e",
     border: "#7146bd",
@@ -64,7 +65,7 @@ export const PARTICIPANT_THEMES: readonly ParticipantTheme[] = [
   },
   {
     key: "sky",
-    primary: "#4baedc",
+    primary: STREAMER_COLOR_PALETTES.torori.main,
     onPrimary: "#062635",
     surface: "#e4f5fc",
     onSurface: "#153d50",
@@ -157,6 +158,73 @@ export function shuffleSeeded<T>(items: readonly T[], seed: string): T[] {
   return result;
 }
 
+const FIXED_PARTICIPANT_THEME_KEYS = new Map<string, string>([
+  ["아모레또", "rose"],
+  ["레또", "rose"],
+  ["유레카", "mint"],
+  ["레카", "mint"],
+  ["세나아르벨", "violet"],
+  ["세나", "violet"],
+  ["토로리코코", "sky"],
+  ["토로리", "sky"],
+  ["코코", "sky"],
+  ["망징이", "blue"],
+  ["망징", "blue"],
+]);
+
+function normalizedParticipantName(name: string): string {
+  return name
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, "")
+    .toLocaleLowerCase("ko-KR");
+}
+
+export function resolveFixedParticipantTheme(
+  name: string,
+): ParticipantTheme | undefined {
+  const key = FIXED_PARTICIPANT_THEME_KEYS.get(
+    normalizedParticipantName(name),
+  );
+  return key
+    ? PARTICIPANT_THEMES.find((theme) => theme.key === key)
+    : undefined;
+}
+
+/**
+ * Keeps the five canonical streamer colours stable by name, then deals every
+ * other racer a unique colour from the existing participant palette. The seed
+ * makes setup, live playback, and replay agree without render-time randomness.
+ */
+export function assignParticipantThemes(
+  candidates: readonly Candidate[],
+  seed: string,
+): Candidate[] {
+  const fixedThemes = candidates.map((candidate) =>
+    resolveFixedParticipantTheme(candidate.name)
+  );
+  const reservedKeys = new Set(
+    fixedThemes
+      .filter((theme): theme is ParticipantTheme => theme !== undefined)
+      .map((theme) => theme.key),
+  );
+  const availableThemes = shuffleSeeded(
+    PARTICIPANT_THEMES.filter((theme) => !reservedKeys.has(theme.key)),
+    `${seed}:participant-themes`,
+  );
+  let randomThemeIndex = 0;
+
+  return candidates.map((candidate, index) => {
+    const theme =
+      fixedThemes[index] ??
+      availableThemes[randomThemeIndex++] ??
+      PARTICIPANT_THEMES[
+        randomThemeIndex % PARTICIPANT_THEMES.length
+      ];
+    return candidate.theme === theme ? candidate : { ...candidate, theme };
+  });
+}
+
 export function parseRoster(
   input: string,
   options: RosterOptions = {},
@@ -188,7 +256,9 @@ export function parseRoster(
     return {
       id: `candidate-${index + 1}-${hashText(identity).toString(36)}`,
       name,
-      theme: PARTICIPANT_THEMES[index % PARTICIPANT_THEMES.length],
+      theme:
+        resolveFixedParticipantTheme(name) ??
+        PARTICIPANT_THEMES[index % PARTICIPANT_THEMES.length],
       number: index + 1,
     };
   });

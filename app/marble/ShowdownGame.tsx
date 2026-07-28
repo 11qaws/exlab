@@ -20,7 +20,7 @@ import {
 import {
   DEFAULT_STREAMER_THEME_ID,
   STREAMER_THEMES,
-  getStreamerThemeTokens,
+  getStreamerTheme,
   type StreamerThemeId,
 } from "../_platform/theme";
 import {
@@ -34,6 +34,7 @@ import {
   type ResultPresentationToken,
 } from "../_platform/presentation";
 import {
+  assignParticipantThemes,
   buildRacePlan,
   createRaceSlotAssignment,
   createSeed,
@@ -51,15 +52,9 @@ import {
   type CountdownStep,
 } from "./countdown";
 import {
-  COURSE_BUMPERS,
-  COURSE_CURVES,
-  COURSE_PINS,
-  COURSE_RECTS,
-  COURSE_SECTIONS,
   FINISH_LINE_WIDTH,
   FINISH_LINE_X,
   FINISH_Y,
-  ROTATING_BARS,
   WORLD_HEIGHT,
   WORLD_WIDTH,
 } from "./course";
@@ -69,6 +64,7 @@ import {
   MINIMUM_RESULT_FINISHERS,
   START_MAX_HORIZONTAL_JITTER,
   simulateRace,
+  simulateRacePreview,
 } from "./simulation";
 import {
   findFinalSectionOvertakes,
@@ -94,10 +90,8 @@ import {
 } from "./race-playback";
 import {
   DEFAULT_RACE_MAP_MODE,
-  obstacleColor,
-  obstacleRoleColor,
-  raceMapTheme,
   RACE_OBSTACLE_ROLE_COLORS,
+  showdownWallColor,
   type RaceMapMode,
 } from "./race-theme";
 import {
@@ -112,7 +106,10 @@ import type {
   RacePlan,
   StoredRaceResult,
 } from "./types";
-import { RaceCanvas } from "./RaceCanvas";
+import {
+  RaceCanvas,
+  type RaceCanvasPlan,
+} from "./RaceCanvas";
 import "./showdown-game.css";
 
 const DEFAULT_ROSTER = [
@@ -621,242 +618,6 @@ function CourseLegend() {
   );
 }
 
-function StartPreview({
-  candidates,
-  layoutSeed,
-  mapMode,
-  wallColor,
-}: {
-  candidates: Candidate[];
-  layoutSeed: string;
-  mapMode: RaceMapMode;
-  wallColor: string;
-}) {
-  const theme = raceMapTheme(mapMode, wallColor);
-  const shift = ((layoutSeed.length * 17) % 17) - 8;
-  const previewScaleY = 468 / WORLD_HEIGHT;
-  const previewY = (worldY: number) => 42 + worldY * previewScaleY;
-  const activeCount = Math.max(2, candidates.length);
-  const marbleSpan = Math.min(650, Math.max(220, (activeCount - 1) * 72));
-  const marbleStart = 450 - marbleSpan / 2 + shift * 2;
-  return (
-    <div
-      className="map-preview"
-      data-map-mode={mapMode}
-      aria-label="Showdown 경기장 미리보기"
-    >
-      <svg
-        className="preview-course"
-        viewBox="0 0 900 540"
-        role="img"
-        aria-label="폭이 좁아지고 넓어지며 좌우로 이동하는 비대칭 마블 레이스 코스"
-      >
-        <defs>
-          <pattern
-            id="preview-checker"
-            width="24"
-            height="12"
-            patternUnits="userSpaceOnUse"
-          >
-            <rect width="12" height="12" fill={theme.finishAlternate} />
-            <rect x="12" width="12" height="12" fill={theme.finish} />
-          </pattern>
-        </defs>
-        {COURSE_SECTIONS.map((section, index) => (
-          <rect
-            key={`section-band-${section.id}`}
-            x="70"
-            y={previewY(section.startY)}
-            width="760"
-            height={(section.endY - section.startY) * previewScaleY}
-              fill={`${obstacleColor(index)}16`}
-          />
-        ))}
-        {COURSE_SECTIONS.slice(1).map((section, index) => {
-          const y = previewY(section.startY);
-          return (
-            <g key={`section-marker-${section.id}`}>
-              <line
-                x1="86"
-                x2="814"
-                y1={y}
-                y2={y}
-                stroke={theme.mutedText}
-                opacity="0.46"
-                strokeWidth="2"
-                strokeDasharray="8 8"
-              />
-              <text
-                x="96"
-                y={y - 5}
-                textAnchor="start"
-                fill={theme.text}
-                opacity="0.8"
-              >
-                {(index + 1) * 25}% · {section.label}
-              </text>
-            </g>
-          );
-        })}
-        {COURSE_RECTS.filter((shape) => shape.y < WORLD_HEIGHT).map(
-          (shape, index) => {
-          const y = previewY(shape.y);
-          const isVerticalBoundary =
-            shape.role === "wall" && shape.width <= 30;
-          const previewWidth = isVerticalBoundary ? 8 : shape.width;
-          const previewHeight =
-            shape.role === "wall"
-              ? Math.max(4, shape.height * previewScaleY)
-              : shape.role === "gate"
-                ? 10
-                : 7;
-          const visualAngle = ((shape.angle ?? 0) * 180 * 0.42) / Math.PI;
-          return (
-            <rect
-              key={`rail-${index}`}
-              x={shape.x - previewWidth / 2}
-              y={y - previewHeight / 2}
-              width={previewWidth}
-              height={previewHeight}
-              rx="4"
-              fill={
-                shape.material === "elastic"
-                  ? obstacleRoleColor("elastic-wall")
-                  : shape.obstacleKind
-                    ? obstacleRoleColor("guide")
-                    : theme.wall
-              }
-              transform={`rotate(${visualAngle} ${shape.x} ${y})`}
-            />
-          );
-          },
-        )}
-        {COURSE_CURVES.map((curve) => (
-          <polyline
-            key={curve.id}
-            points={curve.points
-              .map((point) => `${point.x},${previewY(point.y)}`)
-              .join(" ")}
-            fill="none"
-            stroke={theme.wall}
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ))}
-        {COURSE_PINS.map((pin, index) => (
-          <circle
-            key={`pin-${index}`}
-            cx={pin.x}
-            cy={previewY(pin.y)}
-            r={pin.radius > 25 ? 8 : 5}
-            fill={obstacleRoleColor("pin")}
-          />
-        ))}
-        {COURSE_BUMPERS.map((bumper, index) => (
-          <g key={`bumper-${index}`}>
-            <rect
-              x={bumper.x - bumper.width / 2}
-              y={previewY(bumper.y) - 5}
-              width={bumper.width}
-              height="10"
-              rx="5"
-              fill={obstacleRoleColor("bumper")}
-              stroke={theme.outline}
-              strokeWidth="2"
-              transform={`rotate(${(bumper.angle * 180 * 0.5) / Math.PI} ${
-                bumper.x
-              } ${previewY(bumper.y)})`}
-            />
-            <rect
-              x={bumper.x - bumper.width / 2 + 12}
-              y={previewY(bumper.y) - 1.5}
-              width={bumper.width - 24}
-              height="3"
-              rx="1.5"
-              fill={theme.finishAlternate}
-              transform={`rotate(${(bumper.angle * 180 * 0.5) / Math.PI} ${
-                bumper.x
-              } ${previewY(bumper.y)})`}
-            />
-          </g>
-        ))}
-        {ROTATING_BARS.map((bar, index) => {
-          const y = previewY(bar.y);
-          return (
-            <rect
-              key={`spinner-${index}`}
-              x={bar.x - bar.width / 2}
-              y={y - 5}
-              width={bar.width}
-              height="10"
-              rx="5"
-              fill={obstacleRoleColor("spinner")}
-              transform={`rotate(${index % 2 === 0 ? -7 : 8} ${bar.x} ${y})`}
-            />
-          );
-        })}
-        <text x="450" y="19" textAnchor="middle">
-          START
-        </text>
-        {Array.from({ length: activeCount }, (_, index) => (
-          <circle
-            key={`marble-${index}`}
-            cx={
-              marbleStart +
-              (activeCount === 1 ? 0 : (marbleSpan / (activeCount - 1)) * index)
-            }
-            cy="31"
-            r="7"
-            fill={
-              candidates[index]?.theme.primary ??
-              PARTICIPANT_THEMES[index].primary
-            }
-            stroke={theme.outline}
-            strokeWidth="2"
-          />
-        ))}
-        <rect
-          x={FINISH_LINE_X}
-          y={previewY(FINISH_Y)}
-          width={FINISH_LINE_WIDTH}
-          height="9"
-          fill="url(#preview-checker)"
-        />
-        <g className="preview-finish-flag">
-          <line
-            x1={FINISH_LINE_X + FINISH_LINE_WIDTH}
-            x2={500}
-            y1={previewY(FINISH_Y) + 4.5}
-            y2={previewY(FINISH_Y) + 4.5}
-            stroke={theme.wall}
-            strokeWidth="3"
-          />
-          <rect
-            x="500"
-            y={previewY(FINISH_Y) - 9}
-            width="82"
-            height="27"
-            rx="9"
-            fill={theme.wall}
-            stroke={theme.outline}
-            strokeWidth="2"
-          />
-          <text
-            x="541"
-            y={previewY(FINISH_Y) + 4.5}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill={theme.finishAlternate}
-          >
-            FINISH
-          </text>
-        </g>
-      </svg>
-    </div>
-  );
-}
-
 function LiveRacePreview({
   candidates,
   layoutSeed,
@@ -873,12 +634,15 @@ function LiveRacePreview({
   active: boolean;
 }) {
   const defaultPreviewCandidates = useMemo<Candidate[]>(
-    () => DEFAULT_PREVIEW_ROSTER_NAMES.map((name, index) => ({
-      id: `preview-default-${index + 1}`,
-      name,
-      number: index + 1,
-      theme: PARTICIPANT_THEMES[index],
-    })),
+    () => assignParticipantThemes(
+      DEFAULT_PREVIEW_ROSTER_NAMES.map((name, index) => ({
+        id: `preview-default-${index + 1}`,
+        name,
+        number: index + 1,
+        theme: PARTICIPANT_THEMES[index],
+      })),
+      "showdown:default-preview",
+    ),
     [],
   );
   const resolvePreviewCandidates = useCallback(
@@ -900,7 +664,8 @@ function LiveRacePreview({
     )
   ));
   const [previewCycle, setPreviewCycle] = useState(0);
-  const [previewPlan, setPreviewPlan] = useState<RacePlan | null>(null);
+  const [previewPlan, setPreviewPlan] =
+    useState<RaceCanvasPlan | null>(null);
   const [previewFrameIndex, setPreviewFrameIndex] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState(10);
 
@@ -920,24 +685,18 @@ function LiveRacePreview({
           previewCandidates,
           raceSeed,
         );
-        const simulation = simulateRace(
+        const simulation = simulateRacePreview(
           slotToCandidateId,
           raceSeed,
           previewLayoutSeed,
-          1,
+          PREVIEW_DURATION_MS,
         );
-        setPreviewPlan(
-          buildRacePlan(
-            "10초 경기 미리보기",
-            previewCandidates,
-            simulation,
-            {
-              raceSeed,
-              layoutSeed: previewLayoutSeed,
-            },
-            1,
-          ),
-        );
+        setPreviewPlan({
+          runId: `preview:${raceSeed}`,
+          candidates: previewCandidates,
+          slotToCandidateId,
+          simulation,
+        });
       } catch {
         setPreviewPlan(null);
         retryTimer = window.setTimeout(
@@ -984,12 +743,16 @@ function LiveRacePreview({
 
   if (!previewPlan) {
     return (
-      <StartPreview
-        candidates={candidateCycle.active}
-        layoutSeed={layoutSeed}
-        mapMode={mapMode}
-        wallColor={wallColor}
-      />
+      <div
+        className="map-preview live-preview preview-loading"
+        data-map-mode={mapMode}
+        role="status"
+        aria-busy="true"
+        aria-label="Showdown 경기 미리보기 준비 중"
+      >
+        <span aria-hidden="true" />
+        <strong>경기장 준비 중</strong>
+      </div>
     );
   }
 
@@ -1054,9 +817,9 @@ export function ShowdownGame({
   const [mapMode, setMapMode] = useState<RaceMapMode>(
     DEFAULT_RACE_MAP_MODE,
   );
-  const wallColor = useMemo(
-    () => getStreamerThemeTokens(streamerThemeId, mapMode).accentInk,
-    [mapMode, streamerThemeId],
+  const wallColor = showdownWallColor(
+    getStreamerTheme(streamerThemeId).palette,
+    mapMode,
   );
   const [internalAllowDuplicateNames, setInternalAllowDuplicateNames] =
     useState(false);
@@ -1185,11 +948,21 @@ export function ShowdownGame({
     Math.max(minimumGroups, groupCount),
   );
   const groups = useMemo(
-    () =>
-      splitCandidatesIntoGroups(
+    () => {
+      const nextGroups = splitCandidatesIntoGroups(
         validation.candidates,
         effectiveGroupCount,
-      ),
+      );
+      return nextGroups.map((group) => ({
+        ...group,
+        candidates: assignParticipantThemes(
+          group.candidates,
+          `showdown:${group.candidates
+            .map((candidate) => candidate.id)
+            .join("|")}`,
+        ),
+      }));
+    },
     [effectiveGroupCount, validation.candidates],
   );
   const selectedGroupIndex = Math.min(
@@ -2431,7 +2204,7 @@ export function ShowdownGame({
             exlab
           </span>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.23</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.24</span>
           </div>
         </header>
       )}

@@ -13,7 +13,7 @@
   overflow: hidden;
   box-shadow:
     0 8px 0 var(--hot-pink-strong),
-    0 14px 30px rgb(255 159 176 / 30%);
+    0 14px 30px color-mix(in srgb, var(--hot-pink-strong) 30%, transparent);
 }
 
 .current-round-winners__announcement {
@@ -26,6 +26,10 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+.app-shell > .current-round-winners__announcement {
+  position: absolute;
 }
 
 .current-round-winners__header {
@@ -69,7 +73,7 @@
   padding: 4px 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #fff;
+  background: var(--card);
   color: var(--magenta);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: 13px;
@@ -95,12 +99,12 @@
   padding: 7px 9px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
+  background: var(--card);
 }
 
 .current-round-winners__list li.is-latest {
   border-color: var(--hot-pink-strong);
-  background: #fff8fa;
+  background: color-mix(in srgb, var(--card) 78%, var(--cream));
   box-shadow: inset 4px 0 0 var(--hot-pink);
 }
 
@@ -152,7 +156,7 @@
 .current-round-winners__pending-summary b {
   padding: 4px 7px;
   border-radius: 999px;
-  background: #f3eee7;
+  background: color-mix(in srgb, var(--cream) 72%, var(--line));
   white-space: nowrap;
 }
 
@@ -247,7 +251,7 @@
 }
 
 .current-round-winners__list li.is-latest .current-round-winners__state {
-  background: #ffe1e7;
+  background: color-mix(in srgb, var(--hot-pink) 32%, var(--card));
   color: var(--magenta);
 }
 

@@ -290,7 +290,10 @@ test("Roulette preserves paused progress and replays without entering persistenc
   assert.match(source, /winnerGoal=\{setupWinnerGoal\}/);
   assert.match(source, /maximumWinnerGoal=\{setupMaximumWinnerGoal\}/);
   assert.match(source, /setupSessionHeadingRef\.current\?\.focus\(\)/);
-  assert.match(source, /completedPrimaryActionRef\.current\?\.focus\(\)/);
+  assert.match(
+    source,
+    /completedPrimaryActionRef\.current\?\.focus\(\{ preventScroll: true \}\)/,
+  );
   assert.match(
     source,
     /const focusPreparationPrimary = useCallback[\s\S]*?finishBroadcast[\s\S]*?else \{\s*focusPreparationPrimary\(\)/,
@@ -300,6 +303,103 @@ test("Roulette preserves paused progress and replays without entering persistenc
     /prefersReducedMotion\(\)[\s\S]*?reduceMotion \? 0 : WINNER_DOCK_DURATION_MS[\s\S]*?reduceMotion \? 0 : WINNER_HERO_HOLD_MS/,
   );
   assert.doesNotMatch(source, /participants\.slice\(0,\s*18\)/);
+});
+
+test("completed Roulette prioritizes another draw and keeps the wheel grid stable", async () => {
+  const [source, wheelSource, wheelCss, gameCss, embedCss, winnersCss] =
+    await Promise.all([
+      readFile(
+        new URL("../app/games/roulette/RouletteGame.tsx", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/games/roulette/components/RouletteWheel.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/games/roulette/components/RouletteWheel.css",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(
+        new URL("../app/games/roulette/roulette-game.css", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/games/roulette/styles/roulette-embed.css",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../app/games/roulette/components/CurrentRoundWinners.css",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ]);
+
+  assert.match(
+    source,
+    /const completedPrimaryAction[\s\S]*?id: 'add-one-more'[\s\S]*?label: addOneMoreLabel/,
+  );
+  assert.match(
+    source,
+    /completedSecondaryActions[\s\S]*?id: 'finish-session'[\s\S]*?tone: 'quiet'/,
+  );
+  assert.doesNotMatch(source, /label: '같은 결과 다시 보기'/);
+  assert.match(
+    source,
+    /completedPrimaryActionRef\.current\?\.focus\(\{ preventScroll: true \}\)/,
+  );
+  assert.match(source, /roulette-live-announcement/);
+  assert.match(
+    winnersCss,
+    /\.app-shell > \.current-round-winners__announcement\s*\{[\s\S]*?position:\s*absolute/,
+  );
+  assert.match(
+    embedCss,
+    /> \.broadcast-phase-bar\s*\{[\s\S]*?grid-row:\s*1/,
+  );
+  assert.match(
+    embedCss,
+    /> \.broadcast-focus\s*\{[\s\S]*?grid-row:\s*2/,
+  );
+  assert.match(embedCss, /--hot-pink:\s*var\(--exlab-palette-main\)/);
+  assert.match(
+    embedCss,
+    /--hot-pink-strong:\s*var\(--exlab-palette-dark\)/,
+  );
+  assert.match(embedCss, /--magenta:\s*var\(--exlab-palette-dark\)/);
+  assert.match(
+    await readFile(
+      new URL(
+        "../app/games/roulette/styles/roulette-cinematic.css",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    /\.raffle-status-path \.is-current > span[\s\S]*?color:\s*var\(--exlab-stage-text,\s*#fff\)/,
+  );
+  assert.doesNotMatch(
+    gameCss,
+    /\.broadcast-focus__visual\.is-round-complete[\s\S]{0,180}max-height:/,
+  );
+  assert.match(wheelSource, /--roulette-palette-dark/);
+  assert.match(wheelSource, /--roulette-palette-main/);
+  assert.match(wheelSource, /--roulette-palette-light/);
+  assert.match(
+    wheelCss,
+    /\.roulette-wheel__label--palette-dark[\s\S]*?stroke:/,
+    "adjacent triad slices retain a neutral/structural label separator",
+  );
 });
 
 test("compact Roulette keeps one-column flow and never overlays short-screen results", async () => {

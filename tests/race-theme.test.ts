@@ -8,6 +8,7 @@ import {
   RACE_MAP_THEMES,
   RACE_OBSTACLE_PALETTE,
   RACE_OBSTACLE_ROLE_COLORS,
+  showdownWallColor,
 } from "../app/marble/race-theme";
 import {
   getStreamerThemeTokens,
@@ -98,4 +99,22 @@ test("every streamer supplies a distinct high-contrast Showdown wall color", () 
 
   assert.equal(new Set(lightWalls).size, STREAMER_THEMES.length);
   assert.equal(new Set(darkWalls).size, STREAMER_THEMES.length);
+});
+
+test("Showdown walls keep one streamer triad role visible in both map modes", () => {
+  for (const streamer of STREAMER_THEMES) {
+    const lightWall = showdownWallColor(streamer.palette, "light");
+    const darkWall = showdownWallColor(streamer.palette, "dark");
+
+    assert.equal(lightWall, streamer.palette.dark);
+    assert.equal(darkWall, streamer.palette.light);
+    assert.ok(
+      contrastRatio(lightWall, RACE_MAP_THEMES.light.track) >= 3,
+      `${streamer.id} light-map wall contrast`,
+    );
+    assert.ok(
+      contrastRatio(darkWall, RACE_MAP_THEMES.dark.track) >= 3,
+      `${streamer.id} dark-map wall contrast`,
+    );
+  }
 });

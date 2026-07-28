@@ -517,6 +517,11 @@ export function simulateRace(
   raceSeed: string,
   layoutSeed: string,
   targetFinishCount = 1,
+  options: {
+    maxSteps?: number;
+    allowIncomplete?: boolean;
+    stopWhenAllFinished?: boolean;
+  } = {},
 ): RaceSimulation {
   const participantCount = Object.keys(slotToCandidateId).length;
   if (participantCount < 2 || participantCount > 10) {
@@ -595,7 +600,7 @@ export function simulateRace(
     podiumFinishCount,
   );
   const substepMs = 1000 / 60 / PHYSICS_SUBSTEPS;
-  const maxSteps = 60 * MAX_SIMULATION_SECONDS;
+  const maxSteps = options.maxSteps ?? 60 * MAX_SIMULATION_SECONDS;
   let firstFinishFrameIndex = -1;
   let awardFrameIndex = -1;
   let podiumFrameIndex = -1;
@@ -678,25 +683,31 @@ export function simulateRace(
 
     if (
       finishedSlotIds.length === participantCount &&
-      step % 2 === 0
+      step % 2 === 0 &&
+      options.stopWhenAllFinished !== false
     ) {
       break;
     }
   }
 
   const fullFinishOrder = rankMarbles(marbles, finishedSlotIds);
-  if (awardFrameIndex < 0) {
+  if (!options.allowIncomplete && awardFrameIndex < 0) {
     throw new Error(
       `${targetFinishCount}명의 결승 통과를 확인하지 못했습니다. 새 코스로 다시 시도해 주세요.`,
     );
   }
-  if (podiumFrameIndex < 0 || resultGateFrameIndex < 0) {
+  if (
+    !options.allowIncomplete &&
+    (podiumFrameIndex < 0 || resultGateFrameIndex < 0)
+  ) {
     throw new Error(
       `${resultGateCount}위까지 결승 통과를 확인하지 못했습니다. 새 코스로 다시 시도해 주세요.`,
     );
   }
   const safeFirstFinishFrame =
-    firstFinishFrameIndex >= 0 ? firstFinishFrameIndex : awardFrameIndex;
+    firstFinishFrameIndex >= 0
+      ? firstFinishFrameIndex
+      : Math.max(0, awardFrameIndex);
   const visibleFinishedCount =
     frames.at(-1)?.finishedSlotIds.length ?? 0;
 
@@ -713,9 +724,36 @@ export function simulateRace(
     visibleFinishedCount,
     durationMs: Math.round((frames.length / FRAME_RATE) * 1000),
     layoutShift,
-    simulationSteps: step + 1,
+    simulationSteps: Math.min(step + 1, maxSteps),
     physicallyFinishedCount: finishedSlotIds.length,
     timedOut: finishedSlotIds.length !== participantCount,
     dynamics,
   };
+}
+
+/**
+ * Runs only the ten seconds that the setup preview can display. A preview does
+ * not manufacture finishers or pass production result validation; it simply
+ * exposes the same physical frames through the lighter render-only plan.
+ */
+export function simulateRacePreview(
+  slotToCandidateId: Readonly<Record<string, string>>,
+  raceSeed: string,
+  layoutSeed: string,
+  durationMs = 10_000,
+): RaceSimulation {
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    throw new RangeError("미리보기 시간은 0보다 커야 합니다.");
+  }
+  return simulateRace(
+    slotToCandidateId,
+    raceSeed,
+    layoutSeed,
+    1,
+    {
+      maxSteps: Math.max(1, Math.round((durationMs / 1000) * 60)),
+      allowIncomplete: true,
+      stopWhenAllFinished: false,
+    },
+  );
 }
