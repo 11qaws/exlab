@@ -57,6 +57,13 @@
     grid-template-rows: minmax(0, 1fr);
   }
 
+  /* The legacy 1600×900 showcase reserves four stage rows for headings that
+     the integrated shell intentionally hides. Collapse that state-specific
+     rule as well, otherwise the wheel is assigned to a zero-height first row. */
+  :scope .app-shell--live .broadcast-focus.has-no-results-panel:not(.is-stage-only):not(.is-completed) .broadcast-focus__stage {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
   :scope .app-shell--live .broadcast-focus__visual,
   :scope .app-shell--live .broadcast-focus__visual.is-round-complete,
   :scope .app-shell--live .broadcast-focus__visual.is-winner-hero {
@@ -82,9 +89,9 @@
   :scope .app-shell--live > .broadcast-focus.is-completed {
     grid-template-areas:
       'stage'
+      'results'
       'action'
-      'roster'
-      'results';
+      'roster';
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto auto;
   }
@@ -96,9 +103,45 @@
     grid-template-rows: minmax(0, 1fr) auto;
   }
 
+  :scope .app-shell--live > .broadcast-focus.has-no-results-panel:not(.is-stage-only):not(.is-completed) {
+    grid-template-areas:
+      'stage'
+      'action'
+      'roster';
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+
   :scope .app-shell--live .broadcast-candidate-roster {
+    --candidate-row-height: 1.55rem;
+    --candidate-row-gap: 0.22rem;
+    --candidate-loop-height: min(8.5rem, 24dvh);
     width: min(100%, 32rem);
+    max-height: none;
+    align-self: start;
     justify-self: center;
+    gap: 0.4rem;
+    padding: 0.55rem;
+  }
+
+  :scope .app-shell--live .broadcast-candidate-roster__header {
+    align-items: center;
+    flex-direction: row;
+    gap: 0.45rem;
+  }
+
+  :scope .app-shell--live .broadcast-candidate-roster__viewport,
+  :scope .app-shell--live .broadcast-candidate-roster.is-looping .broadcast-candidate-roster__viewport {
+    height: auto;
+    max-height: var(--candidate-loop-height);
+  }
+
+  :scope .app-shell--live .broadcast-candidate-roster.is-looping .broadcast-candidate-roster__viewport {
+    height: var(--candidate-loop-height);
+  }
+
+  :scope .app-shell--live .broadcast-candidate-roster__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   :scope .app-shell--live .broadcast-phase-bar__status {

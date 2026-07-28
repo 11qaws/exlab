@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type ReactNode, type Ref } from 'react';
 
 import './BroadcastActionDock.css';
 
@@ -29,6 +29,8 @@ export interface BroadcastActionDockProps {
   note: ReactNode;
   ariaLabel?: string;
   className?: string;
+  /** Receives focus when the host's previous live control unmounts. */
+  primaryActionRef?: Ref<HTMLButtonElement>;
 }
 
 function actionClassName(kind: 'primary' | 'secondary', tone: BroadcastActionTone) {
@@ -52,6 +54,7 @@ export default function BroadcastActionDock({
   note,
   ariaLabel = '추첨 동작',
   className,
+  primaryActionRef,
 }: BroadcastActionDockProps) {
   const noteId = useId();
   const dockClassName = [
@@ -67,6 +70,7 @@ export default function BroadcastActionDock({
     return (
       <button
         key={action.id}
+        ref={kind === 'primary' ? primaryActionRef : undefined}
         type="button"
         className={actionClassName(kind, tone)}
         onClick={action.onClick}

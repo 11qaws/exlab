@@ -77,7 +77,7 @@ function nicknameGraphemes(name: string) {
 }
 
 /** One stable proof-card line shared by boundary and interior results. */
-function ProofNickname({ name }: { name: string }) {
+function ProofNickname({ name, number }: { name: string; number?: number }) {
   const fullName = name.trim() || '이름 없음';
   const characters = nicknameGraphemes(fullName);
   const isTruncated = characters.length > PROOF_NICKNAME_MAX_LENGTH;
@@ -96,7 +96,7 @@ function ProofNickname({ name }: { name: string }) {
       className={`boundary-names__text${sizeClass}${isTruncated ? ' is-truncated' : ''}`}
       title={fullName}
     >
-      {displayName}
+      {number === undefined ? displayName : `#${number} ${displayName}`}
     </span>
   );
 }
@@ -157,6 +157,8 @@ export default function DartFinish({
 export interface BoundaryNamesProps {
   leftName: string;
   rightName: string;
+  leftNumber?: number;
+  rightNumber?: number;
   leftColor: string;
   rightColor: string;
   visible: boolean;
@@ -179,6 +181,8 @@ export function isDartBoundaryPhaseVisible(phase: DartFinishPhase) {
 export function BoundaryNames({
   leftName,
   rightName,
+  leftNumber,
+  rightNumber,
   leftColor,
   rightColor,
   visible,
@@ -200,12 +204,12 @@ export function BoundaryNames({
     >
       <span className={`boundary-names__candidate boundary-names__candidate--left${winnerSide === 'left' ? ' is-winner' : ''}`}>
         {winnerSide === 'left' && <span className="boundary-names__win">WIN!</span>}
-        <ProofNickname name={leftName} />
+        <ProofNickname name={leftName} number={leftNumber} />
       </span>
       <span className="boundary-names__marker">경계</span>
       <span className={`boundary-names__candidate boundary-names__candidate--right${winnerSide === 'right' ? ' is-winner' : ''}`}>
         {winnerSide === 'right' && <span className="boundary-names__win">WIN!</span>}
-        <ProofNickname name={rightName} />
+        <ProofNickname name={rightName} number={rightNumber} />
       </span>
     </div>
   );
@@ -213,13 +217,14 @@ export function BoundaryNames({
 
 export interface WinnerNameplateProps {
   name: string;
+  number?: number;
   color: string;
   visible: boolean;
   mode: 'spin' | 'dart';
 }
 
 /** Uses the boundary candidate card as the common proof language for interior stops. */
-export function WinnerNameplate({ name, color, visible, mode }: WinnerNameplateProps) {
+export function WinnerNameplate({ name, number, color, visible, mode }: WinnerNameplateProps) {
   if (!visible) return null;
 
   const style: WinnerNameplateStyle = { '--candidate-color': color };
@@ -231,7 +236,7 @@ export function WinnerNameplate({ name, color, visible, mode }: WinnerNameplateP
     >
       <span className="boundary-names__candidate is-winner" style={style}>
         <span className="boundary-names__win">WIN!</span>
-        <ProofNickname name={name} />
+        <ProofNickname name={name} number={number} />
       </span>
     </div>
   );

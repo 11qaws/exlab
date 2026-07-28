@@ -24,6 +24,9 @@ export const RAFFLE_EVENTS = [
   'cancel-roster-completed',
   'open-roster',
   'end-broadcast',
+  'resume-ready',
+  'resume-completed',
+  'replay-result',
   'open-stage',
   'lock-result',
   'start-presentation',
@@ -57,6 +60,8 @@ const TRANSITIONS: Record<RaffleStatus, Partial<Record<RaffleEvent, RaffleStatus
   },
   configuring: {
     'open-roster': 'roster',
+    'resume-ready': 'ready',
+    'resume-completed': 'completed',
     'open-stage': 'ready',
   },
   ready: {
@@ -74,6 +79,7 @@ const TRANSITIONS: Record<RaffleStatus, Partial<Record<RaffleEvent, RaffleStatus
   completed: {
     'open-roster': 'roster',
     'end-broadcast': 'configuring',
+    'replay-result': 'locking',
     'start-next-round': 'ready',
   },
 };

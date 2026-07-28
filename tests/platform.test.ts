@@ -32,6 +32,8 @@ import {
 } from "../app/_platform/theme/streamerThemes";
 import {
   parseSharedRosterNames,
+  sharedRosterNameKey,
+  sharedRosterNameLength,
   validateSharedRosterDraft,
 } from "../app/_platform/roster";
 
@@ -323,6 +325,20 @@ test("shared roster preserves occurrences and applies one duplicate policy", () 
       true,
     ).error,
     null,
+  );
+  assert.equal(sharedRosterNameKey("  홍  길동  "), sharedRosterNameKey("홍 길동"));
+  assert.equal(sharedRosterNameKey("ＡＭＯＲＥＴＴＯ"), "amoretto");
+  assert.match(
+    validateSharedRosterDraft("홍 길동\n홍  길동", false).error ?? "",
+    /동일 이름/,
+  );
+
+  const fortyEmoji = "😀".repeat(40);
+  assert.equal(sharedRosterNameLength(fortyEmoji), 40);
+  assert.equal(validateSharedRosterDraft(fortyEmoji, false).error, null);
+  assert.match(
+    validateSharedRosterDraft(`${fortyEmoji}😀`, false).error ?? "",
+    /40자 이내/,
   );
 });
 

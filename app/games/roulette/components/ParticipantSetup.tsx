@@ -1,6 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ClipboardEvent, KeyboardEvent } from 'react';
 
+import {
+  MAX_SHARED_NAME_LENGTH,
+  MAX_SHARED_ROSTER_SIZE,
+  sharedRosterNameKey,
+  sharedRosterNameLength,
+} from '../../../_platform/roster';
 import { STREAMER_THEMES } from '../../../_platform/theme';
 import { extractNaverCafeCommentAuthors } from '../../../_platform/cafeCommentParser';
 import type { Participant } from '../types';
@@ -12,6 +18,11 @@ type SetupStep = 'review' | 'edit';
 type ParseSummary = {
   total: number;
   replies: number;
+};
+
+type DraftValidation = {
+  error: string | null;
+  invalidParticipantIds: Set<string>;
 };
 
 const STREAMER_NAME_PLACEHOLDER = STREAMER_THEMES
@@ -31,42 +42,105 @@ export interface ParticipantSetupProps {
   onStart: (participants: Participant[]) => void;
 }
 
-function nameKey(value: string) {
-  return value.replace(/\s+/g, ' ').trim().toLocaleLowerCase('ko-KR');
-}
-
 function makeId(index: number) {
   return `participant-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function normalizeParticipants(
-  items: Participant[],
-  allowDuplicateNames: boolean,
-) {
-  const seen = new Set<string>();
+function normalizedName(value: string) {
+  return value.replace(/\s+/g, ' ').trim();
+}
 
-  return items.flatMap((item) => {
-    const name = item.name.replace(/\s+/g, ' ').trim();
-    const key = nameKey(name);
-    if (!key || (!allowDuplicateNames && seen.has(key))) return [];
-    seen.add(key);
-    return [{ ...item, name }];
-  });
+function normalizedParticipants(items: readonly Participant[]) {
+  return items.map((item) => ({
+    ...item,
+    name: normalizedName(item.name),
+  }));
+}
+
+function previewParticipants(items: readonly Participant[]) {
+  return normalizedParticipants(items).filter((item) => item.name.length > 0);
+}
+
+function validateParticipantDraft(
+  items: readonly Participant[],
+  allowDuplicateNames: boolean,
+): DraftValidation {
+  const invalidParticipantIds = new Set<string>();
+  const normalized = items.map((item, index) => ({
+    id: item.id,
+    index,
+    name: normalizedName(item.name),
+  }));
+
+  if (normalized.length === 0) {
+    return {
+      error: '추첨을 시작하려면 참여자가 한 명 이상 필요해요.',
+      invalidParticipantIds,
+    };
+  }
+
+  const blank = normalized.find((item) => item.name.length === 0);
+  if (blank) {
+    invalidParticipantIds.add(blank.id);
+    return {
+      error: `${blank.index + 1}번 참여자 이름을 입력하거나 해당 행을 삭제해 주세요.`,
+      invalidParticipantIds,
+    };
+  }
+
+  if (normalized.length > MAX_SHARED_ROSTER_SIZE) {
+    return {
+      error: `참가자는 최대 ${MAX_SHARED_ROSTER_SIZE}명까지 저장할 수 있어요. 현재 ${normalized.length}명입니다.`,
+      invalidParticipantIds,
+    };
+  }
+
+  const tooLong = normalized.filter(
+    (item) => sharedRosterNameLength(item.name) > MAX_SHARED_NAME_LENGTH,
+  );
+  if (tooLong.length > 0) {
+    tooLong.forEach((item) => invalidParticipantIds.add(item.id));
+    const details = tooLong
+      .map((item) => `${item.index + 1}번 ${sharedRosterNameLength(item.name)}자`)
+      .join(', ');
+    return {
+      error: `이름은 ${MAX_SHARED_NAME_LENGTH}자 이내로 입력해 주세요: ${details}`,
+      invalidParticipantIds,
+    };
+  }
+
+  if (!allowDuplicateNames) {
+    const namesByKey = new Map<string, typeof normalized>();
+    normalized.forEach((item) => {
+      const key = sharedRosterNameKey(item.name);
+      namesByKey.set(key, [...(namesByKey.get(key) ?? []), item]);
+    });
+    const duplicates = [...namesByKey.values()].filter((matches) => matches.length > 1);
+    if (duplicates.length > 0) {
+      duplicates.flat().forEach((item) => invalidParticipantIds.add(item.id));
+      const details = duplicates
+        .map((matches) => `${matches[0].name} (${matches.length}명)`)
+        .join(', ');
+      return {
+        error: `동일 이름을 정리하거나 허용 옵션을 켜 주세요: ${details}`,
+        invalidParticipantIds,
+      };
+    }
+  }
+
+  return { error: null, invalidParticipantIds };
 }
 
 function parseManualNames(value: string) {
   return value
     .split(/\r?\n|,/)
     .map((name) => name.replace(/^[-•·]\s*/, '').trim())
-    .filter((name) => name.length > 0 && name.length <= 40)
+    .filter((name) => name.length > 0)
     .filter((name) => !/^(?:답글쓰기|더보기|등록|댓글|프로필 사진)$/u.test(name));
 }
 
-function rosterFingerprint(
-  items: readonly Participant[],
-  allowDuplicateNames: boolean,
-) {
-  return JSON.stringify(normalizeParticipants([...items], allowDuplicateNames).map((item) => ({
+function rosterFingerprint(items: readonly Participant[]) {
+  return JSON.stringify(items.map((item) => ({
     id: item.id,
     name: item.name,
     weight: item.weight,
@@ -87,36 +161,49 @@ export default function ParticipantSetup({
   const [cafeImportOpen, setCafeImportOpen] = useState(false);
   const [pastedPage, setPastedPage] = useState('');
   const [draft, setDraft] = useState<Participant[]>(() => (
-    normalizeParticipants(initialParticipants, allowDuplicateNames)
+    initialParticipants.map((participant) => ({ ...participant }))
   ));
   const [manualNames, setManualNames] = useState('');
   const [parseError, setParseError] = useState('');
+  const [manualError, setManualError] = useState('');
   const [editorNotice, setEditorNotice] = useState('');
   const [summary, setSummary] = useState<ParseSummary | null>(null);
   const rootRef = useRef<HTMLElement>(null);
   const richClipboard = useRef('');
   const initialFingerprint = useRef(
-    rosterFingerprint(initialParticipants, allowDuplicateNames),
+    rosterFingerprint(initialParticipants),
+  );
+  const draftValidation = useMemo(
+    () => validateParticipantDraft(draft, allowDuplicateNames),
+    [allowDuplicateNames, draft],
   );
 
   useEffect(() => {
-    onDraftChange?.(normalizeParticipants(draft, allowDuplicateNames));
-  }, [allowDuplicateNames, draft, onDraftChange]);
+    onDraftChange?.(previewParticipants(draft));
+  }, [draft, onDraftChange]);
 
   useEffect(() => {
     onDirtyChange?.(
-      rosterFingerprint(draft, allowDuplicateNames) !== initialFingerprint.current
+      rosterFingerprint(draft) !== initialFingerprint.current
       || pastedPage.trim().length > 0
       || manualNames.trim().length > 0,
     );
-  }, [allowDuplicateNames, draft, manualNames, onDirtyChange, pastedPage]);
+  }, [draft, manualNames, onDirtyChange, pastedPage]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       rootRef.current?.querySelector<HTMLElement>('[data-setup-initial-focus]')?.focus();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [cafeImportOpen, step]);
+  }, [step]);
+
+  useEffect(() => {
+    if (!cafeImportOpen) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      rootRef.current?.querySelector<HTMLElement>('[data-setup-initial-focus]')?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [cafeImportOpen]);
 
   const handleDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (!onCancel) return;
@@ -164,18 +251,16 @@ export default function ParticipantSetup({
       return;
     }
 
-    const nextDraft = normalizeParticipants(
-      roots.map((candidate, index) => ({
-        id: candidate.id || makeId(index),
-        name: candidate.nick,
-        weight: 1,
-        commentCount: 1,
-      })),
-      allowDuplicateNames,
-    );
+    const nextDraft = roots.map((candidate, index) => ({
+      id: `${candidate.id || makeId(index)}-${index}`,
+      name: candidate.nick,
+      weight: 1,
+      commentCount: 1,
+    }));
     setDraft(nextDraft);
     setSummary({ total: nextDraft.length, replies: candidates.filter((candidate) => candidate.reply).length });
     setParseError('');
+    setManualError('');
     setStep('review');
   };
 
@@ -187,12 +272,12 @@ export default function ParticipantSetup({
   const addManualNames = () => {
     const names = parseManualNames(manualNames);
     if (names.length === 0) {
-      setEditorNotice('이름을 한 줄에 한 명씩 입력해 주세요.');
+      setManualError('추가할 이름을 한 줄에 한 명씩 입력해 주세요.');
+      setEditorNotice('');
       return;
     }
 
-    const before = draft.length;
-    const nextDraft = normalizeParticipants([
+    const nextDraft = [
       ...draft,
       ...names.map((name, index) => ({
         id: makeId(index),
@@ -200,21 +285,22 @@ export default function ParticipantSetup({
         weight: 1,
         commentCount: 1,
       })),
-    ], allowDuplicateNames);
+    ];
     setDraft(nextDraft);
     setManualNames('');
-    const addedCount = nextDraft.length - before;
-    const skippedCount = names.length - addedCount;
-    setEditorNotice(`${addedCount}명을 명단에 추가했어요.${skippedCount > 0 ? ` 중복 ${skippedCount}명은 제외했어요.` : ''}`);
+    setManualError('');
+    setEditorNotice(`${names.length}명을 명단에 추가했어요.`);
   };
 
   const updateName = (id: string, name: string) => {
     setDraft((items) => items.map((item) => (item.id === id ? { ...item, name } : item)));
+    setManualError('');
     setEditorNotice('');
   };
 
   const removeParticipant = (id: string) => {
     setDraft((items) => items.filter((item) => item.id !== id));
+    setManualError('');
     setEditorNotice('');
   };
 
@@ -229,12 +315,8 @@ export default function ParticipantSetup({
   };
 
   const finishSetup = () => {
-    const cleaned = normalizeParticipants(draft, allowDuplicateNames);
-    if (cleaned.length === 0) {
-      setEditorNotice('추첨을 시작하려면 참여자가 한 명 이상 필요해요.');
-      return;
-    }
-    onStart(cleaned);
+    if (draftValidation.error) return;
+    onStart(normalizedParticipants(draft));
   };
 
   return (
@@ -265,13 +347,33 @@ export default function ParticipantSetup({
             <strong>{summary?.total ?? draft.length}명</strong>
             <span>{summary && summary.replies > 0 ? `대댓글 ${summary.replies}개 제외` : '댓글 작성자'}</span>
           </div>
+          {draftValidation.error && (
+            <p id="participant-setup-validation" className="setup-message setup-message--error" role="alert">
+              {draftValidation.error}
+            </p>
+          )}
           <ol className="setup-review-list">
             {draft.slice(0, 80).map((participant) => <li key={participant.id}>{participant.name}</li>)}
           </ol>
           {draft.length > 80 && <p className="setup-list-note">처음 80명 표시 · 전체 {draft.length}명</p>}
           <div className="setup-actions">
-            <button data-setup-initial-focus className="setup-primary" type="button" onClick={finishSetup}>이 명단 사용</button>
-            <button className="setup-secondary" type="button" onClick={() => returnToEditor()}>명단 수정</button>
+            <button
+              data-setup-initial-focus={!draftValidation.error ? true : undefined}
+              className="setup-primary"
+              type="button"
+              onClick={finishSetup}
+              disabled={Boolean(draftValidation.error)}
+            >
+              이 명단 사용
+            </button>
+            <button
+              data-setup-initial-focus={draftValidation.error ? true : undefined}
+              className="setup-secondary"
+              type="button"
+              onClick={() => returnToEditor()}
+            >
+              명단 수정
+            </button>
             <button className="setup-link-button" type="button" onClick={() => returnToEditor(true)}>다시 가져오기</button>
           </div>
         </div>
@@ -299,8 +401,14 @@ export default function ParticipantSetup({
                 onPaste={handlePaste}
                 placeholder="카페 글 전체 붙여넣기"
                 aria-label="카페 페이지 내용"
+                aria-invalid={Boolean(parseError) || undefined}
+                aria-describedby={parseError ? 'participant-setup-cafe-error' : undefined}
               />
-              {parseError && <p className="setup-message setup-message--error" role="alert">{parseError}</p>}
+              {parseError && (
+                <p id="participant-setup-cafe-error" className="setup-message setup-message--error" role="alert">
+                  {parseError}
+                </p>
+              )}
               <div className="setup-inline-action">
                 <button className="setup-secondary" type="button" onClick={handleParse}>댓글 작성자 가져오기</button>
               </div>
@@ -318,6 +426,7 @@ export default function ParticipantSetup({
             value={manualNames}
             onChange={(event) => {
               setManualNames(event.target.value);
+              setManualError('');
               setEditorNotice('');
             }}
             onKeyDown={(event) => {
@@ -332,17 +441,29 @@ export default function ParticipantSetup({
               }
             }}
             aria-keyshortcuts="Shift+Enter"
+            aria-invalid={Boolean(manualError) || undefined}
+            aria-describedby={manualError ? 'participant-setup-manual-error' : undefined}
             placeholder={STREAMER_NAME_PLACEHOLDER}
           />
           <div className="setup-inline-action">
             <button className="setup-secondary" type="button" onClick={addManualNames}>명단에 추가</button>
           </div>
+          {manualError && (
+            <p id="participant-setup-manual-error" className="setup-message setup-message--error" role="alert">
+              {manualError}
+            </p>
+          )}
 
           <div className="setup-editor-heading">
             <div>
               <strong>참여자 {draft.length}명</strong>
             </div>
           </div>
+          {draftValidation.error && (
+            <p id="participant-setup-validation" className="setup-message setup-message--error" role="alert">
+              {draftValidation.error}
+            </p>
+          )}
           <ol className="setup-editor-list">
             {draft.map((participant, index) => (
               <li key={participant.id}>
@@ -351,6 +472,12 @@ export default function ParticipantSetup({
                   value={participant.name}
                   onChange={(event) => updateName(participant.id, event.target.value)}
                   aria-label={`${index + 1}번 참여자 이름`}
+                  aria-invalid={draftValidation.invalidParticipantIds.has(participant.id) || undefined}
+                  aria-describedby={
+                    draftValidation.invalidParticipantIds.has(participant.id)
+                      ? 'participant-setup-validation'
+                      : undefined
+                  }
                 />
                 <div className="setup-row-actions">
                   <button type="button" onClick={() => moveParticipant(index, -1)} disabled={index === 0} aria-label={`${participant.name} 위로`}>↑</button>
@@ -362,7 +489,12 @@ export default function ParticipantSetup({
           </ol>
           {editorNotice && <p className="setup-message" role="status">{editorNotice}</p>}
           <div className="setup-actions setup-actions--finish">
-            <button className="setup-primary" type="button" onClick={finishSetup}>
+            <button
+              className="setup-primary"
+              type="button"
+              onClick={finishSetup}
+              disabled={Boolean(draftValidation.error)}
+            >
               명단 저장
             </button>
             {onCancel && <button className="setup-secondary" type="button" onClick={onCancel}>취소</button>}

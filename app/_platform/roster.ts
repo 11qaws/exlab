@@ -1,6 +1,31 @@
 export const MAX_SHARED_ROSTER_SIZE = 320;
 export const MAX_SHARED_NAME_LENGTH = 40;
 
+/**
+ * Canonical comparison key shared by every roster editor.
+ *
+ * Display names keep their casing, but compatibility-equivalent characters,
+ * repeated whitespace, and case must not create visually duplicate entries
+ * through a different game-specific input path.
+ */
+export function sharedRosterNameKey(value: string): string {
+  return value
+    .normalize("NFKC")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .toLocaleLowerCase("ko-KR");
+}
+
+export function sharedRosterNameLength(value: string): number {
+  if (typeof Intl.Segmenter === "function") {
+    return Array.from(
+      new Intl.Segmenter("ko", { granularity: "grapheme" }).segment(value),
+    ).length;
+  }
+
+  return Array.from(value).length;
+}
+
 export function parseSharedRosterNames(value: string): string[] {
   return value
     .split(/[\r\n,]+/)
@@ -20,13 +45,13 @@ export function validateSharedRosterDraft(
 ): SharedRosterValidation {
   const names = parseSharedRosterNames(value);
   const tooLong = names.find(
-    (name) => name.length > MAX_SHARED_NAME_LENGTH,
+    (name) => sharedRosterNameLength(name) > MAX_SHARED_NAME_LENGTH,
   );
   const seen = new Set<string>();
   const duplicates = new Set<string>();
 
   names.forEach((name) => {
-    const key = name.toLocaleLowerCase("ko-KR");
+    const key = sharedRosterNameKey(name);
     if (seen.has(key)) duplicates.add(name);
     else seen.add(key);
   });

@@ -259,24 +259,45 @@
   line-height: 1.45;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 900px) {
   .current-round-winners {
     block-size: auto;
     max-block-size: min(440px, 58dvh);
-    padding: 16px;
+    padding: 8px;
     border-width: 2px;
     border-radius: 16px;
   }
 
   .current-round-winners__header {
-    gap: 8px;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .current-round-winners__eyebrow,
+  .current-round-winners__removal {
+    display: none;
+  }
+
+  .current-round-winners h2 {
+    font-size: 18px;
+  }
+
+  .current-round-winners__count {
+    min-height: 26px;
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  .current-round-winners__body {
+    padding-right: 2px;
   }
 
   .current-round-winners__list li {
     grid-template-columns: 25px minmax(0, 1fr) max-content;
     gap: 8px;
-    min-height: 50px;
-    padding: 9px;
+    min-height: 46px;
+    padding: 6px 8px;
   }
 
   .current-round-winners__pending-summary {
@@ -293,7 +314,15 @@
   }
 
   .current-round-winners__name {
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
     font-size: 21px;
+    line-height: 1.12;
+    text-overflow: clip;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .current-round-winners__name--medium {

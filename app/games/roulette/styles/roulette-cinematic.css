@@ -206,9 +206,7 @@
 }
 
 .broadcast-focus.reveal-phase--dart-names-revealed .broadcast-focus__camera {
-  transform-origin:
-    var(--cinematic-final-x, 50%)
-    var(--cinematic-final-y, 14%);
+  transform-origin: var(--cinematic-final-x, 50%) 0%;
 }
 
 /* Auto-wheel proof holds the close boundary. Dart proof shows the whole
@@ -232,9 +230,7 @@
 }
 
 .broadcast-focus.reveal-phase--rotation-stopped:has(.roulette-wheel.is-dart) .broadcast-focus__camera {
-  transform-origin:
-    var(--cinematic-final-x, 50%)
-    var(--cinematic-final-y, 14%);
+  transform-origin: var(--cinematic-final-x, 50%) 0%;
 }
 
 /* The rim owns the exact wheel-local close-up; the outer camera only frames it. */

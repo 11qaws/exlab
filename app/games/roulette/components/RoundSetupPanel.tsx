@@ -20,6 +20,8 @@ export interface RoundSetupPanelProps {
   eligibleParticipants: Participant[];
   candidateParticipants: Participant[];
   drawOptionCount: number;
+  winnerGoal: number;
+  maximumWinnerGoal: number;
   excludedCount: number;
   poolLimit: number;
   prizes: Prize[];
@@ -43,6 +45,7 @@ export interface RoundSetupPanelProps {
   onLoadRecentWinners: () => void;
   onRestartPrizeRecipients: () => void;
   onPoolLimitChange: (value: number) => void;
+  onWinnerGoalChange: (value: number) => void;
   onReshufflePool: () => void;
   onPresentationChange: (choice: PresentationChoice) => void;
   onRemoveAfterDrawChange: (value: boolean) => void;
@@ -68,6 +71,8 @@ export default function RoundSetupPanel({
   eligibleParticipants,
   candidateParticipants,
   drawOptionCount,
+  winnerGoal,
+  maximumWinnerGoal,
   excludedCount,
   poolLimit,
   prizes,
@@ -91,6 +96,7 @@ export default function RoundSetupPanel({
   onLoadRecentWinners,
   onRestartPrizeRecipients,
   onPoolLimitChange,
+  onWinnerGoalChange,
   onReshufflePool,
   onPresentationChange,
   onRemoveAfterDrawChange,
@@ -103,7 +109,9 @@ export default function RoundSetupPanel({
   onPrizeWeightChange,
   onRemovePrize,
 }: RoundSetupPanelProps) {
+  const winnerGoalInputId = useId();
   const poolInputId = useId();
+  const maximumGoalForInput = Math.max(1, maximumWinnerGoal);
   const presentationChoice: PresentationChoice = wheelPresentation;
   const sourceValue = participantTotal === 0
     ? '명단 없음'
@@ -130,6 +138,8 @@ export default function RoundSetupPanel({
       : prizeRecipientCount > 0 ? `${recentWinnerCount}명으로 교체` : `${recentWinnerCount}명 불러오기`;
   const externalPeopleRoster =
     rosterManagedExternally && target === 'people';
+  const goalLabel = target === 'people' ? '당첨 인원' : '추첨 횟수';
+  const goalUnit = target === 'people' ? '명' : '회';
 
   return (
     <section
@@ -163,6 +173,35 @@ export default function RoundSetupPanel({
         </div>
       </div>
 
+      <div className="round-setup__row round-setup__row--count" data-setup-slot="count">
+        <label className="round-setup__label" htmlFor={winnerGoalInputId}>{goalLabel}</label>
+        <div className="round-setup__count-control">
+          <button
+            type="button"
+            aria-label={`${goalLabel} 하나 줄이기`}
+            disabled={disabled || winnerGoal <= 1}
+            onClick={() => onWinnerGoalChange(Math.max(1, winnerGoal - 1))}
+          >−</button>
+          <input
+            id={winnerGoalInputId}
+            type="number"
+            min="1"
+            max={maximumGoalForInput}
+            value={maximumWinnerGoal < 1 ? '' : Math.min(winnerGoal, maximumGoalForInput)}
+            disabled={disabled || maximumWinnerGoal < 1}
+            aria-describedby={`${winnerGoalInputId}-hint`}
+            onChange={(event) => onWinnerGoalChange(clampWholeNumber(Number(event.target.value), 1, maximumGoalForInput))}
+          />
+          <span id={`${winnerGoalInputId}-hint`}>{goalUnit}</span>
+          <button
+            type="button"
+            aria-label={`${goalLabel} 하나 늘리기`}
+            disabled={disabled || maximumWinnerGoal < 1 || winnerGoal >= maximumGoalForInput}
+            onClick={() => onWinnerGoalChange(Math.min(maximumGoalForInput, winnerGoal + 1))}
+          >+</button>
+        </div>
+      </div>
+
       <div className="round-setup__row round-setup__row--presentation" data-setup-slot="presentation">
         <span className="round-setup__label">연출</span>
         <div className="round-setup__segmented" role="group" aria-label="방송 연출">
@@ -174,6 +213,21 @@ export default function RoundSetupPanel({
           </button>
         </div>
       </div>
+
+      {externalPeopleRoster && (
+        <div className="round-setup__external-roster-status">
+          <span className="round-setup__label">명단 상태</span>
+          <div className="round-setup__external-roster-summary" role="status" aria-label="현재 룰렛 명단 상태">
+            <strong>{drawOptionCount}명 추첨 가능</strong>
+            <span>전체 {participantTotal}명{excludedCount > 0 ? ` · 당첨 제외 ${excludedCount}명` : ''}</span>
+          </div>
+          {excludedCount > 0 && onRestoreExcluded && (
+            <button type="button" disabled={disabled} onClick={onRestoreExcluded}>
+              {excludedCount}명 복귀
+            </button>
+          )}
+        </div>
+      )}
 
       <div
         className={`round-setup__data-slot round-setup__data-slot--${target}${

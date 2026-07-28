@@ -174,12 +174,13 @@
   }
 
   .broadcast-candidate-roster__list li {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1.25rem minmax(0, 1fr);
     padding-inline: 0.35rem;
   }
 
   .broadcast-candidate-roster__number {
-    display: none;
+    display: block;
+    font-size: 0.62rem;
   }
 
   .broadcast-candidate-roster__list strong {

@@ -3,6 +3,11 @@ import test from "node:test";
 
 import type { DrawRecord } from "../app/games/roulette/types";
 import {
+  appendBroadcastSessionResult,
+  createBroadcastSession,
+  updateBroadcastSessionGoal,
+} from "../app/games/roulette/lib/broadcastSession";
+import {
   consumePendingRecord,
   mergeRecoveredHistory,
   parsePendingRaffleLock,
@@ -36,6 +41,8 @@ const ALLOWED_TRANSITIONS: Record<
   },
   configuring: {
     "open-roster": "roster",
+    "resume-ready": "ready",
+    "resume-completed": "completed",
     "open-stage": "ready",
   },
   ready: {
@@ -53,6 +60,7 @@ const ALLOWED_TRANSITIONS: Record<
   completed: {
     "open-roster": "roster",
     "end-broadcast": "configuring",
+    "replay-result": "locking",
     "start-next-round": "ready",
   },
 };
@@ -149,6 +157,31 @@ test("Roulette pending result recovers once without duplication", () => {
   assert.equal(consumePendingRecord(PENDING, LOCKED_RESULT.id), null);
 });
 
+test("Roulette session goal never drops below its revealed result count", () => {
+  const initial = createBroadcastSession("session-1", "people", 5);
+  assert.equal(initial.goal, 5);
+
+  const revealed = appendBroadcastSessionResult(initial, LOCKED_RESULT);
+  assert.equal(revealed.results.length, 1);
+  assert.ok(revealed.goal >= revealed.results.length);
+  assert.equal(updateBroadcastSessionGoal(revealed, 0).goal, 1);
+
+  const secondResult: DrawRecord = {
+    ...LOCKED_RESULT,
+    id: "result-2",
+    roundId: "round-2",
+    roundOrder: 2,
+  };
+  const twiceRevealed = appendBroadcastSessionResult(revealed, secondResult);
+  assert.ok(twiceRevealed.goal >= twiceRevealed.results.length);
+  assert.equal(updateBroadcastSessionGoal(twiceRevealed, 1).goal, 2);
+
+  const forcedOneGoal = { ...revealed, goal: 1 };
+  const repairedByAppend = appendBroadcastSessionResult(forcedOneGoal, secondResult);
+  assert.equal(repairedByAppend.results.length, 2);
+  assert.equal(repairedByAppend.goal, 2);
+});
+
 test("embedded Roulette pauses previews and locks navigation while editing a roster", async () => {
   const [gameSource, previewSource] = await Promise.all([
     readFile(
@@ -183,6 +216,124 @@ test("embedded Roulette pauses previews and locks navigation while editing a ros
   assert.doesNotMatch(
     previewSource,
     /\[active, clearTimers, previewSignature, startCycle\]/,
+  );
+});
+
+test("Roulette preserves paused progress and replays without entering persistence paths", async () => {
+  const [source, wheelSource] = await Promise.all([
+    readFile(
+      new URL("../app/games/roulette/RouletteGame.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/components/RouletteWheel.tsx", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(source, /const \[pausedBroadcastSession, setPausedBroadcastSession\]/);
+  assert.match(source, /if \(broadcastSession\) setPausedBroadcastSession\(broadcastSession\)/);
+  assert.match(source, /className="roulette-session-hub"/);
+  assert.match(source, /진행[\s\S]*?pausedSessionResults\.length[\s\S]*?pausedBroadcastSession\.goal/);
+  assert.match(source, /const pausedSessionCompleted = Boolean/);
+  assert.match(source, /pausedSessionCompleted \? '결과 화면 다시 열기'/);
+  assert.match(source, /pausedSessionCompleted \? '완료한 세션 종료'/);
+  assert.match(source, /session\.target === 'people' \? '명' : '회'/);
+  assert.match(
+    source,
+    /session\.results\.length > 0 && lastCommittedPresentation[\s\S]*?setPresentedOptions\(lastCommittedPresentation\.options\)[\s\S]*?setWinnerIndex\(lastCommittedPresentation\.winnerIndex\)/,
+  );
+  assert.match(source, /settled=\{!preview && raffleStatus === 'completed'/);
+  assert.match(
+    wheelSource,
+    /settledPlan\.finalRotation[\s\S]*?completedSpinKey\.current = spinKey[\s\S]*?setLandingVisual/,
+  );
+  assert.match(
+    wheelSource,
+    /setDartImpactRotation\([\s\S]*?settledPlan\.impactRotation/,
+    "a reopened Dart result must restore its board-local impact angle",
+  );
+  assert.match(
+    wheelSource,
+    /const reducedMotion = window\.matchMedia[\s\S]*?if \(reducedMotion\) \{[\s\S]*?setRotation\(finishPlan\.finalRotation\)[\s\S]*?beginProofHold\(spinKey, runRevealId, isDartPresentation\)[\s\S]*?return;/,
+    "reduced motion must settle directly instead of waiting for a discarded transitionend",
+  );
+  assert.match(
+    wheelSource,
+    /const proofHoldDelay = window\.matchMedia[\s\S]*?\? 0[\s\S]*?: dartReveal \? DART_STOP_HOLD_DELAY : STOP_HOLD_DELAY/,
+  );
+  assert.match(
+    source,
+    /const committedRoundResult = activePresentation\?\.lockedResult[\s\S]*?committedRoundResult\?\.recipientId[\s\S]*?committedRoundResult\?\.recipient/,
+    "a reopened prize result must keep the committed recipient instead of advancing the title",
+  );
+  assert.match(source, /type: 'presentation-restarted'/);
+  assert.match(
+    source,
+    /if \(!isReplay && activeRound\) \{[\s\S]*?setHistory[\s\S]*?appendBroadcastSessionResult[\s\S]*?setExcludedParticipantIds[\s\S]*?setPrizes/,
+  );
+  assert.match(source, /pendingCount=\{sessionPendingCount\}/);
+  assert.match(
+    source,
+    /const resultBoardAnnouncement = latestVisibleSessionResult[\s\S]*?당첨자:[\s\S]*?role="status"[\s\S]*?\{resultBoardAnnouncement \?\? ''\}/,
+  );
+  assert.match(
+    source,
+    /<WinnerHero[\s\S]*?announcement=""/,
+    "the hero stays visual-only so the persistent live region announces exactly once",
+  );
+  assert.match(
+    source,
+    /<CurrentRoundWinners[\s\S]*?announcement=""/,
+    "the conditional result board must not duplicate the persistent live region",
+  );
+  assert.match(source, /winnerGoal=\{setupWinnerGoal\}/);
+  assert.match(source, /maximumWinnerGoal=\{setupMaximumWinnerGoal\}/);
+  assert.match(source, /setupSessionHeadingRef\.current\?\.focus\(\)/);
+  assert.match(source, /completedPrimaryActionRef\.current\?\.focus\(\)/);
+  assert.match(
+    source,
+    /const focusPreparationPrimary = useCallback[\s\S]*?finishBroadcast[\s\S]*?else \{\s*focusPreparationPrimary\(\)/,
+  );
+  assert.match(
+    source,
+    /prefersReducedMotion\(\)[\s\S]*?reduceMotion \? 0 : WINNER_DOCK_DURATION_MS[\s\S]*?reduceMotion \? 0 : WINNER_HERO_HOLD_MS/,
+  );
+  assert.doesNotMatch(source, /participants\.slice\(0,\s*18\)/);
+});
+
+test("compact Roulette keeps one-column flow and never overlays short-screen results", async () => {
+  const [liveInfoCss, viewportCss, embedCss] = await Promise.all([
+    readFile(
+      new URL("../app/games/roulette/styles/roulette-live-info.css", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/styles/roulette-viewport.css", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/styles/roulette-embed.css", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(
+    liveInfoCss,
+    /@media \(max-width: 900px\)[\s\S]*?broadcast-focus\.has-no-results-panel:not\(\.is-stage-only\):not\(\.is-completed\)[\s\S]*?grid-template-areas:\s*'stage'\s*'action'\s*'roster'[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/,
+  );
+  assert.match(
+    liveInfoCss,
+    /@media \(min-width: 901px\)[\s\S]*?broadcast-focus\.has-no-results-panel:not\(\.is-stage-only\):not\(\.is-completed\) \.broadcast-focus__stage[\s\S]*?grid-template-rows:\s*minmax\(0, 1fr\)/,
+    "the 1600px legacy showcase must not place the live wheel in a zero-height row",
+  );
+  assert.match(
+    viewportCss,
+    /@media \(max-width: 900px\) and \(max-height: 720px\)[\s\S]*?broadcast-focus__action[\s\S]*?position:\s*static[\s\S]*?bottom:\s*auto/,
+  );
+  assert.match(
+    embedCss,
+    /broadcast-phase-bar__tools button\s*\{[\s\S]*?white-space:\s*nowrap/,
   );
 });
 
@@ -225,13 +376,22 @@ test("Roulette blocks duplicate roster entries until the common policy allows th
 });
 
 test("compact Roulette and Dart reserve screen space for boundary names", async () => {
-  const viewportCss = await readFile(
-    new URL(
-      "../app/games/roulette/styles/roulette-viewport.css",
-      import.meta.url,
+  const [viewportCss, embedCss] = await Promise.all([
+    readFile(
+      new URL(
+        "../app/games/roulette/styles/roulette-viewport.css",
+        import.meta.url,
+      ),
+      "utf8",
     ),
-    "utf8",
-  );
+    readFile(
+      new URL(
+        "../app/games/roulette/styles/roulette-embed.css",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
 
   assert.match(viewportCss, /--wheel-proof-band:\s*5\.5rem/);
   assert.match(
@@ -245,5 +405,63 @@ test("compact Roulette and Dart reserve screen space for boundary names", async 
   assert.match(
     viewportCss,
     /\.boundary-names--dart\s*\{\s*width:\s*min\(96%, 28rem\)/,
+  );
+  assert.match(
+    viewportCss,
+    /@media \(min-width: 901px\) and \(max-width: 1180px\) and \(max-height: 780px\)[\s\S]*?grid-template-rows:\s*minmax\(0, 1fr\) auto[\s\S]*?broadcast-action-dock__controls[\s\S]*?height:\s*auto/,
+    "medium short viewports must release the completed dock's fixed heights",
+  );
+  assert.match(
+    embedCss,
+    /app-shell\.app-shell--preparation\.is-embedded\s*\{\s*height:\s*auto/,
+    "the integrated desktop setup must not keep the standalone viewport height",
+  );
+  assert.match(
+    embedCss,
+    /@media \(min-width: 901px\) and \(max-height: 780px\)[\s\S]*?app-shell\.app-shell--live\.is-embedded:has\([\s\S]*?broadcast-focus\.is-completed[\s\S]*?height:\s*calc\(100dvh - var\(--exlab-header-height\)\)[\s\S]*?margin:\s*0/,
+    "the integrated compact completed board must keep the shared viewport height",
+  );
+  assert.match(
+    embedCss,
+    /@media \(min-width: 901px\) and \(max-width: 1179px\) and \(max-height: 820px\)[\s\S]*?--round-setup-control-row-size:\s*56px[\s\S]*?margin-block-start:\s*12px/,
+    "short medium-width setup screens must compact before they overflow",
+  );
+});
+
+test("compact Roulette proof, camera, and live focus stay connected", async () => {
+  const [wheelSource, finishSource, gameSource, cinematicCss] = await Promise.all([
+    readFile(
+      new URL("../app/games/roulette/components/RouletteWheel.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/components/DartFinish.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/RouletteGame.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/styles/roulette-cinematic.css", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(wheelSource, /leftNumber=\{boundaryLeftIndex \+ 1\}/);
+  assert.match(wheelSource, /aria-live=\{showWinner \? 'off' : 'polite'\}/);
+  assert.match(wheelSource, /rightNumber=\{boundaryRightIndex \+ 1\}/);
+  assert.match(wheelSource, /number=\{winnerIndex \+ 1\}/);
+  assert.match(finishSource, /ProofNickname name=\{leftName\} number=\{leftNumber\}/);
+  assert.match(finishSource, /ProofNickname name=\{rightName\} number=\{rightNumber\}/);
+  assert.match(
+    cinematicCss,
+    /reveal-phase--dart-names-revealed[\s\S]*?transform-origin:\s*var\(--cinematic-final-x, 50%\) 0%/,
+  );
+  assert.match(gameSource, /const liveStageTitleRef = useRef<HTMLElement>\(null\)/);
+  assert.match(gameSource, /liveStageTitleRef\.current\?\.focus\(\)/);
+  assert.match(
+    gameSource,
+    /ref=\{liveStageTitleRef\} id="stage-title" tabIndex=\{-1\}/,
   );
 });

@@ -341,7 +341,11 @@ function SharedRosterDialog({
               aria-describedby="exlab-cafe-import-status"
             />
             <div className="exlab-roster-import__action">
-              <p id="exlab-cafe-import-status">
+              <p
+                id="exlab-cafe-import-status"
+                role={cafeImportError ? "alert" : "status"}
+                aria-live="polite"
+              >
                 {cafeImportError
                   || "붙여넣은 내용은 브라우저 안에서만 처리됩니다."}
               </p>
@@ -370,6 +374,8 @@ function SharedRosterDialog({
         <p
           id="exlab-roster-help"
           className={validation.error ? "is-error" : undefined}
+          role={validation.error ? "alert" : undefined}
+          aria-live="polite"
         >
           {validation.error
             ?? "이 명단은 Roulette와 Showdown에 함께 반영됩니다."}

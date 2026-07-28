@@ -1,4 +1,13 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { CSSProperties, TransitionEvent } from 'react';
 
 import DartFinish, {
@@ -28,6 +37,7 @@ import {
   type SpinPhysicalCommit,
   type SpinSelectionGeometry,
 } from '../lib/roulette';
+import { resolveWheelSliceLabel } from '../lib/wheelLabelReadability';
 import type { WheelPresentation } from '../types';
 import './RouletteWheel.css';
 
@@ -38,6 +48,8 @@ export interface RouletteWheelProps {
   itemType?: 'participant' | 'prize';
   winnerIndex: number | null;
   spinning: boolean;
+  /** Restores an already completed physical stop without replaying motion. */
+  settled?: boolean;
   /** Live wheel stages accelerate immediately and cruise before the host acts. */
   idleSpinning?: boolean;
   spinKey: number;
@@ -225,15 +237,6 @@ function makeSlicePath(startAngle: number, endAngle: number) {
   ].join(' ');
 }
 
-function compactName(name: string, count: number) {
-  const normalized = name.trim() || '이름 없음';
-  const limit = count <= 10 ? 11 : count <= 18 ? 8 : count <= 28 ? 5 : 3;
-
-  return normalized.length > limit
-    ? `${normalized.slice(0, Math.max(1, limit - 1))}…`
-    : normalized;
-}
-
 function readBorderBoxWidth(element: HTMLElement) {
   const style = window.getComputedStyle(element);
   const declaredWidth = Number.parseFloat(style.width);
@@ -311,6 +314,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
   itemType = 'participant',
   winnerIndex,
   spinning,
+  settled = false,
   idleSpinning = false,
   spinKey,
   revealId,
@@ -341,6 +345,9 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
   const [dartNamesRevealed, setDartNamesRevealed] = useState(false);
   const [dartAimLocked, setDartAimLocked] = useState(false);
   const [displayAimShot, setDisplayAimShot] = useState<DartShotPlan | undefined>(dartShot);
+  const [wheelDiameter, setWheelDiameter] = useState<number | null>(null);
+  const wheelTitleId = useId();
+  const wheelDescriptionId = useId();
   const lastSpinKey = useRef<number | null>(null);
   const completedSpinKey = useRef<number | null>(null);
   const completionFallbackTimer = useRef<number | null>(null);
@@ -401,6 +408,32 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
   useEffect(() => {
     onIdleCruiseRef.current = onIdleCruise;
   }, [onIdleCruise]);
+
+  useEffect(() => {
+    const rim = rimRef.current;
+    if (!rim) return;
+
+    const updateDiameter = () => {
+      const bounds = rim.getBoundingClientRect();
+      const nextDiameter = Math.min(bounds.width, bounds.height);
+      if (!Number.isFinite(nextDiameter) || nextDiameter <= 0) return;
+      setWheelDiameter((current) => (
+        current !== null && Math.abs(current - nextDiameter) < 0.5
+          ? current
+          : nextDiameter
+      ));
+    };
+
+    updateDiameter();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateDiameter);
+      return () => window.removeEventListener('resize', updateDiameter);
+    }
+
+    const observer = new ResizeObserver(updateDiameter);
+    observer.observe(rim);
+    return () => observer.disconnect();
+  }, []);
 
   const paintDartAim = useCallback((shot: DartShotPlan, committed = false) => {
     const point = resolveDartImpactPoint(shot);
@@ -552,13 +585,11 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
     ) return false;
 
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    const transitionSeconds = reducedMotion && nominalTransitionSeconds > 0
-      ? 0.06
-      : nominalTransitionSeconds;
+    const transitionSeconds = reducedMotion ? 0 : nominalTransitionSeconds;
     const now = typeof performance === 'undefined' ? Date.now() : performance.now();
     run.phase = phase;
     run.transitionSeconds = transitionSeconds;
-    run.transitionNotBefore = now + transitionSeconds * 720;
+    run.transitionNotBefore = reducedMotion ? now : now + transitionSeconds * 720;
     setSpinPhase(phase);
     return true;
   }, []);
@@ -623,7 +654,9 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
     if (dartReveal) setDartPhase('settled');
     activateRunPhase(revealKey, runRevealId, 'stop-hold');
     emitRevealPhase('rotation-stopped', revealKey);
-    const proofHoldDelay = dartReveal ? DART_STOP_HOLD_DELAY : STOP_HOLD_DELAY;
+    const proofHoldDelay = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      ? 0
+      : dartReveal ? DART_STOP_HOLD_DELAY : STOP_HOLD_DELAY;
     stopHoldTimer.current = window.setTimeout(() => {
       stopHoldTimer.current = null;
       if (!isActiveRun(revealKey, runRevealId)) return;
@@ -699,18 +732,30 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
         normalizedMiddle > 90 && normalizedMiddle < 270
           ? middleAngle + 180
           : middleAngle;
+      const labelDecision = resolveWheelSliceLabel({
+        participant,
+        participantCount,
+        participantIndex: index,
+        sliceAngle,
+        labelRadius,
+        wheelDiameter,
+        wheelRadius: WHEEL_RADIUS,
+        viewBoxDiameter: VIEWBOX_CENTER * 2,
+      });
 
       return {
         participant,
         index,
         path: makeSlicePath(geometry.startAngle, geometry.endAngle),
         color: WHEEL_COLORS[index % WHEEL_COLORS.length],
-        label: compactName(participant, participantCount),
-        showLabel: sliceAngle > 1,
+        label: labelDecision.text,
+        labelKind: labelDecision.kind,
+        labelFontSize: labelDecision.fontSizeInViewBox,
+        showLabel: labelDecision.kind !== 'hidden',
         labelTransform: `translate(${labelPoint.x.toFixed(2)} ${labelPoint.y.toFixed(2)}) rotate(${labelRotation.toFixed(2)})`,
       };
     });
-  }, [participantCount, participants, sliceGeometry]);
+  }, [participantCount, participants, sliceGeometry, wheelDiameter]);
 
   useEffect(() => {
     if (
@@ -893,6 +938,26 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
     };
     finishPlanRef.current = finishPlan;
 
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (reducedMotion) {
+      rotationRef.current = finishPlan.finalRotation;
+      setRotation(finishPlan.finalRotation);
+      if (isDartPresentation) {
+        setDartPhase('settled');
+        emitRevealPhase('dart-launched', spinKey);
+        emitRevealPhase('dart-impacted', spinKey);
+        emitRevealPhase('dart-attached', spinKey);
+        setDartNamesRevealed(true);
+        emitRevealPhase('dart-names-revealed', spinKey);
+      } else if (actualBoundaryHit) {
+        setBoundaryVisualPhase(finishPlan.crossesBoundary ? 'crossed' : 'held');
+        emitRevealPhase('boundary-entered', spinKey);
+        emitRevealPhase(finishPlan.crossesBoundary ? 'boundary-crossed' : 'boundary-held', spinKey);
+      }
+      beginProofHold(spinKey, runRevealId, isDartPresentation);
+      return;
+    }
+
     const fallbackDelay = isDartPresentation
       ? Math.ceil((
           plannedDartFlightDuration +
@@ -977,6 +1042,116 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
     spinCommit,
     spinKey,
     spinning,
+    weights,
+    winnerIndex,
+  ]);
+
+  useEffect(() => {
+    if (
+      !settled
+      || spinning
+      || !validWinner
+      || winnerIndex === null
+      || completedSpinKey.current === spinKey
+    ) return;
+
+    let settledPlan: RouletteFinishPlan | DartRouletteFinishPlan | null = null;
+    if (isDartPresentation) {
+      if (
+        !dartCommit
+        || dartCommit.winnerIndex !== winnerIndex
+        || dartCommit.geometrySignature !== createRouletteGeometrySignature(participantCount, weights)
+      ) return;
+      settledPlan = buildCommittedDartRouletteFinishPlan(
+        dartCommit,
+        participantCount,
+        DART_ATTACHED_COAST_TURNS,
+        weights,
+      );
+    } else {
+      if (
+        !spinCommit
+        || spinCommit.winnerIndex !== winnerIndex
+        || spinCommit.geometrySignature !== createRouletteGeometrySignature(participantCount, weights)
+      ) return;
+      settledPlan = buildCommittedSpinRouletteFinishPlan(
+        spinCommit,
+        participantCount,
+        weights,
+      );
+    }
+    if (!settledPlan) return;
+
+    const boundaryHit = isRoulettePhotoFinish(
+      (isDartPresentation ? dartCommit?.landing : spinCommit?.landing)?.boundaryHit,
+      participantCount,
+      settledPlan,
+    );
+    const leftIndex = settledPlan.boundarySide === 'end'
+      ? winnerIndex
+      : settledPlan.boundarySide === 'start'
+        ? settledPlan.adjacentIndex
+        : null;
+    const rightIndex = settledPlan.boundarySide === 'end'
+      ? settledPlan.adjacentIndex
+      : settledPlan.boundarySide === 'start'
+        ? winnerIndex
+        : null;
+
+    clearRunTimers();
+    activeRunRef.current = null;
+    finishPlanRef.current = settledPlan;
+    rotationRef.current = settledPlan.finalRotation;
+    lastSpinKey.current = spinKey;
+    completedSpinKey.current = spinKey;
+    setRotation(settledPlan.finalRotation);
+    setIsAnimating(false);
+    setIdleMotionPhase('stopped');
+    setSpinPhase('stop-hold');
+    setBoundaryVisualPhase(
+      boundaryHit ? settledPlan.crossesBoundary ? 'crossed' : 'held' : 'idle',
+    );
+    setLandingBoundaryHit(boundaryHit);
+    setLandingVisual({
+      spinKey,
+      kind: settledPlan.landingKind,
+      boundarySide: settledPlan.boundarySide,
+      leftIndex,
+      rightIndex,
+      winnerSide: settledPlan.winnerDisplaySide,
+      crossesBoundary: settledPlan.crossesBoundary,
+    });
+    setDartNamesRevealed(isDartPresentation);
+    setDartAimLocked(isDartPresentation);
+    setDartPhase(isDartPresentation ? 'settled' : 'idle');
+    setDartImpactRotation(
+      isDartPresentation && 'impactRotation' in settledPlan
+        ? settledPlan.impactRotation
+        : 0,
+    );
+    revealMetadataRef.current = {
+      presentation,
+      winnerIndex,
+      participantCount,
+      boundaryHit,
+      candidateBefore: rightIndex === null ? undefined : participants[rightIndex],
+      candidateAfter: leftIndex === null ? undefined : participants[leftIndex],
+      landingKind: settledPlan.landingKind,
+      boundarySide: settledPlan.boundarySide,
+      winnerDisplaySide: settledPlan.winnerDisplaySide,
+    };
+  }, [
+    clearRunTimers,
+    dartCommit,
+    isDartPresentation,
+    participantCount,
+    participants,
+    presentation,
+    settled,
+    spinCommit,
+    spinKey,
+    spinning,
+    validWinner,
     weights,
     winnerIndex,
   ]);
@@ -1267,6 +1442,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
       data-participant-count={participantCount}
       data-auto-whirl-duration={autoWhirlDuration.toFixed(3)}
       data-photo-finish-duration={autoPhotoFinishDuration.toFixed(3)}
+      data-label-mode={wheelDiameter === null ? 'pending' : wheelDiameter < 380 ? 'compact' : 'regular'}
       style={wheelStyle}
       aria-label="exlab Roulette 추첨 룰렛"
     >
@@ -1298,21 +1474,23 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
             <svg
               viewBox="0 0 600 600"
               role="img"
-              aria-label={
-                participantCount > 0
-                  ? `${participantCount}${countUnit}의 ${itemNoun} 룰렛`
-                  : `${itemNoun}을 기다리는 빈 룰렛`
-              }
+              aria-labelledby={`${wheelTitleId} ${wheelDescriptionId}`}
             >
-              <title>
+              <title id={wheelTitleId}>
                 {participantCount > 0
                   ? `exlab Roulette, ${itemNoun} ${participantCount}${countUnit}`
                   : '명단을 준비하면 룰렛이 완성됩니다.'}
               </title>
+              <desc id={wheelDescriptionId}>
+                {participantCount > 0
+                  ? `${itemNoun} ${participantCount}${countUnit}. 조각에는 공간에 따라 이름 또는 후보 명단과 같은 번호가 표시됩니다.`
+                  : `${itemNoun}을 기다리는 빈 룰렛`}
+              </desc>
 
               <g transform={`translate(${VIEWBOX_CENTER} ${VIEWBOX_CENTER})`}>
                 {slices.map((slice) => (
                   <g key={`${slice.index}-${slice.participant}`}>
+                    <title>{`${slice.index + 1}번 ${slice.participant.trim() || '이름 없음'}`}</title>
                     {slice.path && (
                       <path
                         className={`roulette-wheel__slice${
@@ -1332,16 +1510,17 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
                     )}
                     {slice.showLabel && (
                       <text
-                        className="roulette-wheel__label"
+                        className={`roulette-wheel__label roulette-wheel__label--${slice.labelKind}`}
                         style={{
-                          fontSize: `${Math.max(10, Math.min(20, 170 / participantCount))}px`,
+                          fontSize: `${slice.labelFontSize}px`,
+                          fontWeight: slice.labelKind === 'number' ? 800 : undefined,
                         }}
                         transform={slice.labelTransform}
                         textAnchor="middle"
                         dominantBaseline="central"
+                        aria-hidden="true"
                       >
                         {slice.label}
-                        <title>{slice.participant}</title>
                       </text>
                     )}
                   </g>
@@ -1381,6 +1560,8 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
             <BoundaryNames
               leftName={participants[boundaryLeftIndex]}
               rightName={participants[boundaryRightIndex]}
+              leftNumber={boundaryLeftIndex + 1}
+              rightNumber={boundaryRightIndex + 1}
               leftColor={slices[boundaryLeftIndex]?.color ?? WHEEL_COLORS[0]}
               rightColor={slices[boundaryRightIndex]?.color ?? WHEEL_COLORS[1]}
               visible={showBoundaryNames}
@@ -1393,6 +1574,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
           {showWinnerNameplate && winnerIndex !== null && (
             <WinnerNameplate
               name={participants[winnerIndex]}
+              number={winnerIndex + 1}
               color={slices[winnerIndex]?.color ?? WHEEL_COLORS[0]}
               visible={showWinnerNameplate}
               mode={isDartPresentation ? 'dart' : 'spin'}
@@ -1401,7 +1583,7 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
         </div>
       </div>
 
-      <p className="roulette-wheel__status" aria-live="polite">
+      <p className="roulette-wheel__status" aria-live={showWinner ? 'off' : 'polite'}>
         {isIdleSpinning
           ? idleMotionPhase === 'spin-up'
             ? '원판이 추첨 대기 속도까지 가속하고 있습니다.'

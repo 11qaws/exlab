@@ -10,6 +10,7 @@ import type { CSSProperties } from 'react';
 
 import { SetupWorkspace } from '../../_platform/components/SetupWorkspace';
 import { SharedSetupSummary } from '../../_platform/components/SharedSetupSummary';
+import { sharedRosterNameKey } from '../../_platform/roster';
 import {
   advancePreviewCycle,
   createPreviewCycleBuffer,
@@ -22,6 +23,7 @@ import {
   createResultPresentationState,
   createStagePresentationAnchor,
   reduceResultPresentation,
+  resultPresentationToken,
   type ResultPresentationEvent,
   type ResultPresentationPhase,
   type ResultPresentationState,
@@ -42,6 +44,7 @@ import WinnerHero from './components/WinnerHero';
 import {
   appendBroadcastSessionResult,
   createBroadcastSession,
+  updateBroadcastSessionGoal,
   type BroadcastSession,
 } from './lib/broadcastSession';
 import { sampleWithoutReplacement } from './lib/draw';
@@ -183,6 +186,8 @@ type CommittedPresentation = PlannedPresentation & {
 type ActivePresentation = CommittedPresentation & {
   /** Rejects an animation callback from an older result or abandoned round. */
   revealId: number;
+  /** Replays the same committed result without entering any persistence path. */
+  isReplay?: boolean;
 };
 
 type PresentationBeat = 'idle' | 'motion' | 'hero' | 'dock';
@@ -231,6 +236,12 @@ type RouletteResultPresentationEvent = ResultPresentationEvent<
 
 const WINNER_HERO_HOLD_MS = 2_200;
 const WINNER_DOCK_DURATION_MS = 400;
+
+function prefersReducedMotion() {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
 
 function rouletteResultPresentationReducer(
   state: RouletteResultPresentationState,
@@ -283,7 +294,7 @@ function participantsFromSharedRoster(
 ) {
   const currentByName = new Map<string, Participant[]>();
   current.forEach((participant) => {
-    const key = participant.name.trim().toLocaleLowerCase('ko-KR');
+    const key = sharedRosterNameKey(participant.name);
     const matchingParticipants = currentByName.get(key) ?? [];
     matchingParticipants.push(participant);
     currentByName.set(key, matchingParticipants);
@@ -291,7 +302,7 @@ function participantsFromSharedRoster(
 
   return sharedRosterNames(value).map((name, index) => {
     const existing = currentByName
-      .get(name.toLocaleLowerCase('ko-KR'))
+      .get(sharedRosterNameKey(name))
       ?.shift();
     return existing
       ? { ...existing, name }
@@ -314,7 +325,7 @@ function findDuplicateParticipantNames(
   const duplicates = new Set<string>();
   participants.forEach((participant) => {
     const name = participant.name.trim();
-    const key = name.toLocaleLowerCase('ko-KR');
+    const key = sharedRosterNameKey(name);
     if (seen.has(key)) duplicates.add(name);
     else seen.add(key);
   });
@@ -426,6 +437,10 @@ export function RouletteGame({
   const [drawMode] = useState<DrawMode>('wheel');
   const [wheelPresentation, setWheelPresentation] = useState<WheelPresentation>('spin');
   const [drawTarget, setDrawTarget] = useState<DrawTarget>('people');
+  const [winnerGoals, setWinnerGoals] = useState<Record<DrawTarget, number>>({
+    people: 1,
+    prizes: 1,
+  });
   const [participants, setParticipants] = useState<Participant[]>(() => (
     rosterText === undefined ? [] : participantsFromSharedRoster(rosterText)
   ));
@@ -449,6 +464,7 @@ export function RouletteGame({
   const [spinKey, setSpinKey] = useState(0);
   const [presentedOptions, setPresentedOptions] = useState<DrawOption[]>([]);
   const [activePresentation, setActivePresentation] = useState<ActivePresentation | null>(null);
+  const [lastCommittedPresentation, setLastCommittedPresentation] = useState<ActivePresentation | null>(null);
   const [resultPresentation, dispatchResultPresentationState] = useReducer(
     rouletteResultPresentationReducer,
     undefined,
@@ -459,6 +475,7 @@ export function RouletteGame({
   const [winnerHero, setWinnerHero] = useState<WinnerHeroState | null>(null);
   const [currentRound, setCurrentRound] = useState<CurrentRound | null>(null);
   const [broadcastSession, setBroadcastSession] = useState<BroadcastSession | null>(null);
+  const [pausedBroadcastSession, setPausedBroadcastSession] = useState<BroadcastSession | null>(null);
   const [rotorReady, setRotorReady] = useState(false);
   const [dartAimSession, setDartAimSession] = useState<DartAimSession | null>(null);
   const [history, setHistory] = useState<DrawRecord[]>([]);
@@ -473,6 +490,9 @@ export function RouletteGame({
   const [toolsOpen, setToolsOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const rouletteRootRef = useRef<HTMLDivElement>(null);
+  const setupSessionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const liveStageTitleRef = useRef<HTMLElement>(null);
+  const completedPrimaryActionRef = useRef<HTMLButtonElement>(null);
   const toolsTriggerRef = useRef<HTMLButtonElement>(null);
   const toolsCloseRef = useRef<HTMLButtonElement>(null);
   const toolsDrawerRef = useRef<HTMLElement>(null);
@@ -598,6 +618,24 @@ export function RouletteGame({
       toastTimerRef.current = null;
       setToast(null);
     }, 3200);
+  }, []);
+
+  const focusLiveStage = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => liveStageTitleRef.current?.focus());
+    });
+  }, []);
+
+  const focusPreparationPrimary = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        rouletteRootRef.current
+          ?.querySelector<HTMLButtonElement>(
+            '.exlab-setup-workspace__primary-action button, .preparation-preview__primary',
+          )
+          ?.focus();
+      });
+    });
   }, []);
 
   const persistPendingResults = useCallback((roundId: string, records: DrawRecord[]) => {
@@ -992,7 +1030,43 @@ export function RouletteGame({
   );
   const isPresentationLocked = raffleStatus === 'locking' || raffleStatus === 'presenting';
   const isStageLocked = isRaffleActive(raffleStatus);
-  const isConfigurationEditable = raffleStatus === 'configuring';
+  const isConfigurationEditable = raffleStatus === 'configuring' && pausedBroadcastSession === null;
+  const remainingPrizeRecipientCount = Math.max(
+    0,
+    prizeRecipients.length - assignedPrizeRecipientCount,
+  );
+  const maximumWinnerGoal = drawTarget === 'people'
+    ? drawOptions.length
+    : prizeRecipients.length > 0
+      ? Math.min(availablePrizeCount, remainingPrizeRecipientCount)
+      : availablePrizeCount;
+  const winnerGoal = Math.max(
+    1,
+    Math.min(winnerGoals[drawTarget], Math.max(1, maximumWinnerGoal)),
+  );
+  const setupWinnerGoal = pausedBroadcastSession?.goal ?? winnerGoal;
+  const setupMaximumWinnerGoal = pausedBroadcastSession
+    ? Math.max(pausedBroadcastSession.goal, maximumWinnerGoal)
+    : maximumWinnerGoal;
+
+  useEffect(() => {
+    if (!isConfigurationEditable || maximumWinnerGoal < 1) return;
+    setWinnerGoals((goals) => {
+      const normalizedGoal = Math.max(
+        1,
+        Math.min(maximumWinnerGoal, Math.floor(goals[drawTarget]) || 1),
+      );
+      return goals[drawTarget] === normalizedGoal
+        ? goals
+        : { ...goals, [drawTarget]: normalizedGoal };
+    });
+  }, [drawTarget, isConfigurationEditable, maximumWinnerGoal]);
+
+  const changeWinnerGoal = (value: number) => {
+    if (!isConfigurationEditable || maximumWinnerGoal < 1) return;
+    const normalizedGoal = Math.max(1, Math.min(maximumWinnerGoal, Math.floor(value) || 1));
+    setWinnerGoals((goals) => ({ ...goals, [drawTarget]: normalizedGoal }));
+  };
 
   const buildPresentationPlan = useCallback((
     snapshot: readonly DrawOption[],
@@ -1060,8 +1134,15 @@ export function RouletteGame({
    * Starts an already-committed reveal. Selection happened before this call;
    * the short locking beat makes that boundary visible on the broadcast.
    */
-  const launchCommittedPresentation = useCallback((presentation: CommittedPresentation) => {
-    if (!transitionRaffle('lock-result')) return false;
+  const launchCommittedPresentation = useCallback((
+    presentation: CommittedPresentation,
+    isReplay = false,
+  ) => {
+    const previousPresentationToken = isReplay
+      ? resultPresentationToken(resultPresentationRef.current)
+      : null;
+    if (isReplay && !previousPresentationToken) return false;
+    if (!transitionRaffle(isReplay ? 'replay-result' : 'lock-result')) return false;
 
     cancelWinnerRevealTimers();
     setWinnerHero(null);
@@ -1071,41 +1152,51 @@ export function RouletteGame({
       presentation.lockedResult.id,
       revealId,
     );
-    const previousRunId = resultPresentationRef.current.runId;
-    dispatchResultPresentation({
-      type: 'run-started',
-      previousRunId,
-      runId: presentationToken.runId,
-    });
     const resultAnchor = resolveDartImpactPoint(presentation.dartShot);
-    dispatchResultPresentation({
-      type: 'result-committed',
-      projection: createResultPresentationProjection({
-        gameId: 'roulette',
-        runId: presentationToken.runId,
-        presentationId: presentationToken.presentationId,
-        committedAt: presentation.lockedResult.createdAt,
-        anchor: createStagePresentationAnchor({
-          xRatio: resultAnchor.xPercent / 100,
-          yRatio: resultAnchor.yPercent / 100,
-          sourceId: presentation.lockedResult.id,
-        }),
-        primaryWinners: [{
-          id: presentation.lockedResult.id,
-          name: presentation.lockedResult.winner,
-          target: presentation.lockedResult.target,
-        }],
-        rankingRows: [{
-          id: presentation.lockedResult.id,
-          name: presentation.lockedResult.winner,
-        }],
-        summary: {
-          target: presentation.lockedResult.target,
-          presentation: presentation.lockedResult.presentation,
-        },
+    const projection = createResultPresentationProjection({
+      gameId: 'roulette',
+      runId: presentationToken.runId,
+      presentationId: presentationToken.presentationId,
+      committedAt: presentation.lockedResult.createdAt,
+      anchor: createStagePresentationAnchor({
+        xRatio: resultAnchor.xPercent / 100,
+        yRatio: resultAnchor.yPercent / 100,
+        sourceId: presentation.lockedResult.id,
       }),
+      primaryWinners: [{
+        id: presentation.lockedResult.id,
+        name: presentation.lockedResult.winner,
+        target: presentation.lockedResult.target,
+      }],
+      rankingRows: [{
+        id: presentation.lockedResult.id,
+        name: presentation.lockedResult.winner,
+      }],
+      summary: {
+        target: presentation.lockedResult.target,
+        presentation: presentation.lockedResult.presentation,
+      },
     });
-    setActivePresentation({ ...presentation, revealId });
+
+    if (isReplay) {
+      dispatchResultPresentation({
+        type: 'presentation-restarted',
+        token: previousPresentationToken ?? presentationToken,
+        projection,
+      });
+    } else {
+      const previousRunId = resultPresentationRef.current.runId;
+      dispatchResultPresentation({
+        type: 'run-started',
+        previousRunId,
+        runId: presentationToken.runId,
+      });
+      dispatchResultPresentation({
+        type: 'result-committed',
+        projection,
+      });
+    }
+    setActivePresentation({ ...presentation, revealId, isReplay });
     setPresentedOptions(presentation.options);
     // Keep the committed winner out of the visual component until motion
     // begins. This preserves the high-speed ready wheel during the lock badge
@@ -1135,28 +1226,29 @@ export function RouletteGame({
     return true;
   }, [cancelWinnerRevealTimers, dispatchResultPresentation, transitionRaffle]);
 
-  const clearStagePresentation = () => {
+  const clearStagePresentation = (preserveSettledProjection = false) => {
     cancelWinnerRevealTimers();
     setWinnerIndex(null);
     setPresentedOptions([]);
     setActivePresentation(null);
     setWinnerHero(null);
-    const previousRunId = resultPresentationRef.current.runId;
-    dispatchResultPresentation({
-      type: 'run-started',
-      previousRunId,
-      runId: `roulette:idle:${presentationRunRef.current + 1}`,
-    });
+    if (!preserveSettledProjection) {
+      const previousRunId = resultPresentationRef.current.runId;
+      dispatchResultPresentation({
+        type: 'run-started',
+        previousRunId,
+        runId: `roulette:idle:${presentationRunRef.current + 1}`,
+      });
+    }
     setCinematicRevealPhase('idle');
   };
 
-  const clearCurrentRound = () => {
+  const clearCurrentRound = (preserveSettledProjection = false) => {
     presentationRunRef.current += 1;
-    clearStagePresentation();
+    clearStagePresentation(preserveSettledProjection);
     setSpinning(false);
     setCurrentRound(null);
   };
-
   const prepareNextRoundSettings = () => {
     if (raffleStatus === 'configuring') clearStagePresentation();
   };
@@ -1176,11 +1268,12 @@ export function RouletteGame({
   const completeDraw = (completion: PresentationCompletion) => {
     const presentation = activePresentation;
     const activeRound = currentRound;
+    const isReplay = presentation?.isReplay === true;
     if (
       raffleStatusRef.current !== 'presenting' ||
       !spinning ||
       !presentation ||
-      !activeRound ||
+      (!isReplay && !activeRound) ||
       !isCurrentPresentationCompletion(
         completion,
         spinKeyRef.current,
@@ -1204,39 +1297,48 @@ export function RouletteGame({
       if (typeof oldestRevealId === 'number') resolvedRevealIdsRef.current.delete(oldestRevealId);
     }
 
-    const result: DrawRecord = {
-      ...presentation.lockedResult,
-      revealedAt: new Date().toISOString(),
-    };
+    const result: DrawRecord = isReplay
+      ? presentation.lockedResult
+      : {
+          ...presentation.lockedResult,
+          revealedAt: new Date().toISOString(),
+        };
 
-    setHistory((items) => [result, ...items].slice(0, 100));
-    setCurrentRound((round) => {
-      if (!round) return { ...activeRound, results: [...activeRound.results, result] };
-      return { ...round, results: [...round.results, result] };
-    });
-    setBroadcastSession((session) => (
-      session ? appendBroadcastSessionResult(session, result) : session
-    ));
+    if (!isReplay && activeRound) {
+      setLastCommittedPresentation({
+        ...presentation,
+        lockedResult: result,
+        isReplay: false,
+      });
+      setHistory((items) => [result, ...items].slice(0, 100));
+      setCurrentRound((round) => {
+        if (!round) return { ...activeRound, results: [...activeRound.results, result] };
+        return { ...round, results: [...round.results, result] };
+      });
+      setBroadcastSession((session) => (
+        session ? appendBroadcastSessionResult(session, result) : session
+      ));
 
-    if (presentation.target === 'people' && activeRound.removeAfterDraw) {
-      setExcludedParticipantIds((ids) => (ids.includes(chosen.id) ? ids : [...ids, chosen.id]));
-    }
-
-    if (presentation.target === 'prizes') {
-      const prizeId = chosen.sourceId ?? chosen.id;
-      setPrizes((items) => items.map((prize) => (
-        prize.id === prizeId
-          ? { ...prize, quantity: Math.max(0, prize.quantity - 1) }
-          : prize
-      )));
-      if (result.recipientId) {
-        const completedRecipientId = result.recipientId;
-        setAssignedPrizeRecipientIds((ids) => (
-          ids.includes(completedRecipientId) ? ids : [...ids, completedRecipientId]
-        ));
-        setPrizeAssignmentResults((items) => appendPrizeAssignmentResult(items, result));
+      if (presentation.target === 'people' && activeRound.removeAfterDraw) {
+        setExcludedParticipantIds((ids) => (ids.includes(chosen.id) ? ids : [...ids, chosen.id]));
       }
-      setSideTab('history');
+
+      if (presentation.target === 'prizes') {
+        const prizeId = chosen.sourceId ?? chosen.id;
+        setPrizes((items) => items.map((prize) => (
+          prize.id === prizeId
+            ? { ...prize, quantity: Math.max(0, prize.quantity - 1) }
+            : prize
+        )));
+        if (result.recipientId) {
+          const completedRecipientId = result.recipientId;
+          setAssignedPrizeRecipientIds((ids) => (
+            ids.includes(completedRecipientId) ? ids : [...ids, completedRecipientId]
+          ));
+          setPrizeAssignmentResults((items) => appendPrizeAssignmentResult(items, result));
+        }
+        setSideTab('history');
+      }
     }
 
     setSpinning(false);
@@ -1254,6 +1356,7 @@ export function RouletteGame({
       result,
     });
 
+    const reduceMotion = prefersReducedMotion();
     winnerHeroTimerRef.current = window.setTimeout(() => {
       if (presentationRunRef.current !== presentation.revealId) return;
 
@@ -1273,10 +1376,12 @@ export function RouletteGame({
         });
         setCinematicRevealPhase('idle');
         transitionRaffle('complete-round');
-      }, WINNER_DOCK_DURATION_MS);
-    }, WINNER_HERO_HOLD_MS);
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => completedPrimaryActionRef.current?.focus());
+        });
+      }, reduceMotion ? 0 : WINNER_DOCK_DURATION_MS);
+    }, reduceMotion ? 0 : WINNER_HERO_HOLD_MS);
   };
-
   const freezePhysicalDart = () => {
     const capture = liveWheelRef.current?.freezeDartAim();
     if (!capture) return null;
@@ -1367,7 +1472,7 @@ export function RouletteGame({
       results: [],
     };
     const committedPresentations = presentations.flatMap((presentation, index) => {
-      const committed = attachLockedResult(presentation, nextRound, index + 1);
+      const committed = attachLockedResult(presentation, nextRound, broadcastSession.results.length + index + 1);
       return committed ? [committed] : [];
     });
     const firstPresentation = committedPresentations[0];
@@ -1438,22 +1543,26 @@ export function RouletteGame({
     if (raffleStatus !== 'roster' || participants.length === 0) return;
     if (!window.confirm(`현재 명단 ${participants.length}명을 비울까요? 당첨 기록과 상품 설정은 유지됩니다.`)) return;
 
+    const shouldPauseSession = setupReturnStatus !== 'configuring';
     setParticipants([]);
     setParticipantPreviewDraft([]);
     setExcludedParticipantIds([]);
     setPoolIds([]);
     setPoolLimit(0);
-    clearCurrentRound();
+    clearCurrentRound(shouldPauseSession);
     setSetupReturnStatus('configuring');
     setSetupStartStep('edit');
     setSetupSession((value) => value + 1);
     setRosterEditorDirty(false);
-    if (setupReturnStatus !== 'configuring') {
+    if (shouldPauseSession) {
+      if (broadcastSession) setPausedBroadcastSession(broadcastSession);
       setBroadcastSession(null);
       setRotorReady(false);
     }
     onRosterTextChange?.('');
-    showToast('명단을 비웠어요. 새 명단을 입력하거나 카페 댓글에서 가져와 주세요.');
+    showToast(shouldPauseSession && broadcastSession
+      ? `명단을 비웠어요. 진행 ${broadcastSession.results.length}/${broadcastSession.goal} 세션은 일시정지했습니다.`
+      : '명단을 비웠어요. 새 명단을 입력하거나 카페 댓글에서 가져와 주세요.');
   };
 
   const cancelParticipantEditor = () => {
@@ -1472,14 +1581,16 @@ export function RouletteGame({
 
   const saveParticipants = (nextParticipants: Participant[]) => {
     const nextIds = new Set(nextParticipants.map((participant) => participant.id));
+    const shouldPauseSession = setupReturnStatus !== 'configuring';
     setParticipants(nextParticipants);
     setParticipantPreviewDraft([]);
     setRosterEditorDirty(false);
     setExcludedParticipantIds((ids) => ids.filter((id) => nextIds.has(id)));
     setPoolLimit((limit) => Math.min(limit, nextParticipants.length));
-    clearCurrentRound();
+    clearCurrentRound(shouldPauseSession);
     setToolsOpen(false);
-    if (setupReturnStatus !== 'configuring') {
+    if (shouldPauseSession) {
+      if (broadcastSession) setPausedBroadcastSession(broadcastSession);
       setBroadcastSession(null);
       setRotorReady(false);
     }
@@ -1487,11 +1598,17 @@ export function RouletteGame({
     if (transitionRaffle('save-roster')) {
       restoreRosterFocus('configuring');
     }
-    showToast(`${nextParticipants.length}명의 참여자 명단을 준비했어요.`);
+    showToast(shouldPauseSession && broadcastSession
+      ? `${nextParticipants.length}명으로 명단을 저장했어요. 진행 ${broadcastSession.results.length}/${broadcastSession.goal} 세션은 유지됩니다.`
+      : `${nextParticipants.length}명의 참여자 명단을 준비했어요.`);
   };
 
-  const startBroadcast = () => {
+  const startBroadcast = (discardPausedSession = false) => {
     if (raffleStatus !== 'configuring') return;
+    if (pausedBroadcastSession && !discardPausedSession) {
+      showToast('일시정지한 세션을 계속하거나 명시적으로 새 세션을 시작해 주세요.');
+      return;
+    }
     if (
       drawTarget === 'people'
       && duplicateParticipantNames.length > 0
@@ -1512,21 +1629,85 @@ export function RouletteGame({
       setPrizeAssignmentBatchId(createId('prize-assignment'));
     }
     setToolsOpen(false);
+    setPausedBroadcastSession(null);
+    setLastCommittedPresentation(null);
     clearCurrentRound();
     if (transitionRaffle('open-stage')) {
-      setBroadcastSession(createBroadcastSession(createId('session'), drawTarget));
+      setBroadcastSession(createBroadcastSession(createId('session'), drawTarget, winnerGoal));
+      focusLiveStage();
     }
   };
 
-  const finishBroadcast = () => {
+  const finishBroadcast = (preserveSession = true) => {
+    const activeSession = broadcastSession;
     if (!transitionRaffle('end-broadcast')) return false;
-    clearCurrentRound();
+    clearCurrentRound(preserveSession);
+    setPausedBroadcastSession(preserveSession ? activeSession : null);
     setBroadcastSession(null);
+    if (!preserveSession) setLastCommittedPresentation(null);
     setRotorReady(false);
     setToolsOpen(false);
+    if (preserveSession && activeSession) {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => setupSessionHeadingRef.current?.focus());
+      });
+    } else {
+      focusPreparationPrimary();
+    }
     return true;
   };
 
+  const resumePausedBroadcast = () => {
+    const session = pausedBroadcastSession;
+    if (raffleStatus !== 'configuring' || !session) return;
+    const resumeEvent: RaffleEvent = session.results.length > 0
+      ? 'resume-completed'
+      : 'resume-ready';
+    if (!transitionRaffle(resumeEvent)) return;
+    setDrawTarget(session.target);
+    setWinnerGoals((goals) => ({ ...goals, [session.target]: session.goal }));
+    setBroadcastSession(session);
+    setPausedBroadcastSession(null);
+    setToolsOpen(false);
+    if (session.results.length > 0 && lastCommittedPresentation) {
+      setPresentedOptions(lastCommittedPresentation.options);
+      setActivePresentation(lastCommittedPresentation);
+      setWinnerIndex(lastCommittedPresentation.winnerIndex);
+      setSpinning(false);
+      setWinnerHero(null);
+      setCinematicRevealPhase('idle');
+    }
+    focusLiveStage();
+    const completed = session.results.length >= session.goal;
+    showToast(completed
+      ? '완료한 추첨 결과 화면을 다시 열었어요.'
+      : session.results.length > 0
+        ? `진행 ${session.results.length}/${session.goal} 지점에서 추첨을 이어갑니다.`
+      : '대기 중이던 추첨 세션을 다시 열었어요.');
+  };
+
+  const confirmPausedSessionDiscard = () => {
+    if (!pausedBroadcastSession) return true;
+    const progress = `${pausedBroadcastSession.results.length}/${pausedBroadcastSession.goal}`;
+    const stateLabel = pausedBroadcastSession.results.length >= pausedBroadcastSession.goal
+      ? '완료한' : '일시정지한';
+    return window.confirm(`${stateLabel} 추첨 세션(${progress})을 종료할까요? 당첨 기록은 남지만 이 세션으로는 돌아갈 수 없습니다.`);
+  };
+
+  const discardPausedBroadcast = () => {
+    if (!pausedBroadcastSession || !confirmPausedSessionDiscard()) return;
+    const completed = pausedBroadcastSession.results.length >= pausedBroadcastSession.goal;
+    setPausedBroadcastSession(null);
+    setLastCommittedPresentation(null);
+    clearCurrentRound();
+    showToast(`${completed ? '완료한' : '일시정지한'} 세션을 종료했어요. 새 추첨을 설계할 수 있습니다.`);
+    focusPreparationPrimary();
+  };
+
+  const startNewBroadcast = () => {
+    if (!confirmPausedSessionDiscard()) return;
+    startBroadcast(true);
+  };
   const resetEverything = () => {
     if (isStageLocked) return;
     if (!window.confirm('명단, 상품, 당첨 제외, 당첨 기록과 추첨 설정을 모두 초기화할까요? 이 작업은 되돌릴 수 없어요.')) return;
@@ -1536,6 +1717,8 @@ export function RouletteGame({
     }
     clearCurrentRound();
     setBroadcastSession(null);
+    setPausedBroadcastSession(null);
+    setLastCommittedPresentation(null);
     setRotorReady(false);
     setParticipants([]);
     onRosterTextChange?.('');
@@ -1555,15 +1738,17 @@ export function RouletteGame({
     setPrizeAssignmentBatchId(null);
     setRemoveAfterDraw(true);
     setWeightModes({ people: false, prizes: false });
+    setWinnerGoals({ people: 1, prizes: 1 });
     setHistory([]);
     setSideTab('participants');
     setToolsOpen(false);
     showToast('모든 데이터를 초기화했어요. 새 추첨을 설계해 주세요.');
+    focusPreparationPrimary();
   };
 
   const beginNextRound = () => {
     if (!transitionRaffle('start-next-round')) return;
-    clearCurrentRound();
+    clearCurrentRound(true);
     setToolsOpen(false);
   };
 
@@ -1635,6 +1820,30 @@ export function RouletteGame({
     finishBroadcast();
   };
 
+  const replayLatestResult = () => {
+    if (raffleStatus !== 'completed' || !lastCommittedPresentation) return;
+    if (!launchCommittedPresentation(lastCommittedPresentation, true)) {
+      showToast('직전 결과 연출을 다시 시작할 수 없어요. 결과 기록은 그대로 유지됩니다.');
+    }
+  };
+
+  const addOneMoreResult = () => {
+    const session = broadcastSession;
+    if (raffleStatus !== 'completed' || !session) return;
+    if (drawOptions.length === 0) {
+      showToast(unavailableDrawPrompt);
+      return;
+    }
+    if (drawTarget === 'prizes' && prizeRecipients.length > 0 && !nextPrizeRecipient) {
+      showToast('받을 사람 전원의 상품 배정이 끝났어요.');
+      return;
+    }
+    const nextGoal = session.goal + 1;
+    setBroadcastSession(updateBroadcastSessionGoal(session, nextGoal));
+    setWinnerGoals((goals) => ({ ...goals, [session.target]: nextGoal }));
+    beginNextRound();
+    showToast(`목표를 ${nextGoal}${session.target === 'people' ? '명' : '회'}로 늘렸어요.`);
+  };
   const applyLinkedPrizeRecipients = (
     linkedRecipients: readonly PrizeRecipient[],
     preserveMatchingProgress: boolean,
@@ -1742,12 +1951,19 @@ export function RouletteGame({
       return;
     }
     if (
+      broadcastSession
+      && sessionResults.length < broadcastSession.goal
+      && !window.confirm(
+        `현재 당첨자 추첨은 ${sessionResults.length}/${broadcastSession.goal}까지 진행했습니다. 이 세션을 종료하고 공개된 당첨자만 상품 추첨으로 넘길까요?`,
+      )
+    ) return;
+    if (
       assignedPrizeRecipientCount > 0
       && !window.confirm(
         `기존 상품 배정 ${assignedPrizeRecipientCount}명을 이번 당첨자 ${linkedRecipients.length}명으로 교체할까요? 이전 당첨 기록은 유지됩니다.`,
       )
     ) return;
-    if (!finishBroadcast()) return;
+    if (!finishBroadcast(false)) return;
 
     applyLinkedPrizeRecipients(linkedRecipients, false);
     setDrawLabel('');
@@ -1764,7 +1980,14 @@ export function RouletteGame({
       handoffWinnersToPrizeDraw();
       return;
     }
-    if (!finishBroadcast()) return;
+    if (
+      broadcastSession
+      && broadcastSession.results.length > 0
+      && !window.confirm(
+        `현재 상품 추첨 세션(${broadcastSession.results.length}/${broadcastSession.goal})을 종료하고 상품 설정으로 이동할까요? 결과 기록은 유지됩니다.`,
+      )
+    ) return;
+    if (!finishBroadcast(false)) return;
     setDrawTarget('prizes');
     setSideTab('prizes');
   };
@@ -1846,42 +2069,80 @@ export function RouletteGame({
   };
 
   const sessionResults = broadcastSession?.results ?? [];
-  const roundTarget = currentRound?.target ?? drawTarget;
-  const visibleSessionResults = roundTarget === 'prizes' && prizeRecipients.length > 0
-    ? prizeAssignmentResults
-    : sessionResults;
+  const pausedSessionResults = pausedBroadcastSession?.results ?? [];
+  const pausedSessionLastResult = pausedSessionResults[pausedSessionResults.length - 1] ?? null;
+  const pausedSessionCompleted = Boolean(
+    pausedBroadcastSession
+    && pausedSessionResults.length >= pausedBroadcastSession.goal,
+  );
+  const pausedSessionCandidateCount = pausedBroadcastSession?.target === drawTarget
+    ? drawOptions.length
+    : pausedBroadcastSession?.target === 'people'
+      ? eligibleParticipants.length
+      : createPrizeDrawOptions(prizes).length;
+  const sessionGoal = broadcastSession?.goal ?? winnerGoal;
+  const sessionProgress = sessionResults.length;
+  const sessionPendingCount = Math.max(0, sessionGoal - sessionProgress);
+  const sessionGoalReached = sessionProgress >= sessionGoal;
+  const canReplayLatestResult = lastCommittedPresentation !== null && resultPresentation.phase === 'settled';
+  const canAddOneMoreResult = drawOptions.length > 0 && (
+    drawTarget !== 'prizes' || prizeRecipients.length === 0 || Boolean(nextPrizeRecipient)
+  );
+  const roundTarget = currentRound?.target ?? broadcastSession?.target ?? drawTarget;
+  const visibleSessionResults = sessionResults;
   const latestVisibleSessionResult = visibleSessionResults[visibleSessionResults.length - 1] ?? null;
-  const roundMode = currentRound?.mode ?? drawMode;
-  const roundWheelPresentation = currentRound?.wheelPresentation ?? wheelPresentation;
-  const roundPoolLimit = currentRound?.poolLimit ?? poolLimit;
+  const resultBoardAnnouncement = latestVisibleSessionResult
+    ? latestVisibleSessionResult.target === 'prizes'
+      ? latestVisibleSessionResult.recipient
+        ? `상품 배정 결과: ${latestVisibleSessionResult.recipient}님에게 ${latestVisibleSessionResult.winner}.`
+        : `당첨 상품: ${latestVisibleSessionResult.winner}.`
+      : `당첨자: ${latestVisibleSessionResult.winner}.`
+    : undefined;
+  const committedRoundResult = activePresentation?.lockedResult
+    ?? (raffleStatus === 'completed' ? lastCommittedPresentation?.lockedResult : undefined);
+  const roundMode = currentRound?.mode ?? committedRoundResult?.mode ?? drawMode;
+  const roundWheelPresentation = currentRound?.wheelPresentation
+    ?? committedRoundResult?.presentation
+    ?? wheelPresentation;
   const roundPresentationOptions = activePresentation?.options ?? drawOptions;
   const roundCandidateCount = roundPresentationOptions.length || currentRound?.candidateCount || 0;
   const roundTotalWeight = totalEffectiveWeight(roundPresentationOptions);
-  const roundRemovesWinners = currentRound?.removeAfterDraw ?? removeAfterDraw;
-  const roundUsesWeights = currentRound?.useWeights ?? useWeights;
-  const roundRecipientId = currentRound?.recipientId ?? nextPrizeRecipient?.id;
-  const roundRecipient = currentRound?.recipient ?? nextPrizeRecipient?.name;
+  const roundRemovesWinners = currentRound?.removeAfterDraw
+    ?? committedRoundResult?.removeAfterDraw
+    ?? removeAfterDraw;
+  const roundUsesWeights = currentRound?.useWeights
+    ?? committedRoundResult?.useWeights
+    ?? useWeights;
+  const roundRecipientId = currentRound?.recipientId
+    ?? committedRoundResult?.recipientId
+    ?? nextPrizeRecipient?.id;
+  const roundRecipient = currentRound?.recipient
+    ?? committedRoundResult?.recipient
+    ?? nextPrizeRecipient?.name;
   const roundRecipientPosition = roundRecipientId
     ? prizeRecipients.findIndex((item) => item.id === roundRecipientId) + 1
     : 0;
-  const roundRewardLabel = currentRound?.rewardLabel ?? (rewardLabel.trim() || undefined);
+  const roundRewardLabel = currentRound?.rewardLabel
+    ?? committedRoundResult?.rewardLabel
+    ?? (rewardLabel.trim() || undefined);
   const roundUnit = roundTarget === 'people' ? '명' : '개';
   const roundCandidateUnit = roundTarget === 'people' ? '명' : '종';
   const resultUnit = roundTarget === 'prizes' && prizeRecipients.length > 0 ? '명' : roundUnit;
-  const resultUnitSubjectParticle = resultUnit === '명' ? '이' : '가';
   const defaultStageTitle = roundTarget === 'people'
     ? '참여자 추첨'
     : roundRecipient
       ? `${roundRecipientPosition}/${prizeRecipients.length} · ${roundRecipient}의 상품 추첨`
       : '상품 추첨';
-  const roundLabel = currentRound?.label ?? (drawLabel.trim() || undefined);
+  const roundLabel = currentRound?.label
+    ?? committedRoundResult?.roundLabel
+    ?? (drawLabel.trim() || undefined);
   const stageTitle = roundTarget === 'prizes' && roundRecipient
     ? [defaultStageTitle, roundLabel].filter(Boolean).join(' · ')
     : roundLabel
       ?? (roundTarget === 'people' && roundRewardLabel ? `${roundRewardLabel} 당첨자 추첨` : defaultStageTitle);
   const resultTitle = roundTarget === 'people'
     ? '전체 당첨자'
-    : prizeRecipients.length > 0 ? '전체 상품 배정' : '뽑힌 상품';
+    : prizeRecipients.length > 0 ? '이번 세션 상품 배정' : '뽑힌 상품';
   const dynamicFairnessLabel = roundTarget === 'prizes'
     ? `재고 수량 비율 · ${roundCandidateCount}종 · 남은 재고 ${availablePrizeCount}개`
     : roundUsesWeights
@@ -1890,16 +2151,15 @@ export function RouletteGame({
   const fairnessLabel = dynamicFairnessLabel;
   const ruleSummary = [
     roundMode === 'wheel'
-      ? roundWheelPresentation === 'dart' ? '룰렛 · 다트 복권' : '룰렛 · 자동 회전'
+      ? roundWheelPresentation === 'dart' ? '다트 복권' : '회전 룰렛'
       : '마블',
-    `한 번에 1${roundUnit}`,
-    roundTarget === 'people' && roundRewardLabel ? `선물 ${roundRewardLabel}` : null,
+    `진행 ${sessionProgress}/${sessionGoal}`,
     `후보 ${roundCandidateCount}${roundCandidateUnit}`,
-    roundTarget === 'prizes' ? '남은 수량만큼 칸 넓이' : null,
-    roundTarget === 'people' && roundPoolLimit > 0 ? '후보 풀 회차 고정' : null,
-    roundTarget === 'people' && roundRemovesWinners ? '중복 당첨 방지' : null,
-    roundUsesWeights ? '가중치 적용' : null,
-  ].filter(Boolean).join(' · ');
+    roundTarget === 'prizes' ? '수량 비율' : roundUsesWeights ? '가중치' : '동일 확률',
+    roundTarget === 'people'
+      ? roundRemovesWinners ? '당첨 후 제외' : '중복 허용'
+      : '재고 차감',
+  ].join(' · ');
   const resultRemovalMessage = roundTarget === 'people'
     ? roundRemovesWinners
       ? excludedParticipantIds.length > 0
@@ -1982,11 +2242,11 @@ export function RouletteGame({
     raffleStatus === 'completed' ? 'is-completed' : '',
   ].filter(Boolean).join(' ');
   const actionNote = raffleStatus === 'completed'
-    ? roundTarget === 'prizes' && prizeRecipients.length > 0
-      ? nextPrizeRecipient
-        ? `${assignedPrizeRecipientCount}/${prizeRecipients.length}명 배정 완료 · 다음은 ${nextPrizeRecipient.name}입니다.`
-        : `${prizeRecipients.length}명 전원의 상품 배정이 완료되었습니다.`
-      : '방금 결과가 저장되었습니다. 계속 뽑거나 이번 추첨을 끝내세요.'
+    ? sessionGoalReached
+      ? `진행 ${sessionProgress}/${sessionGoal} · 목표한 결과가 모두 저장되었습니다.`
+      : roundTarget === 'prizes' && prizeRecipients.length > 0 && nextPrizeRecipient
+        ? `진행 ${sessionProgress}/${sessionGoal} · 다음은 ${nextPrizeRecipient.name}입니다.`
+        : `진행 ${sessionProgress}/${sessionGoal} · 다음 결과를 실제 추첨으로 이어가세요.`
     : !rotorReady && raffleStatus === 'ready' && !noAvailableDrawOptions
       ? '원판이 추첨 속도까지 올라가는 중입니다.'
     : noAvailableDrawOptions
@@ -2011,8 +2271,8 @@ export function RouletteGame({
     onClick: noAvailableDrawOptions ? recoverReadyDraw : startDraw,
     disabled: toolsOpen || (!noAvailableDrawOptions && !rotorReady),
   };
-  const completedPrimaryLabel = roundTarget === 'prizes' && prizeRecipients.length > 0 && !nextPrizeRecipient
-    ? '상품 배정 마치기'
+  const completedPrimaryLabel = sessionGoalReached
+    ? '추첨 마치기 · 설계로'
     : noAvailableDrawOptions
       ? drawTarget === 'people'
         ? eligibleParticipants.length === 0 && excludedParticipantIds.length > 0
@@ -2020,10 +2280,38 @@ export function RouletteGame({
           : participants.length === 0 ? '명단 준비하고 다음 추첨' : '규칙 조정하고 다음 추첨'
         : '상품 보충하고 다음 추첨'
       : roundTarget === 'people'
-        ? '한 명 더 뽑기'
+        ? `다음 ${sessionProgress + 1}/${sessionGoal}번째 뽑기`
         : prizeRecipients.length > 0 && nextPrizeRecipient
           ? `다음: ${nextPrizeRecipient.name}의 상품 추첨`
-          : '하나 더 뽑기';
+          : `다음 ${sessionProgress + 1}/${sessionGoal}번째 상품 뽑기`;
+  const completedSecondaryActions: BroadcastDockAction[] = [
+    ...(canReplayLatestResult ? [{
+      id: 'replay-result',
+      label: '같은 결과 다시 보기',
+      onClick: replayLatestResult,
+      tone: 'quiet' as const,
+      title: '직전 결과의 화면 연출만 다시 재생합니다. 기록, 제외 상태, 재고는 바뀌지 않습니다.',
+    }] : []),
+    ...(sessionGoalReached && canAddOneMoreResult ? [{
+      id: 'add-one-more',
+      label: roundTarget === 'people' ? '한 명 추가로 뽑기' : '결과 하나 추가하기',
+      onClick: addOneMoreResult,
+    }] : []),
+    ...(!sessionGoalReached ? [{
+      id: 'pause-draw',
+      label: '설계로 일시정지',
+      onClick: () => finishBroadcast(),
+      tone: 'quiet' as const,
+      title: '현재 진행도와 마지막 결과를 유지한 채 설계 화면으로 돌아갑니다.',
+    }] : []),
+    ...(broadcastSession?.target === 'people' && sessionResults.length > 0 ? [{
+      id: 'handoff-prizes',
+      label: `당첨자 ${sessionResults.length}명 상품 뽑기`,
+      onClick: handoffWinnersToPrizeDraw,
+      tone: 'quiet' as const,
+      title: '현재 공개된 당첨자를 순서대로 상품 추첨에 연결합니다.',
+    }] : []),
+  ];
   const stagePrompt = raffleStatus === 'locking'
     ? '방금 누른 버튼의 후보와 결과를 고정했습니다. 곧 방송 연출을 시작합니다.'
     : raffleStatus === 'presenting'
@@ -2061,6 +2349,7 @@ export function RouletteGame({
         itemType={target === 'prizes' ? 'prize' : 'participant'}
         winnerIndex={activeWinnerIndex}
         spinning={activeSpin}
+        settled={!preview && raffleStatus === 'completed' && activeWinnerIndex !== null}
         idleSpinning={!preview && (
           raffleStatus === 'ready' ||
           raffleStatus === 'locking' ||
@@ -2089,6 +2378,8 @@ export function RouletteGame({
       eligibleParticipants={eligibleParticipants}
       candidateParticipants={candidateParticipants}
       drawOptionCount={drawOptions.length}
+      winnerGoal={setupWinnerGoal}
+      maximumWinnerGoal={setupMaximumWinnerGoal}
       excludedCount={participants.length - eligibleParticipants.length}
       poolLimit={poolLimit}
       prizes={prizes}
@@ -2122,6 +2413,7 @@ export function RouletteGame({
         setPoolIds([]);
         prepareNextRoundSettings();
       }}
+      onWinnerGoalChange={changeWinnerGoal}
       onReshufflePool={reshufflePool}
       onPresentationChange={(choice) => {
         if (!isConfigurationEditable) return;
@@ -2194,7 +2486,7 @@ export function RouletteGame({
             <button className="compact-button" type="button" disabled={isStageLocked} onClick={() => openParticipantEditor(raffleStatus === 'completed' ? 'completed' : 'ready')}>편집</button>
           </div>
           <ol className="live-participant-list">
-            {participants.slice(0, 18).map((participant, index) => {
+            {participants.map((participant, index) => {
               const excluded = excludedParticipantIdSet.has(participant.id);
               return (
                 <li key={participant.id} className={excluded ? 'is-excluded' : ''}>
@@ -2205,7 +2497,6 @@ export function RouletteGame({
               );
             })}
           </ol>
-          {participants.length > 18 && <p className="live-panel__note">+{participants.length - 18}명은 명단 조정에서 확인할 수 있어요.</p>}
           <button className="panel-wide-button" type="button" onClick={copyParticipantList}>번호가 붙은 명단 복사</button>
           <button className="panel-wide-button panel-wide-button--soft" type="button" disabled={isStageLocked} onClick={resetWinnerState}>당첨 제외 상태 초기화</button>
           <button className="panel-wide-button panel-wide-button--soft" type="button" disabled={isStageLocked} onClick={() => openParticipantEditor(raffleStatus === 'completed' ? 'completed' : 'ready')}>명단 교체 · 비우기</button>
@@ -2350,7 +2641,38 @@ export function RouletteGame({
     const previewWeights = drawTarget === 'people'
       ? peoplePreviewCycle.active.weights
       : drawOptionWeights;
+    const pausedSessionLastLabel = pausedSessionLastResult
+      ? pausedSessionLastResult.target === 'prizes' && pausedSessionLastResult.recipient
+        ? `${pausedSessionLastResult.recipient} · ${pausedSessionLastResult.winner}`
+        : pausedSessionLastResult.winner
+      : '아직 결과 없음';
+    const pausedSessionHub = pausedBroadcastSession ? (
+      <section className="roulette-session-hub" aria-labelledby="roulette-paused-session-title">
+        <div className="roulette-session-hub__heading">
+          <p>{pausedSessionCompleted ? '완료한 추첨' : '일시정지한 추첨'}</p>
+          <h2 id="roulette-paused-session-title" ref={setupSessionHeadingRef} tabIndex={-1}>
+            {pausedBroadcastSession.target === 'people' ? '당첨자 추첨' : '상품 추첨'} 세션
+          </h2>
+        </div>
+        <dl className="roulette-session-hub__meta">
+          <div><dt>진행</dt><dd>{pausedSessionResults.length}/{pausedBroadcastSession.goal}</dd></div>
+          <div><dt>현재 후보</dt><dd>{pausedSessionCandidateCount}{pausedBroadcastSession.target === 'people' ? '명' : '종'}</dd></div>
+          <div><dt>마지막 결과</dt><dd title={pausedSessionLastLabel}>{pausedSessionLastLabel}</dd></div>
+        </dl>
+        <div className="roulette-session-hub__actions" role="group" aria-label={pausedSessionCompleted ? '완료한 추첨 동작' : '일시정지한 추첨 동작'}>
+          <button className="preparation-preview__primary" type="button" onClick={resumePausedBroadcast}>
+            {pausedSessionCompleted ? '결과 화면 다시 열기' : pausedSessionResults.length > 0 ? '세션 계속하기' : '방송 화면 다시 열기'}
+          </button>
+          <button className="compact-button" type="button" onClick={startNewBroadcast}>현재 설정으로 새 세션</button>
+          <button className="compact-button compact-button--danger" type="button" onClick={discardPausedBroadcast}>{pausedSessionCompleted ? '완료한 세션 종료' : '세션 종료'}</button>
+        </div>
+      </section>
+    ) : null;
     const runPreparationAction = () => {
+      if (pausedBroadcastSession) {
+        resumePausedBroadcast();
+        return;
+      }
       if (preparation.state === 'ready') {
         startBroadcast();
         return;
@@ -2435,8 +2757,8 @@ export function RouletteGame({
                     <strong>
                       {preparationReady
                         ? drawTarget === 'people'
-                          ? `${drawOptions.length}명 · 한 번에 1명`
-                          : `${drawOptions.length}종 · 재고 ${availablePrizeCount}개 · 한 번에 1개`
+                          ? `${drawOptions.length}명 · 목표 ${setupWinnerGoal}명 · 회전당 1명`
+                          : `${drawOptions.length}종 · 목표 ${setupWinnerGoal}회 · 재고 ${availablePrizeCount}개`
                         : drawTarget === 'people' && participants.length === 0
                           ? '명단 없음'
                           : drawTarget === 'prizes' && availablePrizeCount === 0
@@ -2451,21 +2773,25 @@ export function RouletteGame({
                 readiness={(
                   <div
                     className={`roulette-readiness${
-                      preparationReady ? ' is-ready' : ' is-blocked'
+                      pausedBroadcastSession || preparationReady ? ' is-ready' : ' is-blocked'
                     }`}
                   >
                     <span aria-hidden="true" />
                     <div>
-                      <strong>{preparation.statusLabel}</strong>
+                      <strong>{pausedBroadcastSession ? pausedSessionCompleted ? '추첨 세션 완료' : '추첨 세션 일시정지' : preparation.statusLabel}</strong>
                       <small>
-                        {preparationReady
-                          ? '방송 화면을 열어 대기 상태로 전환합니다.'
-                          : preparation.ctaLabel}
+                        {pausedBroadcastSession
+                          ? pausedSessionCompleted
+                            ? `진행 ${pausedSessionResults.length}/${pausedBroadcastSession.goal} · 결과 화면을 다시 열거나 완료한 세션을 종료하세요.`
+                            : `진행 ${pausedSessionResults.length}/${pausedBroadcastSession.goal} · 계속하거나 명시적으로 종료하세요.`
+                          : preparationReady
+                            ? '방송 화면을 열어 대기 상태로 전환합니다.'
+                            : preparation.ctaLabel}
                       </small>
                     </div>
                   </div>
                 )}
-                primaryAction={(
+                primaryAction={pausedSessionHub ?? (
                   <button
                     className="preparation-preview__primary"
                     type="button"
@@ -2568,31 +2894,35 @@ export function RouletteGame({
             </div>
 
             <footer className="preparation-preview__footer">
-              <div className="preparation-preview__summary">
-                <strong>
-                  {preparationReady
-                    ? drawTarget === 'people'
-                      ? `${drawOptions.length}명 · 한 번에 1명`
-                      : `${drawOptions.length}종 · 재고 ${availablePrizeCount}개 · 한 번에 1개`
-                    : drawTarget === 'people' && participants.length === 0
-                      ? '명단 없음'
-                      : drawTarget === 'prizes' && availablePrizeCount === 0
-                        ? '상품 없음'
-                        : '설정 확인 필요'}
-                </strong>
-                <span>{presentationLabel} · {ruleLabel} · {duplicateLabel}</span>
-              </div>
-              <div className={`preparation-preview__status${preparationReady ? ' is-ready' : ' is-blocked'}`} role="status">
-                <span aria-hidden="true" />
-                <strong>{preparation.statusLabel}</strong>
-              </div>
-              <button
-                className="preparation-preview__primary"
-                type="button"
-                onClick={runPreparationAction}
-              >
-                {preparationReady ? '방송 화면 열기' : preparation.ctaLabel}
-              </button>
+              {pausedSessionHub ?? (
+                <>
+                  <div className="preparation-preview__summary">
+                    <strong>
+                      {preparationReady
+                        ? drawTarget === 'people'
+                          ? `${drawOptions.length}명 · 목표 ${setupWinnerGoal}명 · 회전당 1명`
+                          : `${drawOptions.length}종 · 목표 ${setupWinnerGoal}회 · 재고 ${availablePrizeCount}개`
+                        : drawTarget === 'people' && participants.length === 0
+                          ? '명단 없음'
+                          : drawTarget === 'prizes' && availablePrizeCount === 0
+                            ? '상품 없음'
+                            : '설정 확인 필요'}
+                    </strong>
+                    <span>{presentationLabel} · {ruleLabel} · {duplicateLabel}</span>
+                  </div>
+                  <div className={`preparation-preview__status${preparationReady ? ' is-ready' : ' is-blocked'}`} role="status">
+                    <span aria-hidden="true" />
+                    <strong>{preparation.statusLabel}</strong>
+                  </div>
+                  <button
+                    className="preparation-preview__primary"
+                    type="button"
+                    onClick={runPreparationAction}
+                  >
+                    {preparationReady ? '방송 화면 열기' : preparation.ctaLabel}
+                  </button>
+                </>
+              )}
             </footer>
           </section>
         </section>
@@ -2651,7 +2981,7 @@ export function RouletteGame({
       <div className="broadcast-phase-bar" inert={toolsOpen} aria-hidden={toolsOpen || undefined}>
         <div className="broadcast-phase-bar__status">
           <span>{statusMeta.liveLabel}</span>
-          <strong id="stage-title">{stageTitle}</strong>
+          <strong ref={liveStageTitleRef} id="stage-title" tabIndex={-1}>{stageTitle}</strong>
         </div>
         <p>{ruleSummary}</p>
         {embedded && (
@@ -2676,6 +3006,15 @@ export function RouletteGame({
           </div>
         )}
       </div>
+
+      <p
+        className="current-round-winners__announcement"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {resultBoardAnnouncement ?? ''}
+      </p>
 
       {toolsOpen && (
         <>
@@ -2711,9 +3050,12 @@ export function RouletteGame({
                   key={winnerHero.revealId}
                   className="broadcast-focus__winner-hero"
                   winnerName={winnerHero.result.winner}
+                  ordinal={winnerHero.result.roundOrder}
+                  total={sessionGoal}
                   targetLabel={winnerHero.result.target === 'people' ? '당첨자' : '당첨 상품'}
                   recipient={winnerHero.result.recipient}
                   product={winnerHero.result.target === 'people' ? winnerHero.result.rewardLabel : undefined}
+                  announcement=""
                 />
               </>
             )}
@@ -2732,24 +3074,13 @@ export function RouletteGame({
                   ? result.recipient ? `${result.winner} 배정` : undefined
                   : result.rewardLabel ? `${result.rewardLabel} 당첨` : undefined,
               }))}
-              pendingCount={0}
+              pendingCount={sessionPendingCount}
               unit={resultUnit}
               latestWinnerId={latestVisibleSessionResult?.id}
               title={resultTitle}
-              announcement={presentationBeat === 'hero'
-                ? ''
-                : visibleSessionResults.length > 0
-                ? raffleStatus === 'presenting'
-                  ? `${resultTitle} 누적 ${visibleSessionResults.length}${resultUnit}${resultUnitSubjectParticle} 확정되었습니다.`
-                  : `${resultTitle} 누적 ${visibleSessionResults.length}${resultUnit}${resultUnitSubjectParticle} 발표되었습니다.`
-                : undefined}
+              announcement=""
               removalMessage={visibleSessionResults.length > 0 ? resultRemovalMessage : undefined}
             />
-            {raffleStatus === 'completed' && broadcastSession?.target === 'people' && sessionResults.length > 0 && (
-              <button className="broadcast-focus__prize-link" type="button" disabled={isStageLocked} onClick={handoffWinnersToPrizeDraw}>
-                당첨자 {sessionResults.length}명에게 상품 뽑기
-              </button>
-            )}
           </aside>
         )}
 
@@ -2763,10 +3094,10 @@ export function RouletteGame({
                 secondaryActions={[
                   {
                     id: 'finish-stage',
-                    label: '추첨 종료 · 새로 설계',
-                    onClick: finishBroadcast,
+                    label: '설계로 일시정지',
+                    onClick: () => finishBroadcast(),
                     tone: 'quiet',
-                    title: '현재 방송 화면을 닫고 설계 화면으로 돌아갑니다. 명단과 기록은 유지됩니다.',
+                    title: '현재 진행도와 결과를 유지한 채 설계 화면으로 돌아갑니다.',
                   },
                 ]}
               />
@@ -2774,19 +3105,14 @@ export function RouletteGame({
             {raffleStatus === 'completed' && (
               <BroadcastActionDock
                 phase="completed"
+                primaryActionRef={completedPrimaryActionRef}
                 note={actionNote}
-                primaryAction={{ id: 'next-round', label: completedPrimaryLabel, onClick: continueCompletedRound }}
-                secondaryActions={roundTarget === 'prizes' && prizeRecipients.length > 0 && !nextPrizeRecipient
-                  ? []
-                  : [
-                    {
-                      id: 'finish-draw',
-                      label: '이번 추첨 끝내기 · 설계로',
-                      onClick: finishBroadcast,
-                      tone: 'quiet',
-                      title: '전체 당첨 기록은 유지하고 새 추첨 설계로 돌아갑니다.',
-                    },
-                  ]}
+                primaryAction={{
+                  id: sessionGoalReached ? 'finish-session' : 'next-round',
+                  label: completedPrimaryLabel,
+                  onClick: sessionGoalReached ? () => finishBroadcast() : continueCompletedRound,
+                }}
+                secondaryActions={completedSecondaryActions}
               />
             )}
           </div>

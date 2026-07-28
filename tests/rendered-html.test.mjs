@@ -45,19 +45,22 @@ test("server-renders the practical exlab shell while preferences load", async ()
   assert.doesNotMatch(html, /react-loading-skeleton/i);
 });
 
-test("pins the integrated package and both game catalog entries to 1.3.18", async () => {
+test("pins the integrated package and both game catalog entries to 1.3.19", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
-  const catalogSource = await readFile(
-    new URL("../app/_platform/catalog.ts", import.meta.url),
-    "utf8",
-  );
+  const [catalogSource, showdownSource, readmeSource] = await Promise.all([
+    readFile(new URL("../app/_platform/catalog.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/marble/ShowdownGame.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../README.md", import.meta.url), "utf8"),
+  ]);
 
-  assert.equal(packageJson.version, "1.3.18");
-  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.18"/);
+  assert.equal(packageJson.version, "1.3.19");
+  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.19"/);
   assert.match(
     catalogSource,
-    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.18"/,
+    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.19"/,
   );
+  assert.match(showdownSource, /SHOWDOWN · VERSION 1\.3\.19/);
+  assert.match(readmeSource, /현재 버전은 `1\.3\.19`/);
 });

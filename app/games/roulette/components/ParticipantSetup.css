@@ -204,7 +204,25 @@
 }
 
 .setup-message--error {
-  color: #b23b54;
+  padding: 8px 10px;
+  border-left: 3px solid #b23b54;
+  border-radius: 7px;
+  background: #fff1f4;
+  color: #8c243c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.setup-textarea[aria-invalid='true'],
+.setup-editor-list input[aria-invalid='true'] {
+  border-color: #b23b54;
+  background: #fff8fa;
+}
+
+.setup-primary:disabled {
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .setup-summary {
