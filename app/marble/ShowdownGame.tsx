@@ -10,8 +10,20 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { SetupWorkspace } from "../_platform/components/SetupWorkspace";
+import {
+  SetupChoiceControl,
+  SetupOptionGroup,
+  SetupOptionRow,
+  SetupWorkspace,
+} from "../_platform/components/SetupWorkspace";
 import { SharedSetupSummary } from "../_platform/components/SharedSetupSummary";
+import {
+  INITIAL_GAME_HOST_STATE,
+  isGameSwitchLocked,
+  type EmbeddedGameProps,
+  type GameHostState,
+} from "../_platform/contracts";
+import { sharedRosterSnapshotText } from "../_platform/sharedRosterSnapshot";
 import {
   advancePreviewCycle,
   createPreviewCycleBuffer,
@@ -21,7 +33,6 @@ import {
   DEFAULT_STREAMER_THEME_ID,
   STREAMER_THEMES,
   getStreamerTheme,
-  type StreamerThemeId,
 } from "../_platform/theme";
 import {
   createResultPresentationProjection,
@@ -135,17 +146,7 @@ type Phase =
   | "result"
   | "error";
 
-export type ShowdownGameProps = {
-  embedded?: boolean;
-  active?: boolean;
-  streamerThemeId?: StreamerThemeId;
-  rosterText?: string;
-  onRosterTextChange?: (text: string) => void;
-  allowDuplicateNames?: boolean;
-  onAllowDuplicateNamesChange?: (allow: boolean) => void;
-  onRequestRosterEdit?: () => void;
-  onActivityChange?: (active: boolean) => void;
-};
+export type ShowdownGameProps = EmbeddedGameProps;
 
 type FinalOvertakeCue = {
   fromSlotId: string;
@@ -801,13 +802,16 @@ function LiveRacePreview({
 
 export function ShowdownGame({
   embedded = false,
-  active = true,
+  visible,
+  active = visible ?? true,
   streamerThemeId = DEFAULT_STREAMER_THEME_ID,
+  roster,
   rosterText: controlledRosterText,
   onRosterTextChange,
   allowDuplicateNames: controlledAllowDuplicateNames,
   onAllowDuplicateNamesChange,
   onRequestRosterEdit,
+  onHostStateChange,
   onActivityChange,
 }: ShowdownGameProps = {}) {
   const [title, setTitle] = useState("오늘의 Showdown");
@@ -867,6 +871,7 @@ export function ShowdownGame({
   );
   const lastPlaybackTimestamp = useRef<number | null>(null);
   const activityChangeRef = useRef(onActivityChange);
+  const hostStateChangeRef = useRef(onHostStateChange);
   const dispatchResultPresentation = useCallback(
     (event: ShowdownResultPresentationEvent) => {
       resultPresentationRef.current =
@@ -889,16 +894,15 @@ export function ShowdownGame({
     }
   }, []);
   const reducedMotion = useReducedMotion();
-  const hasControlledRoster = controlledRosterText !== undefined;
-  const rosterText = controlledRosterText ?? internalRosterText;
+  const hasControlledRoster =
+    roster !== undefined || controlledRosterText !== undefined;
+  const rosterText = roster
+    ? sharedRosterSnapshotText(roster)
+    : controlledRosterText ?? internalRosterText;
   const allowDuplicateNames =
-    controlledAllowDuplicateNames ?? internalAllowDuplicateNames;
-  const hasActiveRun =
-    phase === "generating" ||
-    phase === "waiting" ||
-    phase === "countdown" ||
-    phase === "running" ||
-    phase === "result";
+    roster?.allowDuplicateNames
+    ?? controlledAllowDuplicateNames
+    ?? internalAllowDuplicateNames;
   const stableLeadChanges = useMemo(
     () =>
       plan
@@ -938,8 +942,14 @@ export function ShowdownGame({
     [plan],
   );
   const validation = useMemo(
-    () => parseRoster(rosterText, { allowDuplicateNames }),
-    [allowDuplicateNames, rosterText],
+    () =>
+      parseRoster(rosterText, {
+        allowDuplicateNames,
+        participantIds: roster?.participants.map(
+          (participant) => participant.id,
+        ),
+      }),
+    [allowDuplicateNames, roster, rosterText],
   );
   const minimumGroups = minimumGroupCount(validation.candidates.length);
   const maximumGroups = maximumGroupCount(validation.candidates.length);
@@ -981,12 +991,50 @@ export function ShowdownGame({
   }, [onActivityChange]);
 
   useEffect(() => {
-    onActivityChange?.(hasActiveRun);
-  }, [hasActiveRun, onActivityChange]);
+    hostStateChangeRef.current = onHostStateChange;
+  }, [onHostStateChange]);
+
+  const hostState = useMemo<GameHostState>(() => {
+    if (phase === "generating") {
+      return { lifecycle: "generating", statusLabel: "경기장 준비 중" };
+    }
+    if (phase === "waiting") {
+      return {
+        lifecycle: "waiting",
+        statusLabel: "방송 대기 중",
+        runId: plan?.runId,
+      };
+    }
+    if (phase === "countdown" || phase === "running") {
+      return {
+        lifecycle: "active",
+        statusLabel: phase === "countdown" ? "경기 시작 중" : "경기 진행 중",
+        runId: plan?.runId,
+      };
+    }
+    if (phase === "result") {
+      const settled = resultPresentation.phase === "settled";
+      return {
+        lifecycle: settled ? "result" : "settling",
+        statusLabel: settled ? "경기 결과" : "결과 정리 중",
+        runId: plan?.runId,
+      };
+    }
+    if (phase === "error") {
+      return { lifecycle: "failed", statusLabel: "복구 필요" };
+    }
+    return INITIAL_GAME_HOST_STATE;
+  }, [phase, plan?.runId, resultPresentation.phase]);
+
+  useEffect(() => {
+    onHostStateChange?.(hostState);
+    onActivityChange?.(isGameSwitchLocked(hostState.lifecycle));
+  }, [hostState, onActivityChange, onHostStateChange]);
 
   useEffect(
     () => () => {
       cancelResultPresentationTimers();
+      hostStateChangeRef.current?.(INITIAL_GAME_HOST_STATE);
       activityChangeRef.current?.(false);
     },
     [cancelResultPresentationTimers],
@@ -1382,6 +1430,13 @@ export function ShowdownGame({
         setPhase("error");
       }
     }, 60);
+  };
+
+  const handleRecoverFromError = () => {
+    if (phase !== "error") return;
+    generationKey.current += 1;
+    setErrorMessage("");
+    setPhase("ready");
   };
 
   const handleRaceStart = async () => {
@@ -1932,74 +1987,123 @@ export function ShowdownGame({
           )}
           essentialSettings={(
             <div className="showdown-setup-fields">
-              <label className="field-label" htmlFor="race-title">
-                경기 제목
-              </label>
-              <input
-                id="race-title"
-                className="title-input"
-                value={title}
-                maxLength={50}
-                onChange={(event) => setTitle(event.target.value)}
-              />
-
-              <section
-                className="group-planner"
-                aria-labelledby="group-plan-title"
+              <SetupOptionGroup
+                kind="text"
+                label="표시"
+                description="방송 화면에 표시할 제목입니다."
               >
-                <div className="group-planner-heading">
-                  <div>
-                    <span id="group-plan-title">조 편성</span>
-                    <strong>전체 {validation.candidates.length}명</strong>
-                  </div>
-                  <label htmlFor="group-count">
-                    조 개수
-                    <select
-                      id="group-count"
+                <SetupOptionRow
+                  label="경기 제목"
+                  htmlFor="race-title"
+                >
+                  <input
+                    id="race-title"
+                    className="title-input"
+                    value={title}
+                    maxLength={50}
+                    onChange={(event) => setTitle(event.target.value)}
+                  />
+                </SetupOptionRow>
+              </SetupOptionGroup>
+
+              <SetupOptionGroup
+                kind="choice"
+                label="경기 조"
+                description={`${selectedGroupIndex + 1}조를 준비합니다.`}
+              >
+                <SetupOptionRow label="준비할 조">
+                  <SetupChoiceControl
+                    variant="scroll-strip"
+                    ariaLabel="경기 조 선택"
+                    className="group-tabs"
+                  >
+                    {groups.map((group) => (
+                      <button
+                        type="button"
+                        key={group.id}
+                        className={
+                          group.index === selectedGroupIndex
+                            ? "is-active"
+                            : ""
+                        }
+                        onClick={() => setActiveGroupIndex(group.index)}
+                        aria-pressed={group.index === selectedGroupIndex}
+                      >
+                        {group.index + 1}조
+                        <small>{group.candidates.length}명</small>
+                      </button>
+                    ))}
+                  </SetupChoiceControl>
+                </SetupOptionRow>
+              </SetupOptionGroup>
+
+              <SetupOptionGroup
+                kind="number"
+                label="조 편성"
+                description={`전체 ${validation.candidates.length}명 · 조당 최대 ${MAX_GROUP_SIZE}명`}
+              >
+                <SetupOptionRow
+                  label="조 개수"
+                  description="현재 준비할 조를 나눕니다."
+                >
+                  <button
+                    type="button"
+                    className="setup-stepper-button"
+                    aria-label="조 개수 줄이기"
+                    disabled={
+                      validation.candidates.length < 2
+                      || effectiveGroupCount <= minimumGroups
+                    }
+                    onClick={() => {
+                      setGroupCount((current) =>
+                        Math.max(minimumGroups, current - 1),
+                      );
+                      setActiveGroupIndex(0);
+                    }}
+                  >
+                    −
+                  </button>
+                  <span className="setup-stepper-value">
+                    <input
+                      type="number"
+                      min={minimumGroups}
+                      max={maximumGroups}
                       value={effectiveGroupCount}
+                      disabled={validation.candidates.length < 2}
+                      aria-label="조 개수"
                       onChange={(event) => {
-                        setGroupCount(Number(event.target.value));
+                        const parsed = Number(event.target.value);
+                        const nextCount = Number.isFinite(parsed)
+                          ? Math.min(
+                              maximumGroups,
+                              Math.max(minimumGroups, Math.floor(parsed)),
+                            )
+                          : minimumGroups;
+                        setGroupCount(nextCount);
                         setActiveGroupIndex(0);
                       }}
-                      disabled={validation.candidates.length < 2}
-                    >
-                      {Array.from(
-                        {
-                          length:
-                            maximumGroups - minimumGroups + 1,
-                        },
-                        (_, index) => minimumGroups + index,
-                      ).map((count) => (
-                        <option value={count} key={count}>
-                          {count}조
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div className="group-tabs" aria-label="경기 조 선택">
-                  {groups.map((group) => (
-                    <button
-                      type="button"
-                      key={group.id}
-                      className={
-                        group.index === selectedGroupIndex
-                          ? "is-active"
-                          : ""
-                      }
-                      onClick={() => setActiveGroupIndex(group.index)}
-                      aria-pressed={group.index === selectedGroupIndex}
-                    >
-                      {group.index + 1}조
-                      <small>{group.candidates.length}명</small>
-                    </button>
-                  ))}
-                </div>
-                <p>
-                  조당 최대 {MAX_GROUP_SIZE}명 ·{" "}
-                  {selectedGroupIndex + 1}조를 준비합니다.
-                </p>
-              </section>
+                    />
+                    <span aria-hidden="true">조</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="setup-stepper-button"
+                    aria-label="조 개수 늘리기"
+                    disabled={
+                      validation.candidates.length < 2
+                      || effectiveGroupCount >= maximumGroups
+                    }
+                    onClick={() => {
+                      setGroupCount((current) =>
+                        Math.min(maximumGroups, current + 1),
+                      );
+                      setActiveGroupIndex(0);
+                    }}
+                  >
+                    +
+                  </button>
+                </SetupOptionRow>
+              </SetupOptionGroup>
 
               <div className="roster-heading">
                 <div>
@@ -2011,6 +2115,7 @@ export function ShowdownGame({
                 <button
                   type="button"
                   className="text-button"
+                  disabled={phase !== "ready"}
                   onClick={requestSharedRosterEdit}
                 >
                   전체 명단 편집
@@ -2039,47 +2144,77 @@ export function ShowdownGame({
           )}
           advancedSettings={(
             <div className="showdown-advanced-settings">
-              <div className="setting-row">
-                <span>
-                  <strong>당첨 인원</strong>
-                  <small>
-                    이 인원이 결승선을 통과할 때까지 경기를 유지
-                  </small>
-                </span>
-                <label className="select-setting" htmlFor="winner-count">
-                  <select
-                    id="winner-count"
-                    value={effectiveWinnerCount}
-                    disabled={phase === "generating"}
-                    onChange={(event) =>
-                      setWinnerCount(Number(event.target.value))
+              <SetupOptionGroup
+                kind="number"
+                label="결과 설정"
+              >
+                <SetupOptionRow
+                  label="당첨 인원"
+                  description="이 인원이 결승선을 통과할 때까지 경기"
+                >
+                  <button
+                    type="button"
+                    className="setup-stepper-button"
+                    aria-label="당첨 인원 줄이기"
+                    disabled={
+                      phase === "generating"
+                      || effectiveWinnerCount <= 1
+                    }
+                    onClick={() =>
+                      setWinnerCount((current) =>
+                        Math.max(1, current - 1),
+                      )
                     }
                   >
-                    {Array.from(
-                      { length: Math.max(1, activeCandidates.length) },
-                      (_, index) => index + 1,
-                    ).map((count) => (
-                      <option value={count} key={count}>
-                        {count}명
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="setting-row">
-                <span>
-                  <strong>효과음</strong>
-                  <small>카운트다운과 결승 신호만 재생</small>
-                </span>
-                <button
-                  type="button"
-                  className="toggle-button"
-                  onClick={() => setSoundEnabled((value) => !value)}
-                  aria-pressed={soundEnabled}
+                    −
+                  </button>
+                  <output
+                    className="setup-stepper-value"
+                    aria-live="polite"
+                  >
+                    {effectiveWinnerCount}명
+                  </output>
+                  <button
+                    type="button"
+                    className="setup-stepper-button"
+                    aria-label="당첨 인원 늘리기"
+                    disabled={
+                      phase === "generating"
+                      || effectiveWinnerCount >=
+                        Math.max(1, activeCandidates.length)
+                    }
+                    onClick={() =>
+                      setWinnerCount((current) =>
+                        Math.min(
+                          Math.max(1, activeCandidates.length),
+                          current + 1,
+                        ),
+                      )
+                    }
+                  >
+                    +
+                  </button>
+                </SetupOptionRow>
+              </SetupOptionGroup>
+
+              <SetupOptionGroup
+                kind="toggle"
+                label="재생 옵션"
+              >
+                <SetupOptionRow
+                  label="효과음"
+                  description="카운트다운과 결승 신호만 재생"
                 >
-                  {soundEnabled ? "켜짐" : "꺼짐"}
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    className="toggle-button"
+                    onClick={() => setSoundEnabled((value) => !value)}
+                    aria-pressed={soundEnabled}
+                  >
+                    {soundEnabled ? "켜짐" : "꺼짐"}
+                  </button>
+                </SetupOptionRow>
+              </SetupOptionGroup>
               {history.length > 0 && (
                 <details className="history-panel embedded-history-panel">
                   <summary>최근 경기 {history.length}개</summary>
@@ -2143,32 +2278,44 @@ export function ShowdownGame({
               </button>
             </div>
           )}
-          readiness={(
-            <div className="showdown-readiness">
-              <span>
-                {validation.isValid
+          readinessModel={{
+            tone:
+              phase === "error"
+                ? "recoverable"
+                : phase === "generating"
+                ? "busy"
+                : validation.isValid
+                  ? "ready"
+                  : "blocked",
+            label:
+              phase === "error"
+                ? "경기장 준비 실패"
+                : validation.isValid
                   ? "경기 준비 완료"
-                  : "명단 확인 필요"}
-              </span>
-              <strong>
-                {validation.isValid
+                  : "명단 확인 필요",
+            detail:
+              phase === "error"
+                ? errorMessage || "준비 화면으로 돌아가 다시 시도해 주세요."
+                : validation.isValid
                   ? `${activeCandidates.length}명 출발 · ${effectiveWinnerCount}명 당첨`
-                  : validation.message}
-              </strong>
-            </div>
-          )}
-          primaryAction={(
-            <button
-              type="button"
-              className="primary-button"
-              disabled={!validation.isValid || phase === "generating"}
-              onClick={handleOpenBroadcast}
-            >
-              {phase === "generating"
+                  : validation.message,
+          }}
+          primaryActionModel={{
+            label:
+              phase === "error"
+                ? "준비로 돌아가기"
+                : phase === "generating"
                 ? "방송 화면 준비 중…"
-                : "방송 화면 열기"}
-            </button>
-          )}
+                : "방송 화면 열기",
+            disabled:
+              phase === "generating"
+              || (phase !== "error" && !validation.isValid),
+            busy: phase === "generating",
+            onPress:
+              phase === "error"
+                ? handleRecoverFromError
+                : handleOpenBroadcast,
+          }}
           busy={phase === "generating"}
         />
 
@@ -2178,9 +2325,6 @@ export function ShowdownGame({
               <strong>경기장을 준비하지 못했어요.</strong>
               <span>{errorMessage}</span>
             </div>
-            <button type="button" onClick={() => setPhase("ready")}>
-              준비로 돌아가기
-            </button>
           </div>
         )}
 
@@ -2204,7 +2348,7 @@ export function ShowdownGame({
             exlab
           </span>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.26</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.27</span>
           </div>
         </header>
       )}

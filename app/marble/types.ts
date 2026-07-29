@@ -24,6 +24,11 @@ export type RosterValidation = {
 
 export type RosterOptions = {
   allowDuplicateNames?: boolean;
+  /**
+   * Stable ids supplied by the shared Ex Lab roster. Standalone callers may
+   * omit this and keep the legacy deterministic candidate ids.
+   */
+  participantIds?: readonly string[];
 };
 
 export type CandidateGroup = {

@@ -14,6 +14,17 @@ const cssSource = readFileSync(
   new URL("../app/marble/showdown-game.css", import.meta.url),
   "utf8",
 );
+const setupWorkspaceCssSource = readFileSync(
+  new URL(
+    "../app/_platform/components/SetupWorkspace.css",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const globalsCssSource = readFileSync(
+  new URL("../app/globals.css", import.meta.url),
+  "utf8",
+);
 
 test("frame-by-frame race metrics are not exposed as a live region", () => {
   assert.doesNotMatch(
@@ -43,28 +54,45 @@ test("broadcast waiting dialog starts focused without claiming a modal trap", ()
 });
 
 test("embedded Race uses the shared roster contract without promotional copy", () => {
-  assert.match(gameSource, /export type ShowdownGameProps = \{/);
-  assert.match(gameSource, /rosterText\?: string;/);
-  assert.match(gameSource, /active\?: boolean;/);
   assert.match(
     gameSource,
-    /onRosterTextChange\?: \(text: string\) => void;/,
+    /export type ShowdownGameProps = EmbeddedGameProps;/,
   );
   assert.match(
     gameSource,
-    /onActivityChange\?: \(active: boolean\) => void;/,
+    /roster\s*\?\s*sharedRosterSnapshotText\(roster\)/,
   );
   assert.match(
     gameSource,
-    /const rosterText = controlledRosterText \?\? internalRosterText;/,
+    /participantIds:\s*roster\?\.participants\.map/,
   );
   assert.match(
     gameSource,
-    /onRosterTextChange\?\.\(nextRosterText\);/,
+    /active = visible \?\? true/,
+  );
+  assert.match(
+    gameSource,
+    /onHostStateChange\?\.\(hostState\)/,
   );
   assert.match(
     gameSource,
     /phase === "generating"[\s\S]*?phase === "waiting"[\s\S]*?phase === "countdown"[\s\S]*?phase === "running"[\s\S]*?phase === "result"/,
+  );
+  assert.match(
+    gameSource,
+    /phase === "error"\s*\?\s*"recoverable"/,
+  );
+  assert.match(
+    gameSource,
+    /phase === "error"\s*\?\s*"준비로 돌아가기"/,
+  );
+  assert.match(
+    gameSource,
+    /aria-label="조 개수"[\s\S]*?setGroupCount\(nextCount\)/,
+  );
+  assert.match(
+    gameSource,
+    /className="text-button"\s+disabled=\{phase !== "ready"\}/,
   );
   assert.match(gameSource, /\{!embedded && \(\s*<header className="product-header">/);
   assert.doesNotMatch(gameSource, /모든 이름이/);
@@ -97,18 +125,22 @@ test("scoped Showdown roots retain their intended frame colors and sizing", () =
   );
 });
 
-test("desktop Showdown setup is viewport-bound with settings-local overflow", () => {
+test("desktop Showdown setup uses the common viewport and overflow owner", () => {
   assert.match(
-    cssSource,
-    /@media \(min-width:\s*901px\)\s*\{[\s\S]*?:scope\.preparation-screen\.is-embedded\s*\{[\s\S]*?100dvh\s*-\s*var\(--exlab-header-height,\s*58px\)[\s\S]*?overflow:\s*hidden;/,
+    globalsCssSource,
+    /@media \(min-width:\s*901px\)[\s\S]*?\.exlab-game-instance\s*\{[\s\S]*?100dvh\s*-\s*var\(--exlab-header-height\)[\s\S]*?overflow:\s*hidden;/,
   );
   assert.match(
     cssSource,
-    /\.showdown-setup-workspace\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+auto;[\s\S]*?overflow:\s*hidden;/,
+    /@media \(min-width:\s*901px\)\s*\{[\s\S]*?:scope\.preparation-screen\.is-embedded\s*\{[\s\S]*?block-size:\s*100%;[\s\S]*?overflow:\s*hidden;/,
   );
   assert.match(
-    cssSource,
-    /\.showdown-setup-workspace \.exlab-setup-workspace__settings\s*\{[\s\S]*?overflow-y:\s*auto;/,
+    setupWorkspaceCssSource,
+    /@media \(min-width:\s*901px\)[\s\S]*?\.exlab-setup-workspace\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+auto;[\s\S]*?overflow:\s*hidden;/,
+  );
+  assert.match(
+    setupWorkspaceCssSource,
+    /\.exlab-setup-workspace__settings\s*\{[\s\S]*?overflow-y:\s*auto;[\s\S]*?scrollbar-width:\s*thin;/,
   );
   assert.match(
     cssSource,

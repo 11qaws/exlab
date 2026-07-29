@@ -274,11 +274,271 @@
   min-inline-size: 0;
 }
 
+.exlab-setup-workspace__action-cluster {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--exlab-setup-gap-close);
+  justify-content: flex-end;
+  min-inline-size: 0;
+}
+
+.exlab-setup-workspace__secondary-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--exlab-setup-gap-close);
+  justify-content: flex-end;
+}
+
+.exlab-setup-readiness-status {
+  display: grid;
+  gap: 3px;
+  min-inline-size: 0;
+}
+
+.exlab-setup-readiness-status__label {
+  align-items: center;
+  color: var(--exlab-text, #3b2426);
+  display: grid;
+  font-weight: 750;
+  gap: 8px;
+  grid-template-columns: 8px minmax(0, 1fr);
+}
+
+.exlab-setup-readiness-status__marker {
+  background: var(--exlab-accent, #ad204f);
+  border: 1px solid var(--exlab-accent-ink, #8f1740);
+  border-radius: 999px;
+  block-size: 8px;
+  inline-size: 8px;
+}
+
+.exlab-setup-readiness-status[data-tone="blocked"]
+  .exlab-setup-readiness-status__marker {
+  background: transparent;
+  border-width: 2px;
+}
+
+.exlab-setup-readiness-status[data-tone="busy"]
+  .exlab-setup-readiness-status__marker {
+  animation: exlab-setup-readiness-pulse 900ms ease-in-out infinite alternate;
+}
+
+.exlab-setup-readiness-status[data-tone="recoverable"]
+  .exlab-setup-readiness-status__marker {
+  background: var(--exlab-accent-bg, #f9e8ee);
+  box-shadow:
+    inset 0 0 0 1px var(--exlab-surface, #fffdf9);
+}
+
+.exlab-setup-readiness-status__detail {
+  color: var(--exlab-muted, #6b5356);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  margin-inline-start: 16px;
+}
+
 .exlab-setup-workspace__primary-action {
   align-items: center;
   display: flex;
   justify-content: flex-end;
   min-inline-size: min(100%, 220px);
+}
+
+.exlab-setup-primary-action-button {
+  background: var(--exlab-accent, #ad204f);
+  border: 1px solid var(--exlab-accent, #ad204f);
+  border-radius: 12px;
+  color: var(--exlab-on-accent, #fff);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+  inline-size: 100%;
+  line-height: 1.25;
+  min-block-size: 48px;
+  min-inline-size: min(220px, 100%);
+  padding: 10px 18px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .exlab-setup-primary-action-button:hover:not(:disabled) {
+    background: var(--exlab-accent-ink, #8f1740);
+    border-color: var(--exlab-accent-ink, #8f1740);
+  }
+}
+
+.exlab-setup-primary-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.exlab-setup-primary-action-button[data-busy="true"] {
+  cursor: wait;
+  opacity: 0.76;
+}
+
+.exlab-setup-option-group {
+  border: 0;
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.exlab-setup-option-group
+  + .exlab-setup-option-group {
+  border-block-start: 1px solid var(--exlab-border, #dfcec8);
+  margin-block-start: 12px;
+  padding-block-start: 12px;
+}
+
+.exlab-setup-option-group__legend {
+  color: var(--exlab-text, #3b2426);
+  display: grid;
+  float: none;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  gap: 3px;
+  inline-size: 100%;
+  line-height: 1.35;
+  margin: 0 0 7px;
+  padding: 0;
+}
+
+.exlab-setup-option-group__legend small {
+  color: var(--exlab-muted, #6b5356);
+  font-size: 0.75rem;
+  font-weight: 550;
+  line-height: 1.45;
+}
+
+.exlab-setup-option-group__content {
+  display: grid;
+  gap: 10px;
+  min-inline-size: 0;
+}
+
+.exlab-setup-option-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(168px, 0.82fr);
+  min-inline-size: 0;
+}
+
+.exlab-setup-option-row__copy {
+  display: grid;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.exlab-setup-option-row__label {
+  color: var(--exlab-text, #3b2426);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.exlab-setup-option-row__description {
+  color: var(--exlab-muted, #6b5356);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.exlab-setup-option-row__control {
+  min-inline-size: 0;
+}
+
+.exlab-setup-option-group[data-option-kind="text"]
+  .exlab-setup-option-row {
+  align-items: start;
+}
+
+.exlab-setup-option-group[data-option-kind="text"]
+  .exlab-setup-option-row__control
+  > :where(input, textarea, select) {
+  inline-size: 100%;
+}
+
+.exlab-setup-option-group[data-option-kind="choice"]
+  .exlab-setup-option-row__control {
+  align-items: stretch;
+  display: grid;
+  gap: 8px;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+}
+
+.exlab-setup-option-group[data-option-kind="choice"]
+  .exlab-setup-option-row__control
+  > * {
+  block-size: 100%;
+  min-block-size: 40px;
+  min-inline-size: 0;
+}
+
+.exlab-setup-choice-control {
+  --exlab-setup-choice-height: 40px;
+  min-block-size: var(--exlab-setup-choice-height);
+  min-inline-size: 0;
+}
+
+.exlab-setup-choice-control[data-choice-variant="segmented"] {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  overflow: hidden;
+}
+
+.exlab-setup-choice-control[data-choice-variant="scroll-strip"] {
+  align-items: stretch;
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+
+.exlab-setup-choice-control > button {
+  min-block-size: var(--exlab-setup-choice-height);
+}
+
+.exlab-setup-choice-control[data-choice-variant="segmented"]
+  > button {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.exlab-setup-choice-control[data-choice-variant="scroll-strip"]
+  > button {
+  flex: 0 0 auto;
+}
+
+.exlab-setup-option-group[data-option-kind="number"]
+  .exlab-setup-option-row__control {
+  align-items: stretch;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 40px minmax(64px, 1fr) 40px;
+}
+
+.exlab-setup-option-group[data-option-kind="number"]
+  .exlab-setup-option-row__control
+  > * {
+  min-block-size: 40px;
+  min-inline-size: 0;
+}
+
+.exlab-setup-option-group[data-option-kind="toggle"]
+  .exlab-setup-option-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.exlab-setup-option-group[data-option-kind="toggle"]
+  .exlab-setup-option-row__control {
+  justify-self: end;
 }
 
 @keyframes exlab-setup-workspace-enter {
@@ -293,6 +553,16 @@
   }
 }
 
+@keyframes exlab-setup-readiness-pulse {
+  from {
+    opacity: 0.42;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes exlab-setup-advanced-enter {
   from {
     opacity: 0;
@@ -300,6 +570,40 @@
 
   to {
     opacity: 1;
+  }
+}
+
+@media (min-width: 901px) {
+  .exlab-setup-workspace {
+    block-size: 100%;
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    min-block-size: 0;
+    overflow: hidden;
+  }
+
+  .exlab-setup-workspace__settings {
+    min-block-size: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: var(--exlab-accent, #ad204f) transparent;
+    scrollbar-width: thin;
+  }
+
+  .exlab-setup-workspace__advanced {
+    max-block-size: min(42dvh, 360px);
+    overflow: hidden;
+  }
+
+  .exlab-setup-workspace__advanced-content {
+    max-block-size: calc(min(42dvh, 360px) - 58px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: var(--exlab-accent, #ad204f) transparent;
+    scrollbar-width: thin;
+  }
+
+  .exlab-setup-workspace__preview {
+    min-block-size: 0;
   }
 }
 
@@ -400,8 +704,31 @@
     justify-content: stretch;
   }
 
+  .exlab-setup-workspace__action-cluster,
+  .exlab-setup-workspace__secondary-actions {
+    align-items: stretch;
+    flex-direction: column;
+    inline-size: 100%;
+  }
+
+  .exlab-setup-workspace__secondary-actions > * {
+    inline-size: 100%;
+  }
+
   .exlab-setup-workspace__primary-action > * {
     inline-size: 100%;
+  }
+
+  .exlab-setup-option-row,
+  .exlab-setup-option-group[data-option-kind="toggle"]
+    .exlab-setup-option-row {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .exlab-setup-option-group[data-option-kind="toggle"]
+    .exlab-setup-option-row__control {
+    justify-self: start;
   }
 }
 
@@ -411,6 +738,11 @@
   }
 
   .exlab-setup-workspace__advanced-content {
+    animation: none;
+  }
+
+  .exlab-setup-readiness-status[data-tone="busy"]
+    .exlab-setup-readiness-status__marker {
     animation: none;
   }
 }

@@ -10,14 +10,23 @@ import type { CSSProperties } from 'react';
 
 import { SetupWorkspace } from '../../_platform/components/SetupWorkspace';
 import { SharedSetupSummary } from '../../_platform/components/SharedSetupSummary';
+import {
+  INITIAL_GAME_HOST_STATE,
+  isGameSwitchLocked,
+  type EmbeddedGameProps,
+  type GameHostState,
+} from '../../_platform/contracts';
 import { sharedRosterNameKey } from '../../_platform/roster';
+import {
+  sharedRosterSnapshotText,
+  type SharedRosterSnapshot,
+} from '../../_platform/sharedRosterSnapshot';
 import {
   advancePreviewCycle,
   createPreviewCycleBuffer,
   DEFAULT_PREVIEW_ROSTER_NAMES,
   previewRosterNamesOrDefault,
 } from '../../_platform/previewRoster';
-import type { StreamerThemeId } from '../../_platform/theme';
 import {
   createResultPresentationProjection,
   createResultPresentationState,
@@ -39,7 +48,11 @@ import RouletteWheel, {
   type RouletteRevealPhase,
   type RouletteWheelHandle,
 } from './components/RouletteWheel';
-import RoundSetupPanel from './components/RoundSetupPanel';
+import RoundSetupPanel, {
+  RoundSetupAdvancedSettings,
+  describeRoundSetupAdvancedSettings,
+  type RoundSetupPanelProps,
+} from './components/RoundSetupPanel';
 import WinnerHero from './components/WinnerHero';
 import {
   appendBroadcastSessionResult,
@@ -314,6 +327,30 @@ function participantsFromSharedRoster(
   });
 }
 
+function participantsFromSharedRosterSnapshot(
+  snapshot: SharedRosterSnapshot,
+  current: readonly Participant[] = [],
+) {
+  const currentById = new Map(
+    current.map((participant) => [participant.id, participant]),
+  );
+
+  return snapshot.participants.map((sharedParticipant) => {
+    const existing = currentById.get(sharedParticipant.id);
+    return existing
+      ? {
+          ...existing,
+          id: sharedParticipant.id,
+          name: sharedParticipant.name,
+        }
+      : {
+          id: sharedParticipant.id,
+          name: sharedParticipant.name,
+          weight: 1,
+        };
+  });
+}
+
 function sharedRosterTextFromParticipants(participants: readonly Participant[]) {
   return participants.map((participant) => participant.name.trim()).filter(Boolean).join('\n');
 }
@@ -416,17 +453,7 @@ function attachLockedResult(
   };
 }
 
-export interface RouletteGameProps {
-  embedded?: boolean;
-  active?: boolean;
-  streamerThemeId?: StreamerThemeId;
-  rosterText?: string;
-  onRosterTextChange?: (text: string) => void;
-  allowDuplicateNames?: boolean;
-  onAllowDuplicateNamesChange?: (allow: boolean) => void;
-  onRequestRosterEdit?: () => void;
-  onActivityChange?: (active: boolean) => void;
-}
+export type RouletteGameProps = EmbeddedGameProps;
 
 type PeoplePreviewInput = Readonly<{
   names: readonly string[];
@@ -435,13 +462,23 @@ type PeoplePreviewInput = Readonly<{
 
 export function RouletteGame({
   embedded = false,
-  active = true,
-  rosterText,
+  visible,
+  active = visible ?? true,
+  roster,
+  rosterText: legacyRosterText,
   onRosterTextChange,
-  allowDuplicateNames = false,
+  allowDuplicateNames: legacyAllowDuplicateNames,
   onRequestRosterEdit,
+  onHostStateChange,
   onActivityChange,
 }: RouletteGameProps) {
+  const rosterText = roster
+    ? sharedRosterSnapshotText(roster)
+    : legacyRosterText;
+  const allowDuplicateNames =
+    roster?.allowDuplicateNames
+    ?? legacyAllowDuplicateNames
+    ?? false;
   const [drawMode] = useState<DrawMode>('wheel');
   const [wheelPresentation, setWheelPresentation] = useState<WheelPresentation>('spin');
   const [drawTarget, setDrawTarget] = useState<DrawTarget>('people');
@@ -450,7 +487,11 @@ export function RouletteGame({
     prizes: 1,
   });
   const [participants, setParticipants] = useState<Participant[]>(() => (
-    rosterText === undefined ? [] : participantsFromSharedRoster(rosterText)
+    roster
+      ? participantsFromSharedRosterSnapshot(roster)
+      : rosterText === undefined
+        ? []
+        : participantsFromSharedRoster(rosterText)
   ));
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [excludedParticipantIds, setExcludedParticipantIds] = useState<string[]>([]);
@@ -501,7 +542,6 @@ export function RouletteGame({
   const [copyingParticipantList, setCopyingParticipantList] =
     useState(false);
   const rouletteRootRef = useRef<HTMLDivElement>(null);
-  const setupSessionHeadingRef = useRef<HTMLHeadingElement>(null);
   const liveStageTitleRef = useRef<HTMLElement>(null);
   const completedPrimaryActionRef = useRef<HTMLButtonElement>(null);
   const toolsTriggerRef = useRef<HTMLButtonElement>(null);
@@ -509,6 +549,8 @@ export function RouletteGame({
   const toolsDrawerRef = useRef<HTMLElement>(null);
   const rosterTriggerRef = useRef<HTMLElement | null>(null);
   const raffleStatusRef = useRef<RaffleStatus>('configuring');
+  const hostStateChangeRef = useRef(onHostStateChange);
+  const activityChangeRef = useRef(onActivityChange);
   const resultPresentationRef = useRef<RouletteResultPresentationState>(resultPresentation);
   const presentationRunRef = useRef(0);
   const spinKeyRef = useRef(0);
@@ -527,6 +569,11 @@ export function RouletteGame({
   const normalizedExternalRoster = rosterText === undefined
     ? null
     : sharedRosterNames(rosterText).join('\n');
+  const externalRosterIdentity = roster
+    ? roster.participants
+        .map((participant) => `${participant.id}\u001f${participant.name}`)
+        .join('\u001e')
+    : normalizedExternalRoster;
   const dispatchResultPresentation = useCallback((
     event: RouletteResultPresentationEvent,
   ) => {
@@ -538,14 +585,77 @@ export function RouletteGame({
   }, []);
 
   useEffect(() => {
-    onActivityChange?.(
-      broadcastSession !== null || raffleStatus === 'roster',
-    );
-  }, [broadcastSession, onActivityChange, raffleStatus]);
+    hostStateChangeRef.current = onHostStateChange;
+  }, [onHostStateChange]);
+
+  useEffect(() => {
+    activityChangeRef.current = onActivityChange;
+  }, [onActivityChange]);
+
+  const hostState = useMemo<GameHostState>(() => {
+    if (
+      raffleStatus === 'roster'
+      && setupReturnStatus !== 'configuring'
+    ) {
+      return {
+        lifecycle:
+          setupReturnStatus === 'completed'
+            ? 'result'
+            : 'waiting',
+        statusLabel: '명단 편집 중',
+        sessionId: broadcastSession?.id,
+        runId: currentRound?.id,
+      };
+    }
+    if (raffleStatus === 'ready') {
+      return {
+        lifecycle: 'waiting',
+        statusLabel: '추첨 대기 중',
+        sessionId: broadcastSession?.id,
+        runId: currentRound?.id,
+      };
+    }
+    if (raffleStatus === 'locking') {
+      return {
+        lifecycle: 'active',
+        statusLabel: '결과 확정 중',
+        sessionId: broadcastSession?.id,
+        runId: currentRound?.id,
+      };
+    }
+    if (raffleStatus === 'presenting') {
+      return {
+        lifecycle: 'settling',
+        statusLabel: '결과 공개 중',
+        sessionId: broadcastSession?.id,
+        runId: currentRound?.id,
+      };
+    }
+    if (raffleStatus === 'completed') {
+      return {
+        lifecycle: 'result',
+        statusLabel: '추첨 결과',
+        sessionId: broadcastSession?.id,
+        runId: currentRound?.id,
+      };
+    }
+    return INITIAL_GAME_HOST_STATE;
+  }, [
+    broadcastSession?.id,
+    currentRound?.id,
+    raffleStatus,
+    setupReturnStatus,
+  ]);
+
+  useEffect(() => {
+    onHostStateChange?.(hostState);
+    onActivityChange?.(isGameSwitchLocked(hostState.lifecycle));
+  }, [hostState, onActivityChange, onHostStateChange]);
 
   useEffect(() => () => {
-    onActivityChange?.(false);
-  }, [onActivityChange]);
+    hostStateChangeRef.current?.(INITIAL_GAME_HOST_STATE);
+    activityChangeRef.current?.(false);
+  }, []);
 
   useEffect(() => {
     if (
@@ -554,13 +664,25 @@ export function RouletteGame({
       || rosterEditorDirty
     ) return;
 
-    const currentRoster = sharedRosterTextFromParticipants(participants);
-    if (currentRoster === normalizedExternalRoster) return;
+    const rosterMatches = roster
+      ? participants.length === roster.participants.length
+        && participants.every((participant, index) => {
+          const sharedParticipant = roster.participants[index];
+          return (
+            participant.id === sharedParticipant.id
+            && participant.name === sharedParticipant.name
+          );
+        })
+      : sharedRosterTextFromParticipants(participants)
+        === normalizedExternalRoster;
+    if (rosterMatches) return;
 
-    const nextParticipants = participantsFromSharedRoster(
-      normalizedExternalRoster,
-      participants,
-    );
+    const nextParticipants = roster
+      ? participantsFromSharedRosterSnapshot(roster, participants)
+      : participantsFromSharedRoster(
+          normalizedExternalRoster,
+          participants,
+        );
     const nextIds = new Set(nextParticipants.map((participant) => participant.id));
     setParticipants(nextParticipants);
     setExcludedParticipantIds((ids) => ids.filter((id) => nextIds.has(id)));
@@ -568,9 +690,11 @@ export function RouletteGame({
     setPoolIds([]);
     setParticipantPreviewDraft([]);
   }, [
+    externalRosterIdentity,
     normalizedExternalRoster,
     participants,
     raffleStatus,
+    roster,
     rosterEditorDirty,
   ]);
 
@@ -1692,9 +1816,7 @@ export function RouletteGame({
     setRotorReady(false);
     setToolsOpen(false);
     if (shouldPauseSession) {
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => setupSessionHeadingRef.current?.focus());
-      });
+      focusPreparationPrimary();
     } else {
       focusPreparationPrimary();
     }
@@ -2436,71 +2558,72 @@ export function RouletteGame({
     );
   };
 
-  const renderRoundSettings = (rosterManagedExternally = false) => (
-    <RoundSetupPanel
-      target={drawTarget}
-      wheelPresentation={wheelPresentation}
-      participantTotal={participants.length}
-      eligibleParticipants={eligibleParticipants}
-      candidateParticipants={candidateParticipants}
-      drawOptionCount={drawOptions.length}
-      winnerGoal={setupWinnerGoal}
-      maximumWinnerGoal={setupMaximumWinnerGoal}
-      excludedCount={participants.length - eligibleParticipants.length}
-      poolLimit={poolLimit}
-      prizes={prizes}
-      rewardLabel={rewardLabel}
-      drawLabel={drawLabel}
-      prizeRecipientText={prizeRecipientText}
-      prizeRecipientCount={prizeRecipients.length}
-      assignedPrizeRecipientCount={assignedPrizeRecipientCount}
-      prizeRecipientSource={prizeRecipientSource}
-      recentWinnerCount={recentPeopleWinnerResults.length}
-      recentWinnersAlreadyLoaded={recentWinnersAlreadyLoaded}
-      recentWinnerLabel={recentPeopleWinnerResults[0]?.roundLabel || '최근 당첨자 추첨'}
-      removeAfterDraw={removeAfterDraw}
-      useWeights={useWeights}
-      disabled={!isConfigurationEditable}
-      rosterManagedExternally={rosterManagedExternally}
-      onTargetChange={changeTarget}
-      onRewardLabelChange={(value) => {
-        setRewardLabel(value);
-        prepareNextRoundSettings();
-      }}
-      onDrawLabelChange={(value) => {
-        setDrawLabel(value);
-        prepareNextRoundSettings();
-      }}
-      onPrizeRecipientTextChange={updatePrizeRecipientText}
-      onLoadRecentWinners={loadRecentPeopleWinners}
-      onRestartPrizeRecipients={restartPrizeRecipientAssignments}
-      onPoolLimitChange={(value) => {
-        setPoolLimit(Math.max(0, Math.min(eligibleParticipants.length, value)));
-        setPoolIds([]);
-        prepareNextRoundSettings();
-      }}
-      onWinnerGoalChange={changeWinnerGoal}
-      onReshufflePool={reshufflePool}
-      onPresentationChange={(choice) => {
-        if (!isConfigurationEditable) return;
-        changeWheelPresentation(choice);
-      }}
-      onRemoveAfterDrawChange={(value) => {
-        setRemoveAfterDraw(value);
-        prepareNextRoundSettings();
-      }}
-      onUseWeightsChange={(value) => {
-        setUseWeights(value);
-        prepareNextRoundSettings();
-      }}
-      onParticipantWeightChange={updateParticipantWeight}
-      onEditRoster={requestPreparationRosterEdit}
-      onRestoreExcluded={resetWinnerState}
-      onAddPrize={addPrize}
-      onUpdatePrize={updatePrize}
-      onPrizeWeightChange={updatePrizeWeight}
-      onRemovePrize={removePrize}
-    />
+  const roundSetupProps: RoundSetupPanelProps = {
+    target: drawTarget,
+    wheelPresentation,
+    participantTotal: participants.length,
+    eligibleParticipants,
+    candidateParticipants,
+    drawOptionCount: drawOptions.length,
+    winnerGoal: setupWinnerGoal,
+    maximumWinnerGoal: setupMaximumWinnerGoal,
+    excludedCount: participants.length - eligibleParticipants.length,
+    poolLimit,
+    prizes,
+    rewardLabel,
+    drawLabel,
+    prizeRecipientText,
+    prizeRecipientCount: prizeRecipients.length,
+    assignedPrizeRecipientCount,
+    prizeRecipientSource,
+    recentWinnerCount: recentPeopleWinnerResults.length,
+    recentWinnersAlreadyLoaded,
+    recentWinnerLabel: recentPeopleWinnerResults[0]?.roundLabel || '최근 당첨자 추첨',
+    removeAfterDraw,
+    useWeights,
+    disabled: !isConfigurationEditable,
+    onTargetChange: changeTarget,
+    onRewardLabelChange: (value) => {
+      setRewardLabel(value);
+      prepareNextRoundSettings();
+    },
+    onDrawLabelChange: (value) => {
+      setDrawLabel(value);
+      prepareNextRoundSettings();
+    },
+    onPrizeRecipientTextChange: updatePrizeRecipientText,
+    onLoadRecentWinners: loadRecentPeopleWinners,
+    onRestartPrizeRecipients: restartPrizeRecipientAssignments,
+    onPoolLimitChange: (value) => {
+      setPoolLimit(Math.max(0, Math.min(eligibleParticipants.length, value)));
+      setPoolIds([]);
+      prepareNextRoundSettings();
+    },
+    onWinnerGoalChange: changeWinnerGoal,
+    onReshufflePool: reshufflePool,
+    onPresentationChange: (choice) => {
+      if (!isConfigurationEditable) return;
+      changeWheelPresentation(choice);
+    },
+    onRemoveAfterDrawChange: (value) => {
+      setRemoveAfterDraw(value);
+      prepareNextRoundSettings();
+    },
+    onUseWeightsChange: (value) => {
+      setUseWeights(value);
+      prepareNextRoundSettings();
+    },
+    onParticipantWeightChange: updateParticipantWeight,
+    onEditRoster: requestPreparationRosterEdit,
+    onRestoreExcluded: resetWinnerState,
+    onAddPrize: addPrize,
+    onUpdatePrize: updatePrize,
+    onPrizeWeightChange: updatePrizeWeight,
+    onRemovePrize: removePrize,
+  };
+
+  const renderRoundSettings = () => (
+    <RoundSetupPanel {...roundSetupProps} />
   );
 
   const liveStatusDescription = raffleStatus === 'ready'
@@ -2730,27 +2853,88 @@ export function RouletteGame({
         : pausedSessionLastResult.winner
       : '아직 결과 없음';
     const pausedSessionHub = pausedBroadcastSession ? (
-      <section className="roulette-session-hub" aria-labelledby="roulette-paused-session-title">
+      <section
+        className="roulette-session-hub"
+        aria-labelledby="roulette-paused-session-title"
+      >
         <div className="roulette-session-hub__heading">
           <p>일시정지한 추첨</p>
-          <h2 id="roulette-paused-session-title" ref={setupSessionHeadingRef} tabIndex={-1}>
-            {pausedBroadcastSession.target === 'people' ? '당첨자 추첨' : '상품 추첨'} 세션
+          <h2 id="roulette-paused-session-title">
+            {pausedBroadcastSession.target === 'people'
+              ? '당첨자 추첨'
+              : '상품 추첨'} 세션
           </h2>
         </div>
         <dl className="roulette-session-hub__meta">
-          <div><dt>진행</dt><dd>{pausedSessionResults.length}/{pausedBroadcastSession.goal}</dd></div>
-          <div><dt>현재 후보</dt><dd>{pausedSessionCandidateCount}{pausedBroadcastSession.target === 'people' ? '명' : '종'}</dd></div>
-          <div><dt>마지막 결과</dt><dd title={pausedSessionLastLabel}>{pausedSessionLastLabel}</dd></div>
+          <div>
+            <dt>진행</dt>
+            <dd>
+              {pausedSessionResults.length}/{pausedBroadcastSession.goal}
+            </dd>
+          </div>
+          <div>
+            <dt>현재 후보</dt>
+            <dd>
+              {pausedSessionCandidateCount}
+              {pausedBroadcastSession.target === 'people' ? '명' : '종'}
+            </dd>
+          </div>
+          <div>
+            <dt>마지막 결과</dt>
+            <dd title={pausedSessionLastLabel}>
+              {pausedSessionLastLabel}
+            </dd>
+          </div>
         </dl>
-        <div className="roulette-session-hub__actions" role="group" aria-label="일시정지한 추첨 동작">
-          <button className="preparation-preview__primary" type="button" onClick={resumePausedBroadcast}>
-            {pausedSessionResults.length > 0 ? '세션 계속하기' : '방송 화면 다시 열기'}
+        <div
+          className="roulette-session-hub__actions"
+          role="group"
+          aria-label="일시정지한 추첨 동작"
+        >
+          <button
+            className="preparation-preview__primary"
+            type="button"
+            onClick={resumePausedBroadcast}
+          >
+            {pausedSessionResults.length > 0
+              ? '세션 계속하기'
+              : '방송 화면 다시 열기'}
           </button>
-          <button className="compact-button" type="button" onClick={startNewBroadcast}>현재 설정으로 새 세션</button>
-          <button className="compact-button compact-button--danger" type="button" onClick={discardPausedBroadcast}>세션 종료</button>
+          <button
+            className="compact-button"
+            type="button"
+            onClick={startNewBroadcast}
+          >
+            현재 설정으로 새 세션
+          </button>
+          <button
+            className="compact-button compact-button--danger"
+            type="button"
+            onClick={discardPausedBroadcast}
+          >
+            세션 종료
+          </button>
         </div>
       </section>
     ) : null;
+    const pausedSessionSecondaryActions = pausedBroadcastSession ? (
+      <>
+        <button
+          className="compact-button"
+          type="button"
+          onClick={startNewBroadcast}
+        >
+          새 세션
+        </button>
+        <button
+          className="compact-button compact-button--danger"
+          type="button"
+          onClick={discardPausedBroadcast}
+        >
+          세션 종료
+        </button>
+      </>
+    ) : undefined;
     const runPreparationAction = () => {
       if (pausedBroadcastSession) {
         resumePausedBroadcast();
@@ -2808,8 +2992,34 @@ export function RouletteGame({
                     disabled={editorOpen || !isConfigurationEditable}
                   />
                 )}
-                essentialSettings={renderRoundSettings(true)}
+                essentialSettings={(
+                  <RoundSetupPanel
+                    {...roundSetupProps}
+                    rosterManagedExternally
+                    includeAdvancedSettings={false}
+                  />
+                )}
                 essentialSettingsLabel="추첨 설정"
+                advancedSettings={(
+                  <RoundSetupAdvancedSettings {...roundSetupProps} />
+                )}
+                advancedSettingsLabel="세부 설정"
+                advancedSettingsDescription={
+                  describeRoundSetupAdvancedSettings({
+                    target: drawTarget,
+                    useWeights,
+                    removeAfterDraw,
+                    poolLimit,
+                    rewardLabel,
+                  })
+                }
+                defaultAdvancedSettingsOpen={
+                  drawTarget === 'people' && (
+                    useWeights ||
+                    poolLimit > 0 ||
+                    Boolean(rewardLabel.trim())
+                  )
+                }
                 previewHeader={(
                   <div className="roulette-preview-heading">
                     <span>방송 캔버스</span>
@@ -2853,44 +3063,38 @@ export function RouletteGame({
                     </span>
                   </div>
                 )}
-                readiness={(
-                  <div
-                    className={`roulette-readiness${
-                      pausedBroadcastSession || preparationReady ? ' is-ready' : ' is-blocked'
-                    }`}
-                  >
-                    <span aria-hidden="true" />
-                    <div>
-                      <strong>
-                        {pausedBroadcastSession
-                          ? '추첨 세션 일시정지'
-                          : lastEndedSessionNotice
-                            ? `이전 추첨 세션 종료 · ${preparation.statusLabel}`
-                            : preparation.statusLabel}
-                      </strong>
-                      <small>
-                        {pausedBroadcastSession
-                          ? `진행 ${pausedSessionResults.length}/${pausedBroadcastSession.goal} · 계속하거나 명시적으로 종료하세요.`
-                          : lastEndedSessionNotice
-                            ? `${lastEndedSessionNotice} 현재 준비 상태: ${preparationReady ? '방송 화면을 열 수 있습니다.' : preparation.ctaLabel}`
-                          : preparationReady
-                            ? '방송 화면을 열어 대기 상태로 전환합니다.'
-                            : preparation.ctaLabel}
-                      </small>
-                    </div>
-                  </div>
-                )}
-                primaryAction={pausedSessionHub ?? (
-                  <button
-                    className="preparation-preview__primary"
-                    type="button"
-                    onClick={runPreparationAction}
-                  >
-                    {preparationReady
+                readinessModel={{
+                  tone: pausedBroadcastSession
+                    ? 'recoverable'
+                    : preparationReady
+                      ? 'ready'
+                      : 'blocked',
+                  label: pausedBroadcastSession
+                    ? '추첨 세션 일시정지'
+                    : lastEndedSessionNotice
+                      ? `이전 추첨 세션 종료 · ${preparation.statusLabel}`
+                      : preparation.statusLabel,
+                  detail: pausedBroadcastSession
+                    ? `진행 ${pausedSessionResults.length}/${pausedBroadcastSession.goal} · 후보 ${pausedSessionCandidateCount}${pausedBroadcastSession.target === 'people' ? '명' : '종'} · 최근 ${pausedSessionLastLabel}`
+                    : lastEndedSessionNotice
+                      ? `${lastEndedSessionNotice} 현재 준비 상태: ${preparationReady ? '방송 화면을 열 수 있습니다.' : preparation.ctaLabel}`
+                      : preparationReady
+                        ? '방송 화면을 열어 대기 상태로 전환합니다.'
+                        : preparation.ctaLabel,
+                }}
+                secondaryActions={pausedSessionSecondaryActions}
+                primaryActionModel={{
+                  label: pausedBroadcastSession
+                    ? pausedSessionResults.length > 0
+                      ? '세션 계속하기'
+                      : '방송 화면 다시 열기'
+                    : preparationReady
                       ? '방송 화면 열기'
-                      : preparation.ctaLabel}
-                  </button>
-                )}
+                      : preparation.ctaLabel,
+                  disabled: false,
+                  busy: false,
+                  onPress: runPreparationAction,
+                }}
               />
             </div>
 

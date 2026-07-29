@@ -22,12 +22,21 @@ import {
 } from "./_platform/catalog";
 import { extractNaverCafeCommentAuthors } from "./_platform/cafeCommentParser";
 import {
+  INITIAL_GAME_HOST_STATE,
+  isGameSwitchLocked,
+  type GameHostState,
+} from "./_platform/contracts";
+import {
+  createSharedRosterSnapshot,
+  reconcileSharedRosterSnapshot,
+  sharedRosterSnapshotText,
+} from "./_platform/sharedRosterSnapshot";
+import {
   DEFAULT_SHARED_ROSTER,
   hasStoredStreamerThemeChoice,
   readPlatformPreferences,
-  writeDuplicateNamePolicy,
   writeLastGame,
-  writeSharedRoster,
+  writeSharedRosterSnapshot,
   writeStreamerTheme,
   writeStreamerThemeChoice,
 } from "./_platform/storage";
@@ -75,6 +84,35 @@ type WindowWithIdleCallback = Window & {
 };
 
 const THEME_PORTRAIT_IDLE_TIMEOUT_MS = 1_500;
+
+type GameHostStateByGame = Record<GameId, GameHostState>;
+type GameHostStateHandlers = Record<
+  GameId,
+  (state: GameHostState) => void
+>;
+type LegacyActivityHandlers = Record<
+  GameId,
+  (active: boolean) => void
+>;
+
+function createInitialGameHostStateByGame(): GameHostStateByGame {
+  return GAME_CATALOG.reduce((states, game) => {
+    states[game.id] = { ...INITIAL_GAME_HOST_STATE };
+    return states;
+  }, {} as GameHostStateByGame);
+}
+
+function gameHostStatesEqual(
+  first: GameHostState,
+  second: GameHostState,
+): boolean {
+  return (
+    first.lifecycle === second.lifecycle &&
+    first.statusLabel === second.statusLabel &&
+    first.sessionId === second.sessionId &&
+    first.runId === second.runId
+  );
+}
 
 type SharedRosterDialogProps = {
   rosterText: string;
@@ -582,8 +620,9 @@ function SharedRosterDialog({
 
 export function ExlabApp() {
   const [gameId, setGameId] = useState<GameId>(DEFAULT_GAME_ID);
-  const [rosterText, setRosterText] = useState(DEFAULT_SHARED_ROSTER);
-  const [allowDuplicateNames, setAllowDuplicateNames] = useState(false);
+  const [roster, setRoster] = useState(() =>
+    createSharedRosterSnapshot(DEFAULT_SHARED_ROSTER, false)
+  );
   const [themeSelection, dispatchThemeSelection] = useReducer(
     themeSelectionReducer,
     undefined,
@@ -594,12 +633,13 @@ export function ExlabApp() {
   const [visitedGameIds, setVisitedGameIds] = useState<Set<GameId>>(
     () => new Set(),
   );
-  const [activityByGame, setActivityByGame] = useState<
-    Record<GameId, boolean>
-  >({
-    roulette: false,
-    showdown: false,
-  });
+  const [hostStateByGame, setHostStateByGame] =
+    useState<GameHostStateByGame>(createInitialGameHostStateByGame);
+  const rosterText = useMemo(
+    () => sharedRosterSnapshotText(roster),
+    [roster],
+  );
+  const allowDuplicateNames = roster.allowDuplicateNames;
   const streamerThemeDraftId = themeSelection.draftId;
   const activeStreamerThemeId =
     effectiveStreamerThemeId(themeSelection);
@@ -629,8 +669,7 @@ export function ExlabApp() {
         );
         const preferences = readPlatformPreferences(window.localStorage);
         setGameId(preferences.gameId);
-        setRosterText(preferences.rosterText);
-        setAllowDuplicateNames(preferences.allowDuplicateNames);
+        setRoster(preferences.roster);
         dispatchThemeSelection({
           type: "hydrate",
           themeId: preferences.streamerThemeId,
@@ -697,11 +736,11 @@ export function ExlabApp() {
   useEffect(() => {
     if (!preferencesReady) return;
     try {
-      writeSharedRoster(window.localStorage, rosterText);
+      writeSharedRosterSnapshot(window.localStorage, roster);
     } catch {
       // The controlled roster remains valid for this tab.
     }
-  }, [preferencesReady, rosterText]);
+  }, [preferencesReady, roster]);
 
   useEffect(() => {
     if (!preferencesReady) return;
@@ -712,38 +751,54 @@ export function ExlabApp() {
     }
   }, [gameId, preferencesReady]);
 
-  useEffect(() => {
-    if (!preferencesReady) return;
-    try {
-      writeDuplicateNamePolicy(
-        window.localStorage,
-        allowDuplicateNames,
-      );
-    } catch {
-      // The in-memory policy still applies for this tab.
-    }
-  }, [allowDuplicateNames, preferencesReady]);
-
   const selectedGame = useMemo(() => gameCatalogEntry(gameId), [gameId]);
-  const gameActive = activityByGame[gameId];
-  const navigationLocked = gameActive || rosterEditorOpen;
-  const activityHandlers = useMemo<
-    Record<GameId, (active: boolean) => void>
-  >(
-    () => ({
-      roulette: (active) =>
-        setActivityByGame((current) =>
-          current.roulette === active
-            ? current
-            : { ...current, roulette: active },
-        ),
-      showdown: (active) =>
-        setActivityByGame((current) =>
-          current.showdown === active
-            ? current
-            : { ...current, showdown: active },
-        ),
-    }),
+  const selectedHostState =
+    hostStateByGame[gameId] ?? INITIAL_GAME_HOST_STATE;
+  const navigationLocked =
+    isGameSwitchLocked(selectedHostState.lifecycle) || rosterEditorOpen;
+  const hostStateHandlers = useMemo<GameHostStateHandlers>(
+    () =>
+      GAME_CATALOG.reduce((handlers, game) => {
+        handlers[game.id] = (nextState) => {
+          setHostStateByGame((current) => {
+            const previous =
+              current[game.id] ?? INITIAL_GAME_HOST_STATE;
+            if (gameHostStatesEqual(previous, nextState)) return current;
+            return {
+              ...current,
+              [game.id]: nextState,
+            };
+          });
+        };
+        return handlers;
+      }, {} as GameHostStateHandlers),
+    [],
+  );
+  const legacyActivityHandlers = useMemo<LegacyActivityHandlers>(
+    () =>
+      GAME_CATALOG.reduce((handlers, game) => {
+        handlers[game.id] = (active) => {
+          setHostStateByGame((current) => {
+            const previous =
+              current[game.id] ?? INITIAL_GAME_HOST_STATE;
+            if (
+              isGameSwitchLocked(previous.lifecycle) === active
+            ) {
+              return current;
+            }
+            return {
+              ...current,
+              [game.id]: active
+                ? {
+                    lifecycle: "active",
+                    statusLabel: "진행 중",
+                  }
+                : INITIAL_GAME_HOST_STATE,
+            };
+          });
+        };
+        return handlers;
+      }, {} as LegacyActivityHandlers),
     [],
   );
 
@@ -796,12 +851,13 @@ export function ExlabApp() {
     setRosterEditorOpen(false);
   }, []);
   const openRosterEditor = useCallback(() => {
+    if (navigationLocked) return;
     rosterTriggerRef.current =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
     setRosterEditorOpen(true);
-  }, []);
+  }, [navigationLocked]);
   const openStreamerThemePicker = useCallback(() => {
     if (navigationLocked || !preferencesReady) return;
     themeReturnFocusRef.current = themeTriggerRef.current;
@@ -893,7 +949,9 @@ export function ExlabApp() {
               id="game-switch-lock"
               role="status"
             >
-              {rosterEditorOpen ? "명단 편집 중" : "진행 중"}
+              {rosterEditorOpen
+                ? "명단 편집 중"
+                : selectedHostState.statusLabel ?? "진행 중"}
             </span>
           )}
         </div>
@@ -930,14 +988,33 @@ export function ExlabApp() {
                 >
                   <GameSurface
                     embedded
+                    visible={isActiveGame}
                     active={isActiveGame}
                     streamerThemeId={activeStreamerThemeId}
+                    roster={roster}
                     rosterText={rosterText}
-                    onRosterTextChange={setRosterText}
+                    onRosterTextChange={(nextRosterText) =>
+                      setRoster((current) =>
+                        reconcileSharedRosterSnapshot(
+                          current,
+                          nextRosterText,
+                          current.allowDuplicateNames,
+                        )
+                      )
+                    }
                     allowDuplicateNames={allowDuplicateNames}
-                    onAllowDuplicateNamesChange={setAllowDuplicateNames}
+                    onAllowDuplicateNamesChange={(allow) =>
+                      setRoster((current) =>
+                        reconcileSharedRosterSnapshot(
+                          current,
+                          sharedRosterSnapshotText(current),
+                          allow,
+                        )
+                      )
+                    }
                     onRequestRosterEdit={openRosterEditor}
-                    onActivityChange={activityHandlers[game.id]}
+                    onHostStateChange={hostStateHandlers[game.id]}
+                    onActivityChange={legacyActivityHandlers[game.id]}
                   />
                 </Suspense>
               </div>
@@ -956,8 +1033,13 @@ export function ExlabApp() {
           allowDuplicateNames={allowDuplicateNames}
           onCancel={closeRosterEditor}
           onSave={(nextRosterText, nextDuplicatePolicy) => {
-            setRosterText(nextRosterText);
-            setAllowDuplicateNames(nextDuplicatePolicy);
+            setRoster((current) =>
+              reconcileSharedRosterSnapshot(
+                current,
+                nextRosterText,
+                nextDuplicatePolicy,
+              )
+            );
             closeRosterEditor();
           }}
         />

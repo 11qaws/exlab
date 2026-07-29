@@ -5,7 +5,34 @@ import {
   type SyntheticEvent,
 } from "react";
 
+import {
+  SetupPrimaryActionButton,
+  SetupReadinessStatus,
+  type SetupPrimaryActionModel,
+  type SetupReadinessModel,
+} from "./SetupControls";
 import "./SetupWorkspace.css";
+
+export {
+  SETUP_OPTION_GROUP_KINDS,
+  SETUP_CHOICE_CONTROL_VARIANTS,
+  SETUP_READINESS_TONES,
+  SetupChoiceControl,
+  SetupOptionGroup,
+  SetupOptionRow,
+  SetupPrimaryActionButton,
+  SetupReadinessStatus,
+  type SetupOptionGroupKind,
+  type SetupChoiceControlProps,
+  type SetupChoiceControlVariant,
+  type SetupOptionGroupProps,
+  type SetupOptionRowProps,
+  type SetupPrimaryActionButtonProps,
+  type SetupPrimaryActionModel,
+  type SetupReadinessModel,
+  type SetupReadinessStatusProps,
+  type SetupReadinessTone,
+} from "./SetupControls";
 
 type ControlledAdvancedSettings = {
   advancedSettingsOpen: boolean;
@@ -40,14 +67,35 @@ type SetupWorkspaceBaseProps = {
   previewTools?: ReactNode;
   previewStage: ReactNode;
   previewFooter?: ReactNode;
-  readiness: ReactNode;
   readinessLabel?: string;
-  primaryAction: ReactNode;
+  secondaryActions?: ReactNode;
   busy?: boolean;
 };
 
+type LegacyReadinessContent = {
+  readiness: ReactNode;
+  readinessModel?: never;
+};
+
+type StructuredReadinessContent = {
+  readiness?: never;
+  readinessModel: SetupReadinessModel;
+};
+
+type LegacyPrimaryActionContent = {
+  primaryAction: ReactNode;
+  primaryActionModel?: never;
+};
+
+type StructuredPrimaryActionContent = {
+  primaryAction?: never;
+  primaryActionModel: SetupPrimaryActionModel;
+};
+
 export type SetupWorkspaceProps = SetupWorkspaceBaseProps
-  & (ControlledAdvancedSettings | UncontrolledAdvancedSettings);
+  & (ControlledAdvancedSettings | UncontrolledAdvancedSettings)
+  & (LegacyReadinessContent | StructuredReadinessContent)
+  & (LegacyPrimaryActionContent | StructuredPrimaryActionContent);
 
 /**
  * Shared exlab setup frame.
@@ -78,8 +126,11 @@ export function SetupWorkspace({
   previewStage,
   previewFooter,
   readiness,
+  readinessModel,
   readinessLabel = "시작 준비 상태",
+  secondaryActions,
   primaryAction,
+  primaryActionModel,
   busy = false,
 }: SetupWorkspaceProps) {
   const generatedId = useId();
@@ -100,6 +151,11 @@ export function SetupWorkspace({
     advancedSettingsOpen !== undefined;
   const resolvedAdvancedSettingsOpen =
     advancedSettingsOpen ?? uncontrolledAdvancedOpen;
+  const resolvedBusy = Boolean(
+    busy
+    || readinessModel?.tone === "busy"
+    || primaryActionModel?.busy,
+  );
 
   const handleAdvancedSettingsToggle = (
     event: SyntheticEvent<HTMLDetailsElement>,
@@ -114,14 +170,15 @@ export function SetupWorkspace({
     <section
       className={rootClassName}
       aria-labelledby={titleId}
-      aria-busy={busy || undefined}
-      data-busy={busy ? "true" : "false"}
+      aria-busy={resolvedBusy || undefined}
+      data-busy={resolvedBusy ? "true" : "false"}
       data-has-advanced={hasAdvancedSettings ? "true" : "false"}
+      data-readiness-tone={readinessModel?.tone}
     >
       <aside
         className="exlab-setup-workspace__settings"
         aria-label="설정"
-        inert={busy || undefined}
+        inert={resolvedBusy || undefined}
       >
         <header className="exlab-setup-workspace__intro">
           {eyebrow != null && (
@@ -239,15 +296,39 @@ export function SetupWorkspace({
           aria-live="polite"
           aria-atomic="true"
           aria-label={readinessLabel}
+          aria-busy={resolvedBusy || undefined}
+          data-tone={readinessModel?.tone}
         >
-          {readiness}
+          {readinessModel != null ? (
+            <SetupReadinessStatus {...readinessModel} />
+          ) : (
+            readiness
+          )}
         </div>
-        <div
-          className="exlab-setup-workspace__primary-action"
-          role="group"
-          aria-label="주요 실행"
-        >
-          {primaryAction}
+        <div className="exlab-setup-workspace__action-cluster">
+          {secondaryActions != null && (
+            <div
+              className="exlab-setup-workspace__secondary-actions"
+              role="group"
+              aria-label="보조 실행"
+            >
+              {secondaryActions}
+            </div>
+          )}
+          <div
+            className="exlab-setup-workspace__primary-action"
+            role="group"
+            aria-label="주요 실행"
+          >
+            {primaryActionModel != null ? (
+              <SetupPrimaryActionButton
+                {...primaryActionModel}
+                busy={resolvedBusy}
+              />
+            ) : (
+              primaryAction
+            )}
+          </div>
         </div>
       </footer>
     </section>

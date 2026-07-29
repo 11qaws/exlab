@@ -8,12 +8,15 @@ export const MAX_SHARED_NAME_LENGTH = 40;
  * repeated whitespace, and case must not create visually duplicate entries
  * through a different game-specific input path.
  */
-export function sharedRosterNameKey(value: string): string {
+export function normalizeSharedRosterName(value: string): string {
   return value
     .normalize("NFKC")
     .replace(/\s+/gu, " ")
-    .trim()
-    .toLocaleLowerCase("ko-KR");
+    .trim();
+}
+
+export function sharedRosterNameKey(value: string): string {
+  return normalizeSharedRosterName(value).toLocaleLowerCase("ko-KR");
 }
 
 export function sharedRosterNameLength(value: string): number {

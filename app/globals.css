@@ -860,6 +860,22 @@ body {
   display: none;
 }
 
+@media (min-width: 901px) {
+  .exlab-game-instance {
+    block-size: calc(
+      100dvh - var(--exlab-header-height)
+    );
+    min-block-size: 0;
+    overflow: hidden;
+  }
+
+  .exlab-game-instance
+    > :is(.roulette-game, .showdown-game) {
+    block-size: 100%;
+    min-block-size: 0;
+  }
+}
+
 .exlab-game-instance > .preparation-screen,
 .exlab-game-instance > .race-screen,
 .exlab-game-instance > .result-screen {

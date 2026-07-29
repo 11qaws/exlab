@@ -222,10 +222,26 @@ test("embedded Roulette pauses previews and locks navigation while editing a ros
     ),
   ]);
 
-  assert.match(gameSource, /active\?: boolean;/);
   assert.match(
     gameSource,
-    /broadcastSession !== null \|\| raffleStatus === 'roster'/,
+    /export type RouletteGameProps = EmbeddedGameProps;/,
+  );
+  assert.match(
+    gameSource,
+    /active = visible \?\? true/,
+  );
+  assert.match(
+    gameSource,
+    /raffleStatus === 'ready'[\s\S]*?lifecycle: 'waiting'[\s\S]*?raffleStatus === 'locking'[\s\S]*?lifecycle: 'active'[\s\S]*?raffleStatus === 'presenting'[\s\S]*?lifecycle: 'settling'/,
+  );
+  assert.match(
+    gameSource,
+    /raffleStatus === 'roster'[\s\S]*?setupReturnStatus !== 'configuring'[\s\S]*?setupReturnStatus === 'completed'[\s\S]*?'result'[\s\S]*?'waiting'/,
+    "editing a live or completed roster must preserve the host navigation lock",
+  );
+  assert.match(
+    gameSource,
+    /onHostStateChange\?\.\(hostState\)/,
   );
   assert.match(gameSource, /enabled=\{active\}/);
   assert.match(
@@ -331,9 +347,12 @@ test("Roulette preserves unfinished progress but closes completed sessions", asy
     /<CurrentRoundWinners[\s\S]*?announcement=""/,
     "the conditional result board must not duplicate the persistent live region",
   );
-  assert.match(source, /winnerGoal=\{setupWinnerGoal\}/);
-  assert.match(source, /maximumWinnerGoal=\{setupMaximumWinnerGoal\}/);
-  assert.match(source, /setupSessionHeadingRef\.current\?\.focus\(\)/);
+  assert.match(source, /winnerGoal:\s*setupWinnerGoal/);
+  assert.match(source, /maximumWinnerGoal:\s*setupMaximumWinnerGoal/);
+  assert.match(
+    source,
+    /if \(shouldPauseSession\) \{\s*focusPreparationPrimary\(\);\s*\}/,
+  );
   assert.match(
     source,
     /completedPrimaryActionRef\.current\?\.focus\(\{ preventScroll: true \}\)/,
@@ -640,13 +659,133 @@ test("compact Roulette and Dart reserve screen space for boundary names", async 
   );
   assert.match(
     embedCss,
-    /@media \(min-width: 901px\) and \(max-height: 780px\)[\s\S]*?app-shell\.app-shell--live\.is-embedded:has\([\s\S]*?broadcast-focus\.is-completed[\s\S]*?height:\s*calc\(100dvh - var\(--exlab-header-height\)\)[\s\S]*?margin:\s*0/,
-    "the integrated compact completed board must keep the shared viewport height",
+    /@media \(min-width: 901px\) and \(max-height: 780px\)[\s\S]*?app-shell\.app-shell--live\.is-embedded:has\([\s\S]*?broadcast-focus\.is-completed[\s\S]*?height:\s*100% !important[\s\S]*?margin:\s*0/,
+    "the integrated compact completed board must inherit the shared host height",
   );
   assert.match(
     embedCss,
     /@media \(min-width: 901px\) and \(max-width: 1179px\) and \(max-height: 820px\)[\s\S]*?--round-setup-control-row-size:\s*56px[\s\S]*?margin-block-start:\s*12px/,
     "short medium-width setup screens must compact before they overflow",
+  );
+});
+
+test("embedded Roulette delegates advanced controls to the shared setup workspace", async () => {
+  const [
+    gameSource,
+    setupSource,
+    setupCss,
+    embedCss,
+    workspaceCss,
+    preparationCss,
+  ] = await Promise.all([
+    readFile(
+      new URL("../app/games/roulette/RouletteGame.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/games/roulette/components/RoundSetupPanel.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/games/roulette/components/RoundSetupPanel.css",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/games/roulette/styles/roulette-embed.css",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/_platform/components/SetupWorkspace.css",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/games/roulette/styles/roulette-preparation.css",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(
+    gameSource,
+    /essentialSettings=\{\([\s\S]*?<RoundSetupPanel[\s\S]*?includeAdvancedSettings=\{false\}[\s\S]*?advancedSettings=\{\([\s\S]*?<RoundSetupAdvancedSettings/,
+    "embedded Roulette should expose essential and advanced controls through separate shared slots",
+  );
+  assert.match(
+    setupSource,
+    /export function RoundSetupAdvancedSettings/,
+    "the same typed setup props should drive the extracted advanced controls",
+  );
+  assert.match(
+    setupSource,
+    /\{includeAdvancedSettings && \([\s\S]*?<details[\s\S]*?<RoundSetupAdvancedSettings \{\.\.\.props\} \/>/,
+    "standalone Roulette should retain its local advanced disclosure",
+  );
+  assert.match(
+    setupSource,
+    /aria-label="후보 수"[\s\S]*?onPoolLimitChange\([\s\S]*?Number\(event\.target\.value\)/,
+    "large candidate pools should allow direct numeric entry inside the shared stepper geometry",
+  );
+  assert.match(
+    setupSource,
+    /aria-label=\{`\$\{participant\.name\} 추첨권`\}[\s\S]*?onParticipantWeightChange\([\s\S]*?Number\(event\.target\.value\)/,
+    "participant weights should not require dozens of one-step clicks",
+  );
+
+  const essentialSource = setupSource.slice(
+    setupSource.indexOf("export default function RoundSetupPanel"),
+  );
+  const textPosition = essentialSource.indexOf('kind="text"');
+  const choicePosition = essentialSource.indexOf('kind="choice"');
+  const numberPosition = essentialSource.indexOf('kind="number"');
+  assert.ok(
+    textPosition >= 0 &&
+      textPosition < choicePosition &&
+      choicePosition < numberPosition,
+    "text, choice, and numeric controls should follow the shared type order",
+  );
+  assert.match(
+    setupCss,
+    /\.roulette-setup-workspace \.round-setup--compact\s*\{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/,
+    "embedded input groups should use the shared dividers instead of another card",
+  );
+  assert.match(
+    embedCss,
+    /@media \(min-width:\s*901px\)[\s\S]*?\.roulette-shared-setup\s*\{[\s\S]*?block-size:\s*100%;[\s\S]*?overflow:\s*hidden/,
+    "the embedded shell should own the available desktop height",
+  );
+  assert.match(
+    workspaceCss,
+    /@media \(min-width:\s*901px\)[\s\S]*?\.exlab-setup-workspace\s*\{[\s\S]*?overflow:\s*hidden[\s\S]*?\.exlab-setup-workspace__advanced-content\s*\{[\s\S]*?overflow-y:\s*auto/,
+    "opening advanced controls must stay inside the desktop setup viewport",
+  );
+  assert.doesNotMatch(
+    preparationCss,
+    /\.roulette-setup-workspace\s*\{[\s\S]*?grid-template-areas:/,
+    "Roulette mobile should keep the common settings, preview, advanced, actions order",
+  );
+  assert.match(
+    setupCss,
+    /\.roulette-setup-workspace\s+\.round-setup__advanced-body\s*\{[\s\S]*?max-block-size:\s*none;[\s\S]*?overflow:\s*visible;/,
+    "embedded mobile advanced options should use the document flow",
+  );
+  assert.match(
+    setupCss,
+    /\.roulette-setup-workspace\s+\.round-setup__prizes\s*\{[\s\S]*?overflow:\s*visible;/,
+    "embedded product editing should have one settings scroll owner",
   );
 });
 

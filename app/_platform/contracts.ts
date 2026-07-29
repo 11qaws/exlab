@@ -1,3 +1,6 @@
+import type { SharedRosterSnapshot } from "./sharedRosterSnapshot";
+import type { StreamerThemeId } from "./theme/streamerThemes";
+
 /**
  * Shared lifecycle vocabulary for every exlab game.
  *
@@ -18,12 +21,12 @@ export const GAME_LIFECYCLE_STATES = [
 export type GameLifecycleState = (typeof GAME_LIFECYCLE_STATES)[number];
 
 export const GAME_LIFECYCLE_TRANSITIONS = {
-  editing: ["generating"],
-  generating: ["waiting", "editing"],
+  editing: ["generating", "waiting"],
+  generating: ["waiting", "editing", "failed"],
   waiting: ["active", "editing"],
   active: ["settling", "failed"],
-  settling: ["result"],
-  result: ["generating", "editing"],
+  settling: ["result", "failed"],
+  result: ["generating", "waiting", "active", "editing"],
   failed: ["editing"],
 } as const satisfies Readonly<
   Record<GameLifecycleState, readonly GameLifecycleState[]>
@@ -43,6 +46,23 @@ export function isGameSwitchLocked(state: GameLifecycleState): boolean {
     state,
   );
 }
+
+/**
+ * Runtime projection reported by a game adapter to the common shell.
+ *
+ * `lifecycle` is the single source of truth for navigation locking. Labels are
+ * presentation-only and must never be used to infer lifecycle transitions.
+ */
+export type GameHostState = {
+  lifecycle: GameLifecycleState;
+  statusLabel?: string;
+  sessionId?: string;
+  runId?: string;
+};
+
+export const INITIAL_GAME_HOST_STATE: GameHostState = {
+  lifecycle: "editing",
+};
 
 export type GameCapabilities = {
   grouping: false | "optional" | "required";
@@ -64,21 +84,48 @@ export type GameCatalogEntry<TId extends string = string> = {
 };
 
 /**
- * Minimum adapter contract between the common shell and a game engine.
+ * Required adapter contract for a game mounted by the Ex Lab shell.
  *
- * `onActivityChange(true)` means leaving this game would discard or interrupt a
- * prepared/running/result session, so the common game switcher must be locked.
+ * Standalone wrappers may make these values optional and provide local state,
+ * but the embedded surface receives one stable roster snapshot and reports an
+ * explicit lifecycle instead of a lossy activity boolean.
  */
-export type EmbeddedGameProps = {
-  embedded?: boolean;
-  active?: boolean;
-  rosterText: string;
-  onRosterTextChange: (nextRosterText: string) => void;
-  allowDuplicateNames: boolean;
-  onAllowDuplicateNamesChange: (allow: boolean) => void;
+export type EmbeddedGameHostProps = {
+  embedded: true;
+  visible: boolean;
+  streamerThemeId: StreamerThemeId;
+  roster: SharedRosterSnapshot;
   onRequestRosterEdit: () => void;
-  onActivityChange: (active: boolean) => void;
+  onHostStateChange: (state: GameHostState) => void;
 };
+
+/**
+ * One-release compatibility bridge for the two former standalone engines.
+ * New shell integrations must use `EmbeddedGameHostProps`.
+ */
+export type LegacyEmbeddedGameProps = {
+  /** @deprecated Use `visible`. */
+  active?: boolean;
+  /** @deprecated Read names and ids from `roster`. */
+  rosterText?: string;
+  /** @deprecated The policy is part of `roster`. */
+  allowDuplicateNames?: boolean;
+  /** @deprecated Embedded games request the shared editor instead. */
+  onRosterTextChange?: (nextRosterText: string) => void;
+  /** @deprecated Embedded games request the shared editor instead. */
+  onAllowDuplicateNamesChange?: (allow: boolean) => void;
+  /** @deprecated Report `onHostStateChange` with a lifecycle. */
+  onActivityChange?: (active: boolean) => void;
+};
+
+type StandaloneGameProps =
+  & Omit<Partial<EmbeddedGameHostProps>, "embedded">
+  & { embedded?: false | undefined }
+  & LegacyEmbeddedGameProps;
+
+export type EmbeddedGameProps =
+  | (EmbeddedGameHostProps & LegacyEmbeddedGameProps)
+  | StandaloneGameProps;
 
 export type JsonValue =
   | null

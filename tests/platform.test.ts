@@ -15,6 +15,7 @@ import {
   GAME_LIFECYCLE_STATES,
   GAME_LIFECYCLE_TRANSITIONS,
   isGameSwitchLocked,
+  type EmbeddedGameProps,
 } from "../app/_platform/contracts";
 import {
   LEGACY_PLATFORM_STORAGE_KEYS,
@@ -24,9 +25,14 @@ import {
   writeDuplicateNamePolicy,
   writeLastGame,
   writeSharedRoster,
+  writeSharedRosterSnapshot,
   writeStreamerTheme,
   writeStreamerThemeChoice,
 } from "../app/_platform/storage";
+import {
+  createSharedRosterSnapshot,
+  sharedRosterSnapshotText,
+} from "../app/_platform/sharedRosterSnapshot";
 import {
   DEFAULT_STREAMER_THEME_ID,
 } from "../app/_platform/theme/streamerThemes";
@@ -36,6 +42,12 @@ import {
   sharedRosterNameLength,
   validateSharedRosterDraft,
 } from "../app/_platform/roster";
+
+const standaloneGameProps: EmbeddedGameProps = {};
+// @ts-expect-error Embedded games must receive the complete host contract.
+const incompleteEmbeddedGameProps: EmbeddedGameProps = { embedded: true };
+void standaloneGameProps;
+void incompleteEmbeddedGameProps;
 
 class MemoryStorage implements Storage {
   readonly values = new Map<string, string>();
@@ -103,22 +115,78 @@ test("platform lifecycle locks every state that owns a run", () => {
     "active",
     "editing",
   ]);
+  assert.deepEqual(GAME_LIFECYCLE_TRANSITIONS.result, [
+    "generating",
+    "waiting",
+    "active",
+    "editing",
+  ]);
 });
 
-test("shared roster migrates once without deleting the legacy Race roster", () => {
+test("host uses catalog-driven lifecycle and one shared roster snapshot", async () => {
+  const appSource = await readFile(
+    new URL("../app/ExlabApp.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    appSource,
+    /GAME_CATALOG\.reduce\(\(states, game\) =>/,
+  );
+  assert.match(
+    appSource,
+    /useState<GameHostStateByGame>\(createInitialGameHostStateByGame\)/,
+  );
+  assert.match(
+    appSource,
+    /isGameSwitchLocked\(selectedHostState\.lifecycle\) \|\| rosterEditorOpen/,
+  );
+  assert.match(
+    appSource,
+    /const openRosterEditor = useCallback\(\(\) => \{\s*if \(navigationLocked\) return;/,
+  );
+  assert.match(appSource, /roster=\{roster\}/);
+  assert.match(appSource, /visible=\{isActiveGame\}/);
+  assert.match(
+    appSource,
+    /onHostStateChange=\{hostStateHandlers\[game\.id\]\}/,
+  );
+  assert.match(
+    appSource,
+    /setRoster\(\(current\) =>\s+reconcileSharedRosterSnapshot\(/,
+  );
+  assert.doesNotMatch(appSource, /activityByGame/);
+});
+
+test("shared roster migrates v1 text and policy without deleting legacy data", () => {
   const storage = new MemoryStorage();
   storage.setItem(
     PLATFORM_STORAGE_KEYS.legacyRaceRoster,
     "아모레또\n유레카",
   );
+  storage.setItem(
+    LEGACY_PLATFORM_STORAGE_KEYS.allowDuplicateNames,
+    "1",
+  );
 
   const first = readPlatformPreferences(storage);
-  assert.equal(first.rosterText, "아모레또\n유레카");
+  assert.equal(
+    sharedRosterSnapshotText(first.roster),
+    "아모레또\n유레카",
+  );
+  assert.equal(first.roster.allowDuplicateNames, true);
+  assert.equal(first.roster.schemaVersion, 2);
   assert.equal(
     storage.getItem(PLATFORM_STORAGE_KEYS.legacyRaceRoster),
     "아모레또\n유레카",
   );
   assert.equal(storage.getItem(PLATFORM_STORAGE_KEYS.rosterMigration), "1");
+  assert.equal(
+    JSON.parse(
+      storage.getItem(PLATFORM_STORAGE_KEYS.rosterSnapshot) ?? "{}",
+    ).schemaVersion,
+    2,
+  );
 
   writeSharedRoster(storage, "세나\n코코");
   assert.equal(
@@ -127,12 +195,14 @@ test("shared roster migrates once without deleting the legacy Race roster", () =
   );
   writeLastGame(storage, "roulette");
   writeDuplicateNamePolicy(storage, true);
-  assert.deepEqual(readPlatformPreferences(storage), {
-    rosterText: "세나\n코코",
-    gameId: "roulette",
-    allowDuplicateNames: true,
-    streamerThemeId: DEFAULT_STREAMER_THEME_ID,
-  });
+  const updated = readPlatformPreferences(storage);
+  assert.equal(sharedRosterSnapshotText(updated.roster), "세나\n코코");
+  assert.equal(updated.roster.allowDuplicateNames, true);
+  assert.equal(updated.gameId, "roulette");
+  assert.equal(
+    updated.streamerThemeId,
+    DEFAULT_STREAMER_THEME_ID,
+  );
 });
 
 test("canonical exlab preferences take priority over ex-lab values", () => {
@@ -146,12 +216,14 @@ test("canonical exlab preferences take priority over ex-lab values", () => {
   storage.setItem(PLATFORM_STORAGE_KEYS.streamerTheme, "sena");
   storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.streamerTheme, "eureka");
 
-  assert.deepEqual(readPlatformPreferences(storage), {
-    rosterText: "canonical roster",
-    gameId: "roulette",
-    allowDuplicateNames: false,
-    streamerThemeId: "sena",
-  });
+  const preferences = readPlatformPreferences(storage);
+  assert.equal(
+    sharedRosterSnapshotText(preferences.roster),
+    "canonical roster",
+  );
+  assert.equal(preferences.roster.allowDuplicateNames, false);
+  assert.equal(preferences.gameId, "roulette");
+  assert.equal(preferences.streamerThemeId, "sena");
 });
 
 test("previous ex-lab preferences remain readable as fallbacks", () => {
@@ -161,15 +233,61 @@ test("previous ex-lab preferences remain readable as fallbacks", () => {
   storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.allowDuplicateNames, "1");
   storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.streamerTheme, "eureka");
 
-  assert.deepEqual(readPlatformPreferences(storage), {
-    rosterText: "legacy roster",
-    gameId: "roulette",
-    allowDuplicateNames: true,
-    streamerThemeId: "eureka",
-  });
+  const preferences = readPlatformPreferences(storage);
+  assert.equal(
+    sharedRosterSnapshotText(preferences.roster),
+    "legacy roster",
+  );
+  assert.equal(preferences.roster.allowDuplicateNames, true);
+  assert.equal(preferences.gameId, "roulette");
+  assert.equal(preferences.streamerThemeId, "eureka");
   assert.equal(
     storage.getItem(PLATFORM_STORAGE_KEYS.roster),
     "legacy roster",
+  );
+});
+
+test("valid v2 roster snapshot takes priority over stale raw mirrors", () => {
+  const storage = new MemoryStorage();
+  const snapshot = createSharedRosterSnapshot(
+    "v2 첫째\nv2 둘째",
+    true,
+  );
+  writeSharedRosterSnapshot(storage, snapshot);
+  storage.setItem(PLATFORM_STORAGE_KEYS.roster, "stale v1 roster");
+  storage.setItem(
+    PLATFORM_STORAGE_KEYS.allowDuplicateNames,
+    "0",
+  );
+
+  assert.deepEqual(readPlatformPreferences(storage).roster, snapshot);
+  assert.equal(
+    storage.getItem(PLATFORM_STORAGE_KEYS.roster),
+    "v2 첫째\nv2 둘째",
+  );
+  assert.equal(
+    storage.getItem(PLATFORM_STORAGE_KEYS.allowDuplicateNames),
+    "1",
+  );
+});
+
+test("malformed v2 roster safely falls back to the v1 mirror", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(PLATFORM_STORAGE_KEYS.rosterSnapshot, "{broken");
+  storage.setItem(PLATFORM_STORAGE_KEYS.roster, "복구 명단");
+  storage.setItem(PLATFORM_STORAGE_KEYS.allowDuplicateNames, "1");
+
+  const preferences = readPlatformPreferences(storage);
+  assert.equal(
+    sharedRosterSnapshotText(preferences.roster),
+    "복구 명단",
+  );
+  assert.equal(preferences.roster.allowDuplicateNames, true);
+  assert.equal(
+    JSON.parse(
+      storage.getItem(PLATFORM_STORAGE_KEYS.rosterSnapshot) ?? "{}",
+    ).schemaVersion,
+    2,
   );
 });
 
@@ -277,6 +395,17 @@ test("platform writes mirror canonical, previous, and standalone keys", () => {
     storage.getItem(PLATFORM_STORAGE_KEYS.legacyRaceRoster),
     "아모레또\n유레카",
   );
+  const storedSnapshot = JSON.parse(
+    storage.getItem(PLATFORM_STORAGE_KEYS.rosterSnapshot) ?? "{}",
+  );
+  assert.equal(storedSnapshot.schemaVersion, 2);
+  assert.equal(storedSnapshot.allowDuplicateNames, true);
+  assert.deepEqual(
+    storedSnapshot.participants.map(
+      (participant: { name: string }) => participant.name,
+    ),
+    ["아모레또", "유레카"],
+  );
   assert.equal(storage.getItem(PLATFORM_STORAGE_KEYS.lastGame), "showdown");
   assert.equal(
     storage.getItem(LEGACY_PLATFORM_STORAGE_KEYS.lastGame),
@@ -353,9 +482,15 @@ test("game surfaces keep setup drafts mounted and isolate activity locks", async
     /GAME_CATALOG\s*\.filter\(\(game\)\s*=>\s*visitedGameIds\.has\(game\.id\)\s*\)\s*\.map\(\(game\)\s*=>\s*\{/,
   );
   assert.match(source, /hidden=\{!isActiveGame\}/);
+  assert.match(source, /visible=\{isActiveGame\}/);
   assert.match(source, /active=\{isActiveGame\}/);
-  assert.match(source, /Record<GameId, boolean>/);
-  assert.match(source, /activityByGame\[gameId\]/);
+  assert.match(source, /Record<GameId, GameHostState>/);
+  assert.match(source, /hostStateByGame\[gameId\]/);
+  assert.match(
+    source,
+    /isGameSwitchLocked\(selectedHostState\.lifecycle\)/,
+  );
+  assert.match(source, /roster=\{roster\}/);
   assert.match(source, /allowDuplicateNames=\{allowDuplicateNames\}/);
   assert.match(source, /lazy\(async \(\) => \{/);
   assert.match(source, /<SharedRosterDialog/);

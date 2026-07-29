@@ -7,6 +7,7 @@ import type {
   RosterOptions,
   RosterValidation,
 } from "./types";
+import { sharedRosterNameKey } from "../_platform/roster";
 import { STREAMER_COLOR_PALETTES } from "../_platform/theme/streamerPalettes";
 
 export const MIN_PARTICIPANTS = 2;
@@ -239,7 +240,7 @@ export function parseRoster(
   const duplicateCounts = new Map<string, number>();
   const duplicateNames = Array.from(
     acceptedNames.reduce((duplicates, name) => {
-      const key = name.toLocaleLowerCase("ko-KR");
+      const key = sharedRosterNameKey(name);
       const seen = duplicateCounts.get(key) ?? 0;
       duplicateCounts.set(key, seen + 1);
       if (seen > 0) duplicates.add(name);
@@ -249,12 +250,14 @@ export function parseRoster(
   duplicateCounts.clear();
 
   const candidates = acceptedNames.map((name, index) => {
-    const duplicateKey = name.toLocaleLowerCase("ko-KR");
+    const duplicateKey = sharedRosterNameKey(name);
     const duplicateIndex = (duplicateCounts.get(duplicateKey) ?? 0) + 1;
     duplicateCounts.set(duplicateKey, duplicateIndex);
     const identity = `${name}:${index}:${duplicateIndex}`;
     return {
-      id: `candidate-${index + 1}-${hashText(identity).toString(36)}`,
+      id:
+        options.participantIds?.[index]
+        ?? `candidate-${index + 1}-${hashText(identity).toString(36)}`,
       name,
       theme:
         resolveFixedParticipantTheme(name) ??

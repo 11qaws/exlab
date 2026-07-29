@@ -64,7 +64,9 @@ test("theme and shared setup choices expose selection and busy states", () => {
   );
   assert.equal(
     (
-      setupWorkspaceSource.match(/inert=\{busy \|\| undefined\}/g)
+      setupWorkspaceSource.match(
+        /inert=\{resolvedBusy \|\| undefined\}/g,
+      )
       ?? []
     ).length,
     1,
