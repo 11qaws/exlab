@@ -350,8 +350,12 @@
 }
 
 .roulette-session-hub__actions .compact-button--danger {
-  border-color: #dfb6b6;
-  color: #9f3535;
+  border-color: var(--exlab-accent-ink, var(--ink));
+  color: var(--ink);
+}
+
+.roulette-session-hub__actions .compact-button--danger:focus-visible {
+  outline-color: var(--exlab-accent-ink, var(--ink));
 }
 
 .roster-drawer {

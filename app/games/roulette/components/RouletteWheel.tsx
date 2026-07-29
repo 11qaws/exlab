@@ -1551,6 +1551,9 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
             />
           )}
 
+        </div>
+
+        <div className="roulette-wheel__proof-layer" style={impactStyle}>
           {validWinner && participantCount > 1 && boundaryLeftIndex !== null && boundaryRightIndex !== null && (
             <BoundaryNames
               leftName={participants[boundaryLeftIndex]}

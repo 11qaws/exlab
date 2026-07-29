@@ -114,6 +114,18 @@
   transition: box-shadow 360ms ease, filter 280ms ease;
 }
 
+.roulette-wheel__proof-layer {
+  position: absolute;
+  z-index: 30;
+  top: calc(50% + var(--wheel-stage-shift, 0px));
+  left: 50%;
+  width: var(--wheel-size);
+  max-width: 100%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
 .roulette-wheel__rim::before {
   position: absolute;
   z-index: 3;

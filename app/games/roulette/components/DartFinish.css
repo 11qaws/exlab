@@ -30,7 +30,8 @@
 .dart-finish__ring,
 .dart-finish__projectile,
 .dart-finish__impact-ring,
-.dart-finish__impact-spark {
+.dart-finish__impact-spark,
+.dart-finish__boundary-callout {
   position: absolute;
   pointer-events: none;
 }
@@ -48,6 +49,11 @@
   left: 50%;
   top: 50%;
   pointer-events: none;
+}
+
+.dart-finish__boundary-callout {
+  left: var(--dart-impact-x);
+  top: var(--dart-impact-y);
 }
 
 .dart-finish__target {
@@ -242,6 +248,22 @@
 .dart-finish__impact-spark--two { margin: 1.4rem 0 0 1.8rem; background: var(--lemon, #ffe45c); }
 .dart-finish__impact-spark--three { margin: -1.4rem 0 0 2.1rem; background: var(--hot-pink, #ff4f87); }
 
+.dart-finish__boundary-callout {
+  z-index: 13;
+  padding: 0.28rem 0.48rem;
+  border: 0.12rem solid var(--ink, #251c32);
+  border-radius: 999px;
+  background: var(--lemon, #ffe45c);
+  box-shadow: 0 0.2rem 0 var(--ink, #251c32);
+  color: var(--ink, #251c32);
+  font-family: 'Jua', sans-serif;
+  font-size: clamp(0.68rem, 2vw, 0.9rem);
+  line-height: 1;
+  opacity: 0;
+  transform: translate(-50%, 0.8rem) scale(0.72);
+  white-space: nowrap;
+}
+
 .dart-finish--flight .dart-finish__flash {
   animation: dart-shot-flash 260ms ease-out both;
 }
@@ -277,6 +299,16 @@
 .dart-finish--impact .dart-finish__projectile {
   opacity: 0;
   transform: translate(-50%, -50%) scale(1) rotate(var(--dart-roll, 0deg));
+}
+
+.dart-finish--impact.is-boundary-hit .dart-finish__boundary-callout,
+.dart-finish--coast.is-boundary-hit .dart-finish__boundary-callout {
+  animation: dart-boundary-callout 720ms cubic-bezier(0.16, 0.82, 0.2, 1) both;
+}
+
+.roulette-wheel.is-dart-names-revealed .dart-finish__boundary-callout {
+  animation: none;
+  opacity: 0;
 }
 
 /* The physical dart is in rotor space and therefore inherits every turn. */
@@ -538,6 +570,12 @@
   to { opacity: 0; transform: translate(-50%, -50%) scale(1.7); }
 }
 
+@keyframes dart-boundary-callout {
+  0% { opacity: 0; transform: translate(-50%, 0.7rem) scale(0.72); }
+  18%, 68% { opacity: 1; transform: translate(-50%, 1.35rem) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, 1.55rem) scale(0.92); }
+}
+
 @keyframes boundary-names-impact {
   0% { opacity: 0; transform: translate(-50%, -0.45rem) scale(0.96); }
   100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
@@ -575,6 +613,7 @@
     animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
   }
+
 }
 
 }

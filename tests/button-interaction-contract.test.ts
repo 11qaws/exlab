@@ -129,7 +129,7 @@ test("Roulette buttons never animate while disabled and expose asynchronous prog
   );
   assert.match(
     rouletteSource,
-    /disabled=\{isStageLocked \|\| history\.length === 0\}/,
+    /disabled=\{isStageLocked \|\| Boolean\(broadcastSession \|\| pausedBroadcastSession\) \|\| history\.length === 0\}/,
   );
   assert.match(previewSource, /aria-busy=\{moving \|\| undefined\}/);
   assert.match(
@@ -155,5 +155,23 @@ test("Roulette buttons never animate while disabled and expose asynchronous prog
   assert.match(
     roulettePreparationCss,
     /prefers-reduced-motion[\s\S]*?\.preparation-preview__primary:is\(:hover, :active\)[\s\S]*?transform: none/,
+  );
+});
+
+test("Roulette session end control follows the selected streamer theme", () => {
+  const sessionEndRule =
+    roulettePreparationCss.match(
+      /\.roulette-session-hub__actions \.compact-button--danger\s*\{([\s\S]*?)\}/,
+    )?.[1] ?? "";
+
+  assert.match(
+    sessionEndRule,
+    /border-color:\s*var\(--exlab-accent-ink,\s*var\(--ink\)\)/,
+  );
+  assert.match(sessionEndRule, /color:\s*var\(--ink\)/);
+  assert.doesNotMatch(sessionEndRule, /#dfb6b6|#9f3535/i);
+  assert.match(
+    roulettePreparationCss,
+    /\.roulette-session-hub__actions \.compact-button--danger:focus-visible\s*\{[\s\S]*?outline-color:\s*var\(--exlab-accent-ink,\s*var\(--ink\)\)/,
   );
 });

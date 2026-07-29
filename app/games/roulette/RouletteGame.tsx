@@ -343,6 +343,14 @@ function formatTime(iso: string, includeSeconds = false) {
   return (includeSeconds ? TIME_WITH_SECONDS_FORMATTER : TIME_FORMATTER).format(new Date(iso));
 }
 
+function endedSessionNotice(session: BroadcastSession) {
+  if (session.results.length === 0) {
+    return '공개 결과 없이 세션을 종료했습니다. 방송 화면을 다시 열면 새 추첨 세션이 시작됩니다.';
+  }
+  const unit = session.target === 'people' ? '명' : '회';
+  return `공개 결과 ${session.results.length}${unit}은 당첨 기록에 남았습니다. 방송 화면을 다시 열면 새 추첨 세션이 시작됩니다.`;
+}
+
 function prizeTotal(prizes: Prize[]) {
   return prizes.reduce((sum, prize) => (
     prize.name.trim() ? sum + Math.max(0, prize.quantity) : sum
@@ -489,6 +497,7 @@ export function RouletteGame({
   const [rosterEditorDirty, setRosterEditorDirty] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [lastEndedSessionNotice, setLastEndedSessionNotice] = useState<string | null>(null);
   const [copyingParticipantList, setCopyingParticipantList] =
     useState(false);
   const rouletteRootRef = useRef<HTMLDivElement>(null);
@@ -1547,7 +1556,12 @@ export function RouletteGame({
     if (raffleStatus !== 'roster' || participants.length === 0) return;
     if (!window.confirm(`현재 명단 ${participants.length}명을 비울까요? 당첨 기록과 상품 설정은 유지됩니다.`)) return;
 
-    const shouldPauseSession = setupReturnStatus !== 'configuring';
+    const shouldLeaveSession = setupReturnStatus !== 'configuring';
+    const shouldPauseSession = Boolean(
+      shouldLeaveSession
+      && broadcastSession
+      && broadcastSession.results.length < broadcastSession.goal,
+    );
     setParticipants([]);
     setParticipantPreviewDraft([]);
     setExcludedParticipantIds([]);
@@ -1558,14 +1572,20 @@ export function RouletteGame({
     setSetupStartStep('edit');
     setSetupSession((value) => value + 1);
     setRosterEditorDirty(false);
-    if (shouldPauseSession) {
-      if (broadcastSession) setPausedBroadcastSession(broadcastSession);
+    if (shouldLeaveSession) {
+      setPausedBroadcastSession(shouldPauseSession ? broadcastSession : null);
+      if (broadcastSession && !shouldPauseSession) {
+        setLastCommittedPresentation(null);
+        setLastEndedSessionNotice(endedSessionNotice(broadcastSession));
+      }
       setBroadcastSession(null);
       setRotorReady(false);
     }
     onRosterTextChange?.('');
-    showToast(shouldPauseSession && broadcastSession
-      ? `명단을 비웠어요. 진행 ${broadcastSession.results.length}/${broadcastSession.goal} 세션은 일시정지했습니다.`
+    showToast(shouldLeaveSession && broadcastSession
+      ? shouldPauseSession
+        ? `명단을 비웠어요. 진행 ${broadcastSession.results.length}/${broadcastSession.goal} 세션은 일시정지했습니다.`
+        : `명단을 비웠어요. 완료한 추첨 세션은 종료했고 결과는 당첨 기록에 남겼습니다.`
       : '명단을 비웠어요. 새 명단을 입력하거나 카페 댓글에서 가져와 주세요.');
   };
 
@@ -1585,7 +1605,12 @@ export function RouletteGame({
 
   const saveParticipants = (nextParticipants: Participant[]) => {
     const nextIds = new Set(nextParticipants.map((participant) => participant.id));
-    const shouldPauseSession = setupReturnStatus !== 'configuring';
+    const shouldLeaveSession = setupReturnStatus !== 'configuring';
+    const shouldPauseSession = Boolean(
+      shouldLeaveSession
+      && broadcastSession
+      && broadcastSession.results.length < broadcastSession.goal,
+    );
     setParticipants(nextParticipants);
     setParticipantPreviewDraft([]);
     setRosterEditorDirty(false);
@@ -1593,8 +1618,12 @@ export function RouletteGame({
     setPoolLimit((limit) => Math.min(limit, nextParticipants.length));
     clearCurrentRound(shouldPauseSession);
     setToolsOpen(false);
-    if (shouldPauseSession) {
-      if (broadcastSession) setPausedBroadcastSession(broadcastSession);
+    if (shouldLeaveSession) {
+      setPausedBroadcastSession(shouldPauseSession ? broadcastSession : null);
+      if (broadcastSession && !shouldPauseSession) {
+        setLastCommittedPresentation(null);
+        setLastEndedSessionNotice(endedSessionNotice(broadcastSession));
+      }
       setBroadcastSession(null);
       setRotorReady(false);
     }
@@ -1602,8 +1631,10 @@ export function RouletteGame({
     if (transitionRaffle('save-roster')) {
       restoreRosterFocus('configuring');
     }
-    showToast(shouldPauseSession && broadcastSession
-      ? `${nextParticipants.length}명으로 명단을 저장했어요. 진행 ${broadcastSession.results.length}/${broadcastSession.goal} 세션은 유지됩니다.`
+    showToast(shouldLeaveSession && broadcastSession
+      ? shouldPauseSession
+        ? `${nextParticipants.length}명으로 명단을 저장했어요. 진행 ${broadcastSession.results.length}/${broadcastSession.goal} 세션은 유지됩니다.`
+        : `${nextParticipants.length}명으로 명단을 저장했어요. 완료한 추첨 세션은 종료했고 결과는 당첨 기록에 남겼습니다.`
       : `${nextParticipants.length}명의 참여자 명단을 준비했어요.`);
   };
 
@@ -1635,6 +1666,7 @@ export function RouletteGame({
     setToolsOpen(false);
     setPausedBroadcastSession(null);
     setLastCommittedPresentation(null);
+    setLastEndedSessionNotice(null);
     clearCurrentRound();
     if (transitionRaffle('open-stage')) {
       setBroadcastSession(createBroadcastSession(createId('session'), drawTarget, winnerGoal));
@@ -1645,13 +1677,21 @@ export function RouletteGame({
   const finishBroadcast = (preserveSession = true) => {
     const activeSession = broadcastSession;
     if (!transitionRaffle('end-broadcast')) return false;
-    clearCurrentRound(preserveSession);
-    setPausedBroadcastSession(preserveSession ? activeSession : null);
+    const shouldPauseSession = Boolean(
+      preserveSession
+      && activeSession
+      && activeSession.results.length < activeSession.goal,
+    );
+    clearCurrentRound(shouldPauseSession);
+    setPausedBroadcastSession(shouldPauseSession ? activeSession : null);
     setBroadcastSession(null);
-    if (!preserveSession) setLastCommittedPresentation(null);
+    if (!shouldPauseSession) {
+      setLastCommittedPresentation(null);
+      if (activeSession) setLastEndedSessionNotice(endedSessionNotice(activeSession));
+    }
     setRotorReady(false);
     setToolsOpen(false);
-    if (preserveSession && activeSession) {
+    if (shouldPauseSession) {
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => setupSessionHeadingRef.current?.focus());
       });
@@ -1661,9 +1701,23 @@ export function RouletteGame({
     return true;
   };
 
+  const finishCompletedBroadcast = () => {
+    if (!finishBroadcast(false)) return false;
+    showToast('추첨 세션을 종료했어요. 공개된 결과는 당첨 기록에 남아 있고, 이제 새 추첨을 설계할 수 있어요.');
+    return true;
+  };
+
   const resumePausedBroadcast = () => {
     const session = pausedBroadcastSession;
     if (raffleStatus !== 'configuring' || !session) return;
+    if (session.results.length >= session.goal) {
+      setPausedBroadcastSession(null);
+      setLastCommittedPresentation(null);
+      setLastEndedSessionNotice(endedSessionNotice(session));
+      showToast('완료한 추첨은 이미 종료되었어요. 방송 화면을 열면 새 세션이 시작됩니다.');
+      focusPreparationPrimary();
+      return;
+    }
     const resumeEvent: RaffleEvent = session.results.length > 0
       ? 'resume-completed'
       : 'resume-ready';
@@ -1672,6 +1726,7 @@ export function RouletteGame({
     setWinnerGoals((goals) => ({ ...goals, [session.target]: session.goal }));
     setBroadcastSession(session);
     setPausedBroadcastSession(null);
+    setLastEndedSessionNotice(null);
     setToolsOpen(false);
     if (session.results.length > 0 && lastCommittedPresentation) {
       setPresentedOptions(lastCommittedPresentation.options);
@@ -1693,18 +1748,17 @@ export function RouletteGame({
   const confirmPausedSessionDiscard = () => {
     if (!pausedBroadcastSession) return true;
     const progress = `${pausedBroadcastSession.results.length}/${pausedBroadcastSession.goal}`;
-    const stateLabel = pausedBroadcastSession.results.length >= pausedBroadcastSession.goal
-      ? '완료한' : '일시정지한';
-    return window.confirm(`${stateLabel} 추첨 세션(${progress})을 종료할까요? 당첨 기록은 남지만 이 세션으로는 돌아갈 수 없습니다.`);
+    return window.confirm(`일시정지한 추첨 세션(${progress})을 종료할까요? 당첨 기록은 남지만 이 세션으로는 돌아갈 수 없습니다.`);
   };
 
   const discardPausedBroadcast = () => {
     if (!pausedBroadcastSession || !confirmPausedSessionDiscard()) return;
-    const completed = pausedBroadcastSession.results.length >= pausedBroadcastSession.goal;
+    const endedSession = pausedBroadcastSession;
     setPausedBroadcastSession(null);
     setLastCommittedPresentation(null);
+    setLastEndedSessionNotice(endedSessionNotice(endedSession));
     clearCurrentRound();
-    showToast(`${completed ? '완료한' : '일시정지한'} 세션을 종료했어요. 새 추첨을 설계할 수 있습니다.`);
+    showToast('일시정지한 세션을 종료했어요. 공개된 결과는 당첨 기록에 남아 있습니다.');
     focusPreparationPrimary();
   };
 
@@ -1723,6 +1777,7 @@ export function RouletteGame({
     setBroadcastSession(null);
     setPausedBroadcastSession(null);
     setLastCommittedPresentation(null);
+    setLastEndedSessionNotice(null);
     setRotorReady(false);
     setParticipants([]);
     onRosterTextChange?.('');
@@ -2063,6 +2118,10 @@ export function RouletteGame({
 
   const clearHistory = () => {
     if (history.length === 0) return;
+    if (broadcastSession || pausedBroadcastSession) {
+      showToast('현재 추첨 세션을 종료한 뒤 당첨 기록을 비울 수 있어요.');
+      return;
+    }
     if (!window.confirm('당첨 기록을 모두 비울까요? 이 작업은 되돌릴 수 없어요.')) return;
     setHistory([]);
     showToast('당첨 기록을 비웠어요.');
@@ -2071,10 +2130,6 @@ export function RouletteGame({
   const sessionResults = broadcastSession?.results ?? [];
   const pausedSessionResults = pausedBroadcastSession?.results ?? [];
   const pausedSessionLastResult = pausedSessionResults[pausedSessionResults.length - 1] ?? null;
-  const pausedSessionCompleted = Boolean(
-    pausedBroadcastSession
-    && pausedSessionResults.length >= pausedBroadcastSession.goal,
-  );
   const pausedSessionCandidateCount = pausedBroadcastSession?.target === drawTarget
     ? drawOptions.length
     : pausedBroadcastSession?.target === 'people'
@@ -2294,18 +2349,19 @@ export function RouletteGame({
       : {
           id: sessionGoalReached ? 'finish-session' : 'next-round',
           label: sessionGoalReached
-            ? '추첨 마치기 · 설계로'
+            ? '세션 종료 · 설계로'
             : completedPrimaryLabel,
           onClick: sessionGoalReached
-            ? () => finishBroadcast()
+            ? finishCompletedBroadcast
             : continueCompletedRound,
         };
   const completedSecondaryActions: BroadcastDockAction[] = [
     ...(sessionGoalReached && canAddOneMoreResult ? [{
       id: 'finish-session',
-      label: '추첨 마치기 · 설계로',
-      onClick: () => finishBroadcast(),
+      label: '세션 종료 · 설계로',
+      onClick: finishCompletedBroadcast,
       tone: 'quiet' as const,
+      title: '공개된 결과는 당첨 기록에 남기고 현재 세션을 종료합니다.',
     }] : []),
     ...(!sessionGoalReached ? [{
       id: 'pause-draw',
@@ -2563,7 +2619,15 @@ export function RouletteGame({
             </div>
             <div className="live-panel__actions">
               <button className="compact-button" type="button" disabled={history.length === 0} onClick={exportHistory}>CSV</button>
-              <button className="compact-button compact-button--danger" type="button" disabled={isStageLocked || history.length === 0} onClick={clearHistory}>기록 비우기</button>
+              <button
+                className="compact-button compact-button--danger"
+                type="button"
+                disabled={isStageLocked || Boolean(broadcastSession || pausedBroadcastSession) || history.length === 0}
+                title={broadcastSession || pausedBroadcastSession ? '현재 추첨 세션을 종료한 뒤 기록을 비울 수 있어요.' : undefined}
+                onClick={clearHistory}
+              >
+                기록 비우기
+              </button>
             </div>
           </div>
           {history.length === 0 ? (
@@ -2668,7 +2732,7 @@ export function RouletteGame({
     const pausedSessionHub = pausedBroadcastSession ? (
       <section className="roulette-session-hub" aria-labelledby="roulette-paused-session-title">
         <div className="roulette-session-hub__heading">
-          <p>{pausedSessionCompleted ? '완료한 추첨' : '일시정지한 추첨'}</p>
+          <p>일시정지한 추첨</p>
           <h2 id="roulette-paused-session-title" ref={setupSessionHeadingRef} tabIndex={-1}>
             {pausedBroadcastSession.target === 'people' ? '당첨자 추첨' : '상품 추첨'} 세션
           </h2>
@@ -2678,12 +2742,12 @@ export function RouletteGame({
           <div><dt>현재 후보</dt><dd>{pausedSessionCandidateCount}{pausedBroadcastSession.target === 'people' ? '명' : '종'}</dd></div>
           <div><dt>마지막 결과</dt><dd title={pausedSessionLastLabel}>{pausedSessionLastLabel}</dd></div>
         </dl>
-        <div className="roulette-session-hub__actions" role="group" aria-label={pausedSessionCompleted ? '완료한 추첨 동작' : '일시정지한 추첨 동작'}>
+        <div className="roulette-session-hub__actions" role="group" aria-label="일시정지한 추첨 동작">
           <button className="preparation-preview__primary" type="button" onClick={resumePausedBroadcast}>
-            {pausedSessionCompleted ? '결과 화면 다시 열기' : pausedSessionResults.length > 0 ? '세션 계속하기' : '방송 화면 다시 열기'}
+            {pausedSessionResults.length > 0 ? '세션 계속하기' : '방송 화면 다시 열기'}
           </button>
           <button className="compact-button" type="button" onClick={startNewBroadcast}>현재 설정으로 새 세션</button>
-          <button className="compact-button compact-button--danger" type="button" onClick={discardPausedBroadcast}>{pausedSessionCompleted ? '완료한 세션 종료' : '세션 종료'}</button>
+          <button className="compact-button compact-button--danger" type="button" onClick={discardPausedBroadcast}>세션 종료</button>
         </div>
       </section>
     ) : null;
@@ -2797,12 +2861,18 @@ export function RouletteGame({
                   >
                     <span aria-hidden="true" />
                     <div>
-                      <strong>{pausedBroadcastSession ? pausedSessionCompleted ? '추첨 세션 완료' : '추첨 세션 일시정지' : preparation.statusLabel}</strong>
+                      <strong>
+                        {pausedBroadcastSession
+                          ? '추첨 세션 일시정지'
+                          : lastEndedSessionNotice
+                            ? `이전 추첨 세션 종료 · ${preparation.statusLabel}`
+                            : preparation.statusLabel}
+                      </strong>
                       <small>
                         {pausedBroadcastSession
-                          ? pausedSessionCompleted
-                            ? `진행 ${pausedSessionResults.length}/${pausedBroadcastSession.goal} · 결과 화면을 다시 열거나 완료한 세션을 종료하세요.`
-                            : `진행 ${pausedSessionResults.length}/${pausedBroadcastSession.goal} · 계속하거나 명시적으로 종료하세요.`
+                          ? `진행 ${pausedSessionResults.length}/${pausedBroadcastSession.goal} · 계속하거나 명시적으로 종료하세요.`
+                          : lastEndedSessionNotice
+                            ? `${lastEndedSessionNotice} 현재 준비 상태: ${preparationReady ? '방송 화면을 열 수 있습니다.' : preparation.ctaLabel}`
                           : preparationReady
                             ? '방송 화면을 열어 대기 상태로 전환합니다.'
                             : preparation.ctaLabel}
@@ -2930,9 +3000,15 @@ export function RouletteGame({
                     </strong>
                     <span>{presentationLabel} · {ruleLabel} · {duplicateLabel}</span>
                   </div>
-                  <div className={`preparation-preview__status${preparationReady ? ' is-ready' : ' is-blocked'}`} role="status">
+                  <div
+                    className={`preparation-preview__status${preparationReady ? ' is-ready' : ' is-blocked'}`}
+                    role="status"
+                    title={lastEndedSessionNotice
+                      ? `${lastEndedSessionNotice} 현재 준비 상태: ${preparation.statusLabel}${preparationReady ? '' : ` · ${preparation.ctaLabel}`}`
+                      : undefined}
+                  >
                     <span aria-hidden="true" />
-                    <strong>{preparation.statusLabel}</strong>
+                    <strong>{lastEndedSessionNotice ? `${preparation.statusLabel} · 이전 세션 종료` : preparation.statusLabel}</strong>
                   </div>
                   <button
                     className="preparation-preview__primary"

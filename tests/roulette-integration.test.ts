@@ -244,7 +244,7 @@ test("embedded Roulette pauses previews and locks navigation while editing a ros
   );
 });
 
-test("Roulette preserves paused progress and replays without entering persistence paths", async () => {
+test("Roulette preserves unfinished progress but closes completed sessions", async () => {
   const [source, wheelSource] = await Promise.all([
     readFile(
       new URL("../app/games/roulette/RouletteGame.tsx", import.meta.url),
@@ -257,12 +257,31 @@ test("Roulette preserves paused progress and replays without entering persistenc
   ]);
 
   assert.match(source, /const \[pausedBroadcastSession, setPausedBroadcastSession\]/);
-  assert.match(source, /if \(broadcastSession\) setPausedBroadcastSession\(broadcastSession\)/);
+  assert.match(
+    source,
+    /activeSession\.results\.length < activeSession\.goal[\s\S]*?setPausedBroadcastSession\(shouldPauseSession \? activeSession : null\)/,
+  );
   assert.match(source, /className="roulette-session-hub"/);
   assert.match(source, /진행[\s\S]*?pausedSessionResults\.length[\s\S]*?pausedBroadcastSession\.goal/);
-  assert.match(source, /const pausedSessionCompleted = Boolean/);
-  assert.match(source, /pausedSessionCompleted \? '결과 화면 다시 열기'/);
-  assert.match(source, /pausedSessionCompleted \? '완료한 세션 종료'/);
+  assert.match(
+    source,
+    /const finishCompletedBroadcast = \(\) => \{[\s\S]*?finishBroadcast\(false\)[\s\S]*?추첨 세션을 종료했어요/,
+  );
+  assert.match(source, /label: '세션 종료 · 설계로'[\s\S]*?onClick: finishCompletedBroadcast/);
+  assert.match(
+    source,
+    /lastEndedSessionNotice[\s\S]*?이전 추첨 세션 종료 · \$\{preparation\.statusLabel\}[\s\S]*?현재 준비 상태:/,
+  );
+  assert.match(
+    source,
+    /if \(broadcastSession \|\| pausedBroadcastSession\)[\s\S]*?현재 추첨 세션을 종료한 뒤 당첨 기록을 비울 수 있어요/,
+  );
+  assert.match(
+    source,
+    /disabled=\{isStageLocked \|\| Boolean\(broadcastSession \|\| pausedBroadcastSession\) \|\| history\.length === 0\}/,
+  );
+  assert.doesNotMatch(source, /결과 화면 다시 열기/);
+  assert.doesNotMatch(source, /완료한 세션 종료/);
   assert.match(source, /session\.target === 'people' \? '명' : '회'/);
   assert.match(
     source,
@@ -328,6 +347,60 @@ test("Roulette preserves paused progress and replays without entering persistenc
     /prefersReducedMotion\(\)[\s\S]*?reduceMotion \? 0 : WINNER_DOCK_DURATION_MS[\s\S]*?reduceMotion \? 0 : WINNER_HERO_HOLD_MS/,
   );
   assert.doesNotMatch(source, /participants\.slice\(0,\s*18\)/);
+});
+
+test("Roulette proof cards stay above the pointer and Dart boundary callout is restored", async () => {
+  const [wheelSource, wheelCss, finishSource, finishCss] = await Promise.all([
+    readFile(
+      new URL("../app/games/roulette/components/RouletteWheel.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/components/RouletteWheel.css", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/components/DartFinish.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/components/DartFinish.css", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  const pointerPosition = wheelSource.indexOf('className="roulette-wheel__pointer"');
+  const proofLayerPosition = wheelSource.indexOf('className="roulette-wheel__proof-layer"');
+  assert.ok(pointerPosition >= 0);
+  assert.ok(proofLayerPosition > pointerPosition);
+  assert.match(
+    wheelSource,
+    /className="roulette-wheel__proof-layer"[\s\S]*?<BoundaryNames[\s\S]*?<WinnerNameplate/,
+  );
+  assert.match(
+    wheelCss,
+    /\.roulette-wheel__pointer\s*\{[\s\S]*?z-index:\s*8/,
+  );
+  assert.match(
+    wheelCss,
+    /\.roulette-wheel__proof-layer\s*\{[\s\S]*?z-index:\s*30/,
+  );
+  assert.match(
+    finishSource,
+    /className="dart-finish__boundary-callout">경계선!<\/span>/,
+  );
+  assert.match(
+    finishCss,
+    /\.dart-finish--impact\.is-boundary-hit \.dart-finish__boundary-callout,[\s\S]*?\.dart-finish--coast\.is-boundary-hit \.dart-finish__boundary-callout[\s\S]*?dart-boundary-callout 720ms/,
+  );
+  assert.doesNotMatch(
+    finishCss,
+    /\.dart-finish--settled\.is-boundary-hit \.dart-finish__boundary-callout/,
+  );
+  assert.match(
+    finishCss,
+    /\.roulette-wheel\.is-dart-names-revealed \.dart-finish__boundary-callout\s*\{[\s\S]*?animation:\s*none;[\s\S]*?opacity:\s*0/,
+  );
 });
 
 test("completed Roulette prioritizes another draw and keeps the wheel grid stable", async () => {
