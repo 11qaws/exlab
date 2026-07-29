@@ -683,6 +683,11 @@ test("compact Roulette and Dart reserve screen space for boundary names", async 
     /@media \(min-width: 641px\) and \(min-height: 600px\) and \(max-height: 820px\)[\s\S]*?--exlab-setup-gap-group:\s*8px[\s\S]*?--round-setup-control-row-size:\s*56px[\s\S]*?margin-block-start:\s*8px/,
     "short setup screens must compact before they overflow",
   );
+  assert.match(
+    embedCss,
+    /@media \(min-width: 641px\) and \(min-height: 600px\) and \(max-height: 760px\)[\s\S]*?exlab-setup-workspace__eyebrow,[\s\S]*?exlab-setup-option-group__legend small[\s\S]*?display:\s*none/,
+    "720p setup hides only repeated helper labels",
+  );
 });
 
 test("embedded Roulette delegates advanced controls to the shared setup workspace", async () => {

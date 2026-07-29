@@ -136,6 +136,10 @@ test("desktop Showdown setup uses the common viewport and overflow owner", () =>
     /@media \(min-width:\s*641px\) and \(min-height:\s*600px\)\s*\{[\s\S]*?:scope\.preparation-screen\.is-embedded\s*\{[\s\S]*?block-size:\s*100%;[\s\S]*?overflow:\s*hidden;/,
   );
   assert.match(
+    cssSource,
+    /@media \(min-width:\s*641px\) and \(min-height:\s*600px\) and \(max-height:\s*760px\)[\s\S]*?--exlab-setup-gap-group:\s*4px[\s\S]*?exlab-setup-workspace__intro[\s\S]*?display:\s*none/,
+  );
+  assert.match(
     setupWorkspaceCssSource,
     /@media \(min-width:\s*641px\) and \(min-height:\s*600px\)[\s\S]*?\.exlab-setup-workspace\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+auto;[\s\S]*?overflow:\s*hidden;/,
   );

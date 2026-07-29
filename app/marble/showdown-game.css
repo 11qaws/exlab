@@ -1761,6 +1761,16 @@ summary {
 
 }
 
+@media (min-width: 641px) and (min-height: 600px) and (max-height: 760px) {
+  .showdown-setup-workspace {
+    --exlab-setup-gap-group: 4px;
+  }
+
+  .showdown-setup-workspace .exlab-setup-workspace__intro {
+    display: none;
+  }
+}
+
 @media (max-width: 1024px) {
   .preparation-grid {
     grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.05fr);

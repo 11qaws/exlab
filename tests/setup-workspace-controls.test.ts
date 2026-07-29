@@ -213,6 +213,10 @@ test("tablet and desktop setup stay inside one host frame", () => {
   );
   assert.match(
     workspaceCss,
+    /@media \(min-width:\s*641px\) and \(min-height:\s*600px\) and \(max-height:\s*760px\)[\s\S]*?advanced summary small[\s\S]*?display:\s*none/,
+  );
+  assert.match(
+    workspaceCss,
     /@media \(max-width:\s*640px\)[\s\S]*?grid-template-areas:\s*"settings"\s*"preview"\s*"advanced"\s*"actions"/,
   );
 });
