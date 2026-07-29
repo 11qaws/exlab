@@ -15,7 +15,7 @@
   font-family: 'Fredoka', 'Jua', sans-serif;
 }
 
-.round-setup__data-slot--external-roster {
+.round-setup__data-slot.round-setup__data-slot--external-roster {
   display: none;
 }
 
@@ -112,8 +112,8 @@
   .round-setup--compact
   > .exlab-setup-option-group
   + .exlab-setup-option-group {
-  margin-block-start: 12px;
-  padding-block-start: 12px;
+  margin-block-start: 10px;
+  padding-block-start: 10px;
 }
 
 .roulette-setup-workspace

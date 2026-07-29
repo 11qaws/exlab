@@ -515,7 +515,7 @@ export default function RoundSetupPanel(props: RoundSetupPanelProps) {
         </SetupOptionRow>
       </SetupOptionGroup>
 
-      {externalPeopleRoster && (
+      {externalPeopleRoster && excludedCount > 0 && (
         <div className="round-setup__external-roster-status">
           <span className="round-setup__label">명단 상태</span>
           <div className="round-setup__external-roster-summary" role="status" aria-label="현재 룰렛 명단 상태">

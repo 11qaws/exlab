@@ -860,7 +860,7 @@ body {
   display: none;
 }
 
-@media (min-width: 901px) {
+@media (min-width: 901px) and (min-height: 600px) {
   .exlab-game-instance {
     block-size: calc(
       100dvh - var(--exlab-header-height)
@@ -871,6 +871,33 @@ body {
 
   .exlab-game-instance
     > :is(.roulette-game, .showdown-game) {
+    block-size: 100%;
+    min-block-size: 0;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 900px) and (min-height: 600px) {
+  .exlab-game-instance:has(
+      > .roulette-game > .app-shell--preparation
+    ),
+  .exlab-game-instance:has(
+      > .showdown-game.preparation-screen
+    ) {
+    block-size: calc(
+      100dvh - var(--exlab-header-height)
+    );
+    min-block-size: 0;
+    overflow: hidden;
+  }
+
+  .exlab-game-instance:has(
+      > .roulette-game > .app-shell--preparation
+    )
+    > .roulette-game,
+  .exlab-game-instance:has(
+      > .showdown-game.preparation-screen
+    )
+    > .showdown-game {
     block-size: 100%;
     min-block-size: 0;
   }

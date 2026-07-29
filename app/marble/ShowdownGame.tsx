@@ -1990,7 +1990,6 @@ export function ShowdownGame({
               <SetupOptionGroup
                 kind="text"
                 label="표시"
-                description="방송 화면에 표시할 제목입니다."
               >
                 <SetupOptionRow
                   label="경기 제목"
@@ -2009,7 +2008,6 @@ export function ShowdownGame({
               <SetupOptionGroup
                 kind="choice"
                 label="경기 조"
-                description={`${selectedGroupIndex + 1}조를 준비합니다.`}
               >
                 <SetupOptionRow label="준비할 조">
                   <SetupChoiceControl
@@ -2044,7 +2042,6 @@ export function ShowdownGame({
               >
                 <SetupOptionRow
                   label="조 개수"
-                  description="현재 준비할 조를 나눕니다."
                 >
                   <button
                     type="button"
@@ -2112,14 +2109,6 @@ export function ShowdownGame({
                     {activeCandidates.length} / {MAX_GROUP_SIZE}
                   </strong>
                 </div>
-                <button
-                  type="button"
-                  className="text-button"
-                  disabled={phase !== "ready"}
-                  onClick={requestSharedRosterEdit}
-                >
-                  전체 명단 편집
-                </button>
               </div>
               <ol className="roster-grid">
                 {activeCandidates.map((candidate) => (
@@ -2268,14 +2257,6 @@ export function ShowdownGame({
                 <summary>장애물 범례</summary>
                 <CourseLegend />
               </details>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={phase === "generating"}
-                onClick={handleRegenerateLayout}
-              >
-                새 배치
-              </button>
             </div>
           )}
           readinessModel={{
@@ -2348,7 +2329,7 @@ export function ShowdownGame({
             exlab
           </span>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.27</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.28</span>
           </div>
         </header>
       )}

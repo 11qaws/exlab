@@ -90,10 +90,7 @@ test("embedded Race uses the shared roster contract without promotional copy", (
     gameSource,
     /aria-label="조 개수"[\s\S]*?setGroupCount\(nextCount\)/,
   );
-  assert.match(
-    gameSource,
-    /className="text-button"\s+disabled=\{phase !== "ready"\}/,
-  );
+  assert.doesNotMatch(gameSource, /전체 명단 편집/);
   assert.match(gameSource, /\{!embedded && \(\s*<header className="product-header">/);
   assert.doesNotMatch(gameSource, /모든 이름이/);
   assert.doesNotMatch(gameSource, /조별 Race로 이어집니다/);
@@ -128,15 +125,19 @@ test("scoped Showdown roots retain their intended frame colors and sizing", () =
 test("desktop Showdown setup uses the common viewport and overflow owner", () => {
   assert.match(
     globalsCssSource,
-    /@media \(min-width:\s*901px\)[\s\S]*?\.exlab-game-instance\s*\{[\s\S]*?100dvh\s*-\s*var\(--exlab-header-height\)[\s\S]*?overflow:\s*hidden;/,
+    /@media \(min-width:\s*901px\) and \(min-height:\s*600px\)[\s\S]*?\.exlab-game-instance\s*\{[\s\S]*?100dvh\s*-\s*var\(--exlab-header-height\)[\s\S]*?overflow:\s*hidden;/,
+  );
+  assert.match(
+    globalsCssSource,
+    /@media \(min-width:\s*641px\) and \(max-width:\s*900px\) and \(min-height:\s*600px\)[\s\S]*?app-shell--preparation[\s\S]*?showdown-game\.preparation-screen[\s\S]*?overflow:\s*hidden;/,
   );
   assert.match(
     cssSource,
-    /@media \(min-width:\s*901px\)\s*\{[\s\S]*?:scope\.preparation-screen\.is-embedded\s*\{[\s\S]*?block-size:\s*100%;[\s\S]*?overflow:\s*hidden;/,
+    /@media \(min-width:\s*641px\) and \(min-height:\s*600px\)\s*\{[\s\S]*?:scope\.preparation-screen\.is-embedded\s*\{[\s\S]*?block-size:\s*100%;[\s\S]*?overflow:\s*hidden;/,
   );
   assert.match(
     setupWorkspaceCssSource,
-    /@media \(min-width:\s*901px\)[\s\S]*?\.exlab-setup-workspace\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+auto;[\s\S]*?overflow:\s*hidden;/,
+    /@media \(min-width:\s*641px\) and \(min-height:\s*600px\)[\s\S]*?\.exlab-setup-workspace\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+auto;[\s\S]*?overflow:\s*hidden;/,
   );
   assert.match(
     setupWorkspaceCssSource,
@@ -149,6 +150,15 @@ test("desktop Showdown setup uses the common viewport and overflow owner", () =>
   assert.match(
     gameSource,
     /advancedSettings=\{\([\s\S]*?embedded-history-panel[\s\S]*?\)\}\s*advancedSettingsLabel=/,
+  );
+  assert.match(
+    cssSource,
+    /\.showdown-setup-workspace \.roster-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/,
+  );
+  assert.doesNotMatch(gameSource, />\s*새 배치\s*</);
+  assert.match(
+    cssSource,
+    /\.showdown-preview-footer\s*\{[\s\S]*?grid-template-columns:\s*minmax\(180px,\s*1fr\)\s+auto;/,
   );
 });
 

@@ -264,7 +264,7 @@
     color: var(--exlab-on-accent);
     font-size: 13px;
     font-weight: 850;
-    min-width: 180px;
+    min-width: 185px;
   }
 
   .app-shell--live.is-embedded {
@@ -304,23 +304,23 @@
    * shared header from its viewport height.
    */
   @media (min-width: 1180px) and (min-height: 700px) {
-    .app-shell.app-shell--preparation.is-embedded {
-      height: auto;
-    }
-
     .roulette-setup-workspace {
       --exlab-setup-gap-outer: clamp(18px, 2vw, 28px);
     }
   }
 
-  @media (min-width: 901px) and (max-width: 1179px) and (max-height: 820px) {
+  @media (min-width: 641px) and (min-height: 600px) and (max-height: 820px) {
     .roulette-setup-workspace {
-      --exlab-setup-gap-group: 14px;
+      --exlab-setup-gap-group: 8px;
       --exlab-setup-gap-outer: 12px;
     }
 
     .roulette-setup-workspace .exlab-setup-workspace__settings {
-      padding: 16px;
+      padding: 12px;
+    }
+
+    .roulette-setup-workspace .exlab-setup-workspace__intro {
+      gap: 4px;
     }
 
     .roulette-setup-workspace .exlab-setup-workspace__setting-group {
@@ -329,6 +329,14 @@
 
     .roulette-setup-workspace .round-setup--compact {
       --round-setup-control-row-size: 56px;
+    }
+
+    .roulette-setup-workspace
+      .round-setup--compact
+      > .exlab-setup-option-group
+      + .exlab-setup-option-group {
+      margin-block-start: 8px;
+      padding-block-start: 8px;
     }
 
     .roulette-setup-workspace .round-setup__row {
@@ -342,13 +350,16 @@
     }
   }
 
-  @media (min-width: 901px) {
+  @media (min-width: 641px) and (min-height: 600px) {
+    .app-shell.app-shell--preparation.is-embedded,
     .roulette-shared-setup {
       block-size: 100%;
       min-block-size: 0;
       overflow: hidden;
     }
+  }
 
+  @media (min-width: 901px) and (min-height: 600px) {
     :scope > .app-shell.app-shell--live.is-embedded {
       grid-template-rows: auto minmax(0, 1fr);
       width: 100%;
@@ -367,7 +378,7 @@
    * 720/768p capture. Keep the embedded shell on the shared Ex Lab viewport
    * contract when that selector becomes active after a result is committed.
    */
-  @media (min-width: 901px) and (max-height: 780px) {
+  @media (min-width: 901px) and (min-height: 600px) and (max-height: 780px) {
     :scope > .app-shell.app-shell--live.is-embedded:has(
       .broadcast-focus.is-completed
     ) {
@@ -378,7 +389,7 @@
     }
   }
 
-  @media (max-width: 620px) {
+  @media (max-width: 620px), (max-height: 599px) {
     .app-shell--preparation.is-embedded,
     .app-shell--live.is-embedded {
       width: 100%;

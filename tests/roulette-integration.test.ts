@@ -617,7 +617,7 @@ test("Roulette blocks duplicate roster entries until the common policy allows th
 });
 
 test("compact Roulette and Dart reserve screen space for boundary names", async () => {
-  const [viewportCss, embedCss] = await Promise.all([
+  const [viewportCss, embedCss, previewDirectorCss] = await Promise.all([
     readFile(
       new URL(
         "../app/games/roulette/styles/roulette-viewport.css",
@@ -628,6 +628,13 @@ test("compact Roulette and Dart reserve screen space for boundary names", async 
     readFile(
       new URL(
         "../app/games/roulette/styles/roulette-embed.css",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/games/roulette/components/DrawPreviewDirector.css",
         import.meta.url,
       ),
       "utf8",
@@ -654,18 +661,27 @@ test("compact Roulette and Dart reserve screen space for boundary names", async 
   );
   assert.match(
     embedCss,
+    /@media \(min-width:\s*641px\) and \(min-height:\s*600px\)[\s\S]*?app-shell\.app-shell--preparation\.is-embedded,[\s\S]*?roulette-shared-setup\s*\{[\s\S]*?block-size:\s*100%;[\s\S]*?overflow:\s*hidden/,
+    "the integrated setup shell and shared workspace must inherit one definite host height",
+  );
+  assert.doesNotMatch(
+    embedCss,
     /app-shell\.app-shell--preparation\.is-embedded\s*\{\s*height:\s*auto/,
-    "the integrated desktop setup must not keep the standalone viewport height",
+  );
+  assert.match(
+    previewDirectorCss,
+    /\.draw-preview-director\.broadcast-focus\s*\{[\s\S]*?height:\s*100%;/,
+    "the setup preview director must fill the shared preview stage",
   );
   assert.match(
     embedCss,
-    /@media \(min-width: 901px\) and \(max-height: 780px\)[\s\S]*?app-shell\.app-shell--live\.is-embedded:has\([\s\S]*?broadcast-focus\.is-completed[\s\S]*?height:\s*100% !important[\s\S]*?margin:\s*0/,
+    /@media \(min-width: 901px\) and \(min-height: 600px\) and \(max-height: 780px\)[\s\S]*?app-shell\.app-shell--live\.is-embedded:has\([\s\S]*?broadcast-focus\.is-completed[\s\S]*?height:\s*100% !important[\s\S]*?margin:\s*0/,
     "the integrated compact completed board must inherit the shared host height",
   );
   assert.match(
     embedCss,
-    /@media \(min-width: 901px\) and \(max-width: 1179px\) and \(max-height: 820px\)[\s\S]*?--round-setup-control-row-size:\s*56px[\s\S]*?margin-block-start:\s*12px/,
-    "short medium-width setup screens must compact before they overflow",
+    /@media \(min-width: 641px\) and \(min-height: 600px\) and \(max-height: 820px\)[\s\S]*?--exlab-setup-gap-group:\s*8px[\s\S]*?--round-setup-control-row-size:\s*56px[\s\S]*?margin-block-start:\s*8px/,
+    "short setup screens must compact before they overflow",
   );
 });
 
@@ -763,13 +779,18 @@ test("embedded Roulette delegates advanced controls to the shared setup workspac
     "embedded input groups should use the shared dividers instead of another card",
   );
   assert.match(
+    setupCss,
+    /\.round-setup__data-slot\.round-setup__data-slot--external-roster\s*\{\s*display:\s*none;/,
+    "the externally managed roster must not leave a hidden data panel in the setup height",
+  );
+  assert.match(
     embedCss,
-    /@media \(min-width:\s*901px\)[\s\S]*?\.roulette-shared-setup\s*\{[\s\S]*?block-size:\s*100%;[\s\S]*?overflow:\s*hidden/,
+    /@media \(min-width:\s*641px\) and \(min-height:\s*600px\)[\s\S]*?\.roulette-shared-setup\s*\{[\s\S]*?block-size:\s*100%;[\s\S]*?overflow:\s*hidden/,
     "the embedded shell should own the available desktop height",
   );
   assert.match(
     workspaceCss,
-    /@media \(min-width:\s*901px\)[\s\S]*?\.exlab-setup-workspace\s*\{[\s\S]*?overflow:\s*hidden[\s\S]*?\.exlab-setup-workspace__advanced-content\s*\{[\s\S]*?overflow-y:\s*auto/,
+    /@media \(min-width:\s*641px\) and \(min-height:\s*600px\)[\s\S]*?\.exlab-setup-workspace\s*\{[\s\S]*?overflow:\s*hidden[\s\S]*?\.exlab-setup-workspace__advanced-content\s*\{[\s\S]*?overflow-y:\s*auto/,
     "opening advanced controls must stay inside the desktop setup viewport",
   );
   assert.doesNotMatch(

@@ -1,7 +1,7 @@
 .exlab-setup-workspace {
   --exlab-setup-settings-width: clamp(420px, 32vw, 500px);
   --exlab-setup-gap-close: 8px;
-  --exlab-setup-gap-group: 20px;
+  --exlab-setup-gap-group: 16px;
   --exlab-setup-gap-outer: clamp(18px, 2.25vw, 32px);
   --exlab-setup-radius: 18px;
   box-sizing: border-box;
@@ -56,7 +56,7 @@
     var(--exlab-setup-radius)
     0
     0;
-  padding: clamp(20px, 2.25vw, 30px);
+  padding: clamp(18px, 1.5vw, 20px);
 }
 
 .exlab-setup-workspace[data-has-advanced="false"]
@@ -116,7 +116,7 @@
 .exlab-setup-workspace__setting-group {
   border-block-start: 1px solid var(--exlab-border, #dfcec8);
   display: grid;
-  gap: 12px;
+  gap: 10px;
   margin-block-start: var(--exlab-setup-gap-group);
   padding-block-start: var(--exlab-setup-gap-group);
 }
@@ -145,7 +145,10 @@
     var(--exlab-setup-radius)
     var(--exlab-setup-radius);
   min-block-size: 0;
-  padding: 0 clamp(20px, 2.25vw, 30px) clamp(20px, 2.25vw, 30px);
+  padding:
+    0
+    clamp(18px, 1.5vw, 20px)
+    clamp(18px, 1.5vw, 20px);
 }
 
 .exlab-setup-workspace__advanced details {
@@ -280,7 +283,7 @@
   flex-wrap: wrap;
   gap: var(--exlab-setup-gap-close);
   justify-content: flex-end;
-  min-inline-size: 0;
+  min-inline-size: 225px;
 }
 
 .exlab-setup-workspace__secondary-actions {
@@ -343,7 +346,7 @@
   align-items: center;
   display: flex;
   justify-content: flex-end;
-  min-inline-size: min(100%, 220px);
+  min-inline-size: min(100%, 225px);
 }
 
 .exlab-setup-primary-action-button {
@@ -357,8 +360,8 @@
   inline-size: 100%;
   line-height: 1.25;
   min-block-size: 48px;
-  min-inline-size: min(220px, 100%);
-  padding: 10px 18px;
+  min-inline-size: min(225px, 100%);
+  padding: 10px 23px;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -388,8 +391,8 @@
 .exlab-setup-option-group
   + .exlab-setup-option-group {
   border-block-start: 1px solid var(--exlab-border, #dfcec8);
-  margin-block-start: 12px;
-  padding-block-start: 12px;
+  margin-block-start: 10px;
+  padding-block-start: 10px;
 }
 
 .exlab-setup-option-group__legend {
@@ -521,7 +524,7 @@
   align-items: stretch;
   display: grid;
   gap: 8px;
-  grid-template-columns: 40px minmax(64px, 1fr) 40px;
+  grid-template-columns: 45px minmax(64px, 1fr) 45px;
 }
 
 .exlab-setup-option-group[data-option-kind="number"]
@@ -573,7 +576,7 @@
   }
 }
 
-@media (min-width: 901px) {
+@media (min-width: 641px) and (min-height: 600px) {
   .exlab-setup-workspace {
     block-size: 100%;
     grid-template-rows: minmax(0, 1fr) auto auto;
@@ -615,7 +618,43 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (min-width: 641px) and (max-width: 900px) and (min-height: 600px) {
+  .exlab-setup-workspace {
+    --exlab-setup-settings-width: clamp(250px, 42vw, 300px);
+    --exlab-setup-gap-group: 14px;
+    --exlab-setup-gap-outer: 12px;
+    column-gap: 12px;
+  }
+
+  .exlab-setup-workspace__settings {
+    padding: 16px;
+  }
+
+  .exlab-setup-workspace__title {
+    font-size: clamp(1.25rem, 3vw, 1.65rem);
+  }
+
+  .exlab-setup-workspace__setting-group {
+    gap: 9px;
+  }
+
+  .exlab-setup-workspace__preview-bar {
+    gap: 8px;
+    min-block-size: 54px;
+    padding: 10px 12px;
+  }
+
+  .exlab-setup-workspace__preview-footer {
+    padding: 10px 12px;
+  }
+
+  .exlab-setup-workspace__action-bar {
+    margin-block-start: 12px;
+    padding-block-start: 10px;
+  }
+}
+
+@media (max-width: 640px), (max-height: 599px) {
   .exlab-setup-workspace {
     grid-template-areas:
       "settings"
@@ -709,6 +748,7 @@
     align-items: stretch;
     flex-direction: column;
     inline-size: 100%;
+    min-inline-size: 0;
   }
 
   .exlab-setup-workspace__secondary-actions > * {

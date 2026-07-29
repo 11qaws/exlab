@@ -140,7 +140,7 @@ test("option groups use one alignment contract per input type", () => {
   assert.match(html, /exlab-setup-option-row__control/);
   assert.match(
     workspaceCss,
-    /grid-template-columns:\s*40px minmax\(64px, 1fr\) 40px/,
+    /grid-template-columns:\s*45px minmax\(64px, 1fr\) 45px/,
   );
   assert.match(
     workspaceCss,
@@ -195,5 +195,24 @@ test("shared controls keep theme feedback and reduced-motion behavior", () => {
   assert.match(
     workspaceCss,
     /@media \(prefers-reduced-motion: reduce\)[\s\S]*?exlab-setup-readiness-status\[data-tone="busy"\][\s\S]*?animation: none/,
+  );
+});
+
+test("tablet and desktop setup stay inside one host frame", () => {
+  assert.match(
+    workspaceCss,
+    /@media \(min-width:\s*641px\) and \(min-height:\s*600px\)[\s\S]*?\.exlab-setup-workspace\s*\{[\s\S]*?block-size:\s*100%;[\s\S]*?overflow:\s*hidden;/,
+  );
+  assert.match(
+    workspaceCss,
+    /@media \(min-width:\s*641px\) and \(max-width:\s*900px\) and \(min-height:\s*600px\)[\s\S]*?--exlab-setup-settings-width:\s*clamp\(250px,\s*42vw,\s*300px\)/,
+  );
+  assert.match(
+    workspaceCss,
+    /@media \(max-width:\s*640px\), \(max-height:\s*599px\)[\s\S]*?grid-template-areas:\s*"settings"\s*"preview"\s*"advanced"\s*"actions"/,
+  );
+  assert.match(
+    workspaceCss,
+    /@media \(max-width:\s*640px\)[\s\S]*?grid-template-areas:\s*"settings"\s*"preview"\s*"advanced"\s*"actions"/,
   );
 });
