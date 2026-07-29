@@ -49,12 +49,13 @@ import {
   createThemeSelectionState,
   effectiveStreamerThemeId,
   getStreamerTheme,
+  preloadStreamerThemePortraits,
   StreamerThemeCurrent,
   StreamerThemePicker,
-  streamerThemePortraitUrls,
   streamerThemeCssVariables,
   themeSelectionReducer,
   type ThemeSelectionPhase,
+  type StreamerThemePortraitPreloadStatus,
   type StreamerThemeId,
 } from "./_platform/theme";
 
@@ -68,22 +69,6 @@ const GAME_SURFACES = {
     return { default: game.ShowdownGame };
   }),
 } as const;
-
-type NavigatorWithSaveData = Navigator & {
-  readonly connection?: {
-    readonly saveData?: boolean;
-  };
-};
-
-type WindowWithIdleCallback = Window & {
-  readonly requestIdleCallback?: (
-    callback: () => void,
-    options?: { readonly timeout?: number },
-  ) => number;
-  readonly cancelIdleCallback?: (handle: number) => void;
-};
-
-const THEME_PORTRAIT_IDLE_TIMEOUT_MS = 1_500;
 
 type GameHostStateByGame = Record<GameId, GameHostState>;
 type GameHostStateHandlers = Record<
@@ -629,6 +614,10 @@ export function ExlabApp() {
     () => createThemeSelectionState(),
   );
   const [preferencesReady, setPreferencesReady] = useState(false);
+  const [themePortraitLoadStatus, setThemePortraitLoadStatus] =
+    useState<"loading" | StreamerThemePortraitPreloadStatus>(
+      "loading",
+    );
   const [rosterEditorOpen, setRosterEditorOpen] = useState(false);
   const [visitedGameIds, setVisitedGameIds] = useState<Set<GameId>>(
     () => new Set(),
@@ -649,17 +638,26 @@ export function ExlabApp() {
   const themeTriggerRef = useRef<HTMLButtonElement | null>(null);
   const themeReturnFocusRef = useRef<HTMLElement | null>(null);
   const themeDialogWasOpenRef = useRef(false);
-  const themePortraitPreloadImagesRef = useRef(
-    new Set<HTMLImageElement>(),
-  );
-  const themePortraitsWarmedRef = useRef(false);
   const gameSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const themePickerReady =
+    preferencesReady && themePortraitLoadStatus !== "loading";
+  const appReady =
+    preferencesReady
+    && (
+      !themeSelectionRequired
+      || themePortraitLoadStatus !== "loading"
+    );
 
   useEffect(() => {
-    if (themePickerOpen) {
-      themePortraitsWarmedRef.current = true;
-    }
-  }, [themePickerOpen]);
+    let active = true;
+    void preloadStreamerThemePortraits(".").then(({ status }) => {
+      if (active) setThemePortraitLoadStatus(status);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -690,48 +688,6 @@ export function ExlabApp() {
 
     return () => window.clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    if (
-      !preferencesReady
-      || themePickerOpen
-      || themePortraitsWarmedRef.current
-      || (navigator as NavigatorWithSaveData).connection?.saveData
-    ) {
-      return;
-    }
-
-    const warmPortraits = () => {
-      themePortraitsWarmedRef.current = true;
-      for (const src of streamerThemePortraitUrls(".")) {
-        const image = new Image();
-        const pendingImages = themePortraitPreloadImagesRef.current;
-        const releaseImage = () => {
-          pendingImages.delete(image);
-        };
-        image.decoding = "async";
-        image.fetchPriority = "low";
-        image.addEventListener("error", releaseImage, { once: true });
-        image.addEventListener("load", releaseImage, { once: true });
-        pendingImages.add(image);
-        image.src = src;
-      }
-    };
-    const idleWindow = window as WindowWithIdleCallback;
-
-    if (idleWindow.requestIdleCallback) {
-      const handle = idleWindow.requestIdleCallback(warmPortraits, {
-        timeout: THEME_PORTRAIT_IDLE_TIMEOUT_MS,
-      });
-      return () => idleWindow.cancelIdleCallback?.(handle);
-    }
-
-    const timer = window.setTimeout(
-      warmPortraits,
-      THEME_PORTRAIT_IDLE_TIMEOUT_MS,
-    );
-    return () => window.clearTimeout(timer);
-  }, [preferencesReady, themePickerOpen]);
 
   useEffect(() => {
     if (!preferencesReady) return;
@@ -859,10 +815,10 @@ export function ExlabApp() {
     setRosterEditorOpen(true);
   }, [navigationLocked]);
   const openStreamerThemePicker = useCallback(() => {
-    if (navigationLocked || !preferencesReady) return;
+    if (navigationLocked || !themePickerReady) return;
     themeReturnFocusRef.current = themeTriggerRef.current;
     dispatchThemeSelection({ type: "open" });
-  }, [navigationLocked, preferencesReady]);
+  }, [navigationLocked, themePickerReady]);
   const closeStreamerThemePicker = useCallback(() => {
     dispatchThemeSelection({ type: "cancel" });
   }, []);
@@ -887,7 +843,8 @@ export function ExlabApp() {
     [],
   );
 
-  const modalOpen = rosterEditorOpen || themePickerOpen;
+  const modalOpen =
+    rosterEditorOpen || (themePickerReady && themePickerOpen);
 
   return (
     <div
@@ -917,10 +874,10 @@ export function ExlabApp() {
               ref={themeTriggerRef}
               className="exlab-theme-change-button"
               type="button"
-              disabled={navigationLocked || !preferencesReady}
+              disabled={navigationLocked || !themePickerReady}
               onClick={openStreamerThemePicker}
             >
-              테마 교환
+              {themePickerReady ? "테마 교환" : "테마 준비 중"}
             </button>
           </div>
 
@@ -962,11 +919,11 @@ export function ExlabApp() {
         className="exlab-game-surface"
         tabIndex={-1}
         aria-label={`${selectedGame.label} 운영 화면`}
-        aria-busy={!preferencesReady}
+        aria-busy={!appReady}
         inert={modalOpen}
         aria-hidden={modalOpen || undefined}
       >
-        {preferencesReady ? (
+        {appReady ? (
           GAME_CATALOG.filter((game) =>
             visitedGameIds.has(game.id)
           ).map((game) => {
@@ -1022,7 +979,9 @@ export function ExlabApp() {
           })
         ) : (
           <div className="exlab-loading" role="status">
-            설정 불러오는 중…
+            {preferencesReady
+              ? "테마 이미지 준비 중…"
+              : "설정 불러오는 중…"}
           </div>
         )}
       </div>
@@ -1044,7 +1003,7 @@ export function ExlabApp() {
           }}
         />
       )}
-      {preferencesReady && themePickerOpen && (
+      {themePickerReady && themePickerOpen && (
         <StreamerThemeWelcome
           value={streamerThemeDraftId}
           onChange={(themeId) =>

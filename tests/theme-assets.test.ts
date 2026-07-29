@@ -105,8 +105,9 @@ test("streamer portrait URLs preserve root and GitHub Pages bases", () => {
   );
 });
 
-test("theme images use immediate visible loading and idle background warming", async () => {
-  const [pickerSource, appSource] = await Promise.all([
+test("theme portraits preload at boot and stay decoded for instant picker display", async () => {
+  const [pickerSource, appSource, preloadSource, layoutSource, pagesConfig] =
+    await Promise.all([
     readFile(
       new URL(
         "../app/_platform/theme/StreamerThemePicker.tsx",
@@ -118,6 +119,15 @@ test("theme images use immediate visible loading and idle background warming", a
       new URL("../app/ExlabApp.tsx", import.meta.url),
       "utf8",
     ),
+    readFile(
+      new URL(
+        "../app/_platform/theme/streamerThemePortraitPreload.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../vite.pages.config.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(pickerSource, /decoding="async"/);
@@ -130,15 +140,40 @@ test("theme images use immediate visible loading and idle background warming", a
   assert.match(pickerSource, /height=\{theme\.portrait\.height\}/);
   assert.match(pickerSource, /width=\{theme\.portrait\.width\}/);
 
-  assert.match(appSource, /streamerThemePortraitUrls\("\."\)/);
-  assert.match(appSource, /loadImage=\{preferencesReady\}/);
-  assert.match(appSource, /\.connection\?\.saveData/);
-  assert.match(appSource, /requestIdleCallback/);
+  assert.match(appSource, /preloadStreamerThemePortraits\("\."\)/);
   assert.match(
     appSource,
-    /if \(themePickerOpen\) \{\s*themePortraitsWarmedRef\.current = true;/,
+    /const themePickerReady =\s*preferencesReady && themePortraitLoadStatus !== "loading"/,
   );
-  assert.match(appSource, /pendingImages\.delete\(image\)/);
-  assert.match(appSource, /image\.fetchPriority = "low"/);
-  assert.match(appSource, /image\.decoding = "async"/);
+  assert.match(
+    appSource,
+    /const appReady =[\s\S]*?!themeSelectionRequired[\s\S]*?themePortraitLoadStatus !== "loading"/,
+  );
+  assert.match(appSource, /loadImage=\{preferencesReady\}/);
+  assert.match(
+    appSource,
+    /rosterEditorOpen \|\| \(themePickerReady && themePickerOpen\)/,
+  );
+  assert.match(appSource, /\{themePickerReady \? "테마 교환" : "테마 준비 중"\}/);
+  assert.match(appSource, /테마 이미지 준비 중…/);
+  assert.doesNotMatch(appSource, /requestIdleCallback/);
+  assert.doesNotMatch(appSource, /themePortraitsWarmedRef/);
+
+  assert.match(preloadSource, /retainedPortraitImages/);
+  assert.match(preloadSource, /portraitDecodePromises/);
+  assert.match(preloadSource, /image\.fetchPriority = "high"/);
+  assert.match(preloadSource, /await image\.decode\(\)/);
+  assert.match(preloadSource, /PORTRAIT_DECODE_TIMEOUT_MS = 8_000/);
+  assert.match(
+    preloadSource,
+    /setTimeout\(\s*\(\) => finish\(false\)/,
+  );
+  assert.match(preloadSource, /Promise\.all\(/);
+
+  assert.match(layoutSource, /preload\(`\/\$\{asset\.path\}`/);
+  assert.match(layoutSource, /as: "image"/);
+  assert.match(layoutSource, /fetchPriority: "high"/);
+  assert.match(layoutSource, /STREAMER_THEME_PORTRAIT_ASSETS/);
+  assert.match(pagesConfig, /streamerThemePortraitPreloads/);
+  assert.match(pagesConfig, /fetchpriority: "high"/);
 });

@@ -107,6 +107,33 @@ for (const expectedModule of [
 const streamerPortraitPaths = Object.values(
   streamerPortraitAssets,
 ).map(({ path }) => path);
+const portraitPreloadReferences = [
+  ...indexHtml.matchAll(/<link\b[^>]*>/g),
+]
+  .map((match) => match[0])
+  .filter(
+    (tag) =>
+      /\brel="preload"/.test(tag)
+      && /\bas="image"/.test(tag)
+      && /\bhref="[^"]*\/themes\/streamers\//.test(tag),
+  )
+  .map((tag) => tag.match(/\bhref="([^"]+)"/)?.[1])
+  .filter(Boolean);
+
+invariant(
+  portraitPreloadReferences.length === streamerPortraitPaths.length,
+  `expected ${streamerPortraitPaths.length} portrait preloads, found ${portraitPreloadReferences.length}.`,
+);
+invariant(
+  new Set(portraitPreloadReferences).size === streamerPortraitPaths.length,
+  "streamer portrait preloads are duplicated.",
+);
+for (const imagePath of streamerPortraitPaths) {
+  invariant(
+    portraitPreloadReferences.includes(`${pagesBase}${imagePath}`),
+    `streamer portrait preload ${pagesBase}${imagePath} is missing.`,
+  );
+}
 
 for (const imagePath of ["og.png", ...streamerPortraitPaths]) {
   invariant(

@@ -39,6 +39,12 @@ export {
 } from "./StreamerThemePicker";
 
 export {
+  preloadStreamerThemePortraits,
+  type StreamerThemePortraitPreloadResult,
+  type StreamerThemePortraitPreloadStatus,
+} from "./streamerThemePortraitPreload";
+
+export {
   THEME_CONFIRM_BLINK_MS,
   THEME_CONFIRM_HOLD_MS,
   THEME_CONFIRM_TRANSITION_MS,

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { preload } from "react-dom";
+import { STREAMER_THEME_PORTRAIT_ASSETS } from "./_platform/theme/streamerThemes";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -36,6 +38,14 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  for (const asset of Object.values(STREAMER_THEME_PORTRAIT_ASSETS)) {
+    preload(`/${asset.path}`, {
+      as: "image",
+      fetchPriority: "high",
+      type: asset.mimeType,
+    });
+  }
+
   return (
     <html lang="ko">
       <body>{children}</body>
