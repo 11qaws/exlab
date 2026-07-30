@@ -927,12 +927,8 @@ summary {
 }
 
 :scope.race-screen.is-embedded {
-  block-size: calc(
-    100svh - var(--exlab-header-height, 58px)
-  );
-  block-size: calc(
-    100dvh - var(--exlab-header-height, 58px)
-  );
+  block-size: var(--exlab-stage-min-height);
+  block-size: var(--exlab-stage-height-dynamic);
   min-height: 0;
 }
 

@@ -4,6 +4,9 @@
   --exlab-setup-gap-group: 16px;
   --exlab-setup-gap-outer: clamp(18px, 2.25vw, 32px);
   --exlab-setup-radius: 18px;
+  /* Vertical room the workspace spends on its own title row, footer actions
+     and outer padding before the preview gets what is left. */
+  --exlab-setup-preview-reserve: 118px;
   box-sizing: border-box;
   display: grid;
   grid-template-areas:
@@ -15,9 +18,7 @@
     minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
   column-gap: var(--exlab-setup-gap-group);
-  min-block-size: calc(
-    100svh - var(--exlab-header-height, 58px)
-  );
+  min-block-size: var(--exlab-stage-min-height);
   padding: var(--exlab-setup-gap-outer);
   color: var(--exlab-text, #3b2426);
   font-family:
@@ -213,7 +214,7 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-block-size: min(
     650px,
-    calc(100svh - var(--exlab-header-height, 58px) - 118px)
+    calc(var(--exlab-stage-min-height) - var(--exlab-setup-preview-reserve))
   );
   overflow: clip;
 }

@@ -36,6 +36,7 @@ pages-static/       GitHub Pages 미러 진입점
 ```
 
 - 게임 사이의 값은 직접 주고받지 않는다. 공유가 필요하면 `app/_platform/contracts.ts` 계약을 거친다.
+- 크기·간격·radius·컨트롤 높이는 `app/globals.css`의 `:root` 눈금에서 고른다. 맞는 단이 없으면 생 px를 쓰지 말고 단을 추가한다. 전체 높이가 필요하면 `--exlab-stage-min-height`(svh) 또는 `--exlab-stage-height-dynamic`(dvh)를 쓰고, 뷰포트에서 헤더 높이를 직접 빼지 않는다. `tests/shell-scale-contract.test.ts`가 강제한다.
 - 스타일은 `.roulette-game`, `.showdown-game` 스코프로 격리한다.
 - 새 게임은 catalog와 adapter 계약 등록으로 추가한다.
 

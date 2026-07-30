@@ -2,6 +2,66 @@
 
 :root {
   color-scheme: light;
+
+  /* ---------------------------------------------------------------------
+     Shell scale — the single ruler for the common layer.
+
+     The steps were not imported from another product. They were read out of
+     what this shell already measured: the dominant values became the rungs,
+     so most declarations map to a step without moving, and the leftovers
+     were pulled to the nearest rung instead of staying magic numbers.
+
+     Reach for a rung before writing a raw px value. A value with no rung
+     means the scale is missing one — add the rung, not the literal, so the
+     next screen does not have to measure it again.
+
+     Game CSS under app/games/ is not covered yet: those values are tuned
+     against physics and readability and recorded in docs/DESIGN_FINDINGS.md,
+     so each game migrates in its own pass with browser verification.
+     --------------------------------------------------------------------- */
+
+  /* Type. 12px carries the shell's control labels. */
+  --exlab-text-2xs: 10px;
+  --exlab-text-xs: 11px;
+  --exlab-text-sm: 12px;
+  --exlab-text-md: 13px;
+  --exlab-text-lg: 15px;
+  --exlab-text-xl: 19px;
+  --exlab-text-2xl: 23px;
+  --exlab-text-display: clamp(25px, 3vw, 36px);
+
+  /* Space. Only the outermost seam of a group should be fluid. */
+  --exlab-space-3xs: 2px;
+  --exlab-space-2xs: 4px;
+  --exlab-space-xs: 6px;
+  --exlab-space-sm: 8px;
+  --exlab-space-md: 10px;
+  --exlab-space-lg: 12px;
+  --exlab-space-xl: 16px;
+  --exlab-space-2xl: 20px;
+  --exlab-space-3xl: 24px;
+
+  /* Radius. Three shapes plus the pill; a fourth means two should merge. */
+  --exlab-radius-sm: 10px;
+  --exlab-radius-md: 12px;
+  --exlab-radius-lg: 20px;
+  --exlab-radius-pill: 999px;
+
+  /* Control heights. --exlab-control-xs is the compact header control;
+     its 34px is a recorded decision pinned by theme-platform.test. */
+  --exlab-control-xs: 34px;
+  --exlab-control-sm: 36px;
+  --exlab-control-md: 40px;
+  --exlab-control-lg: 44px;
+
+  /* Layout height contract. The header owns its height and every
+     full-height surface derives from it here. Do not subtract the header
+     from the viewport again in a game stylesheet. */
+  --exlab-header-height: 58px;
+  --exlab-stage-min-height: calc(100svh - var(--exlab-header-height));
+  --exlab-stage-height-dynamic: calc(100dvh - var(--exlab-header-height));
+
+  /* Semantic colors. */
   --exlab-background: #fff8f3;
   --exlab-surface: #fffdf9;
   --exlab-surface-subtle: #f7e9e5;
@@ -16,7 +76,6 @@
   --exlab-accent-ink: #8f1740;
   --exlab-accent-bg: #f9e8ee;
   --exlab-accent-line: #e8bdcc;
-  --exlab-header-height: 58px;
   --font-body:
     Inter, Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", system-ui,
     sans-serif;
@@ -125,7 +184,7 @@ body {
   background: color-mix(in srgb, var(--exlab-surface) 94%, transparent);
   border-bottom: 1px solid var(--exlab-border);
   display: flex;
-  gap: 20px;
+  gap: var(--exlab-space-2xl);
   justify-content: space-between;
   min-height: var(--exlab-header-height);
   padding: 8px clamp(14px, 2.5vw, 32px);
@@ -138,7 +197,7 @@ body {
   color: var(--exlab-text);
   flex: 0 0 auto;
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: var(--exlab-text-xl);
   font-weight: 900;
   letter-spacing: -0.045em;
   line-height: 1;
@@ -147,7 +206,7 @@ body {
 .exlab-toolbar {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: var(--exlab-space-md);
   justify-content: flex-end;
   min-width: 0;
 }
@@ -155,7 +214,7 @@ body {
 .exlab-theme-field {
   align-items: center;
   display: inline-flex;
-  gap: 8px;
+  gap: var(--exlab-space-sm);
   min-width: 0;
 }
 
@@ -163,14 +222,14 @@ body {
   align-items: center;
   color: var(--exlab-text);
   display: inline-flex;
-  gap: 7px;
+  gap: var(--exlab-space-sm);
   min-width: 0;
 }
 
 .exlab-current-theme .exlab-theme-card-portrait {
   -webkit-mask-image: none;
   border: 1px solid var(--exlab-border-strong);
-  border-radius: 999px;
+  border-radius: var(--exlab-radius-pill);
   flex: 0 0 32px;
   height: 32px;
   inset: auto;
@@ -180,11 +239,11 @@ body {
 }
 
 .exlab-current-theme .exlab-theme-card-fallback {
-  font-size: 13px;
+  font-size: var(--exlab-text-md);
 }
 
 .exlab-current-theme strong {
-  font-size: 12px;
+  font-size: var(--exlab-text-sm);
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -194,12 +253,12 @@ body {
 .exlab-theme-change-button {
   background: var(--exlab-surface);
   border: 1px solid var(--exlab-border);
-  border-radius: 9px;
+  border-radius: var(--exlab-radius-sm);
   color: var(--exlab-text);
-  font-size: 12px;
+  font-size: var(--exlab-text-sm);
   font-weight: 800;
-  min-height: 34px;
-  padding-inline: 10px;
+  min-height: var(--exlab-control-xs);
+  padding-inline: var(--exlab-space-md);
 }
 
 .exlab-theme-change-button:hover:not(:disabled) {
@@ -219,12 +278,12 @@ body {
 .exlab-select-field {
   align-items: center;
   display: inline-flex;
-  gap: 7px;
+  gap: var(--exlab-space-sm);
 }
 
 .exlab-field-caption {
   color: var(--exlab-muted);
-  font-size: 12px;
+  font-size: var(--exlab-text-sm);
   font-weight: 750;
 }
 
@@ -232,12 +291,12 @@ body {
   appearance: auto;
   background: var(--exlab-surface);
   border: 1px solid var(--exlab-border);
-  border-radius: 9px;
+  border-radius: var(--exlab-radius-sm);
   color: var(--exlab-text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--exlab-text-md);
   font-weight: 750;
-  min-height: 38px;
+  min-height: var(--exlab-control-md);
   min-width: 112px;
   padding: 0 30px 0 11px;
 }
@@ -253,15 +312,15 @@ body {
   align-items: center;
   color: var(--exlab-muted);
   display: inline-flex;
-  font-size: 12px;
+  font-size: var(--exlab-text-sm);
   font-weight: 750;
-  gap: 6px;
+  gap: var(--exlab-space-xs);
   white-space: nowrap;
 }
 
 .exlab-session-status::before {
   background: var(--exlab-accent);
-  border-radius: 999px;
+  border-radius: var(--exlab-radius-pill);
   content: "";
   height: 7px;
   width: 7px;
@@ -270,11 +329,11 @@ body {
 .exlab-roster-trigger {
   background: var(--exlab-surface);
   border: 1px solid var(--exlab-border);
-  border-radius: 9px;
+  border-radius: var(--exlab-radius-sm);
   color: var(--exlab-muted);
-  font-size: 12px;
+  font-size: var(--exlab-text-sm);
   font-weight: 750;
-  min-height: 38px;
+  min-height: var(--exlab-control-md);
   padding: 0 11px;
   white-space: nowrap;
 }
@@ -294,7 +353,7 @@ body {
   display: flex;
   inset: 0;
   justify-content: center;
-  padding: 18px;
+  padding: var(--exlab-space-2xl);
   position: fixed;
   z-index: 500;
 }
@@ -305,7 +364,7 @@ body {
   inset: 0;
   justify-content: center;
   overflow: hidden;
-  padding: 12px;
+  padding: var(--exlab-space-lg);
   position: fixed;
   z-index: 600;
 }
@@ -325,7 +384,7 @@ body {
 .exlab-theme-welcome {
   background: var(--exlab-background);
   border: 1px solid var(--exlab-border);
-  border-radius: 22px;
+  border-radius: var(--exlab-radius-lg);
   box-shadow: 0 28px 90px
     color-mix(in srgb, var(--exlab-text) 28%, transparent);
   block-size: min(860px, calc(100svh - 24px));
@@ -344,13 +403,13 @@ body {
 .exlab-theme-welcome > header {
   align-items: flex-start;
   display: grid;
-  gap: 18px;
+  gap: var(--exlab-space-2xl);
   grid-template-columns: auto minmax(0, 1fr);
 }
 
 .exlab-theme-welcome > header > div {
   display: grid;
-  gap: 4px;
+  gap: var(--exlab-space-2xs);
 }
 
 .exlab-theme-welcome > header p,
@@ -360,7 +419,7 @@ body {
 
 .exlab-theme-welcome > header > div > p:first-child {
   color: var(--exlab-accent-ink);
-  font-size: 11px;
+  font-size: var(--exlab-text-xs);
   font-weight: 850;
   letter-spacing: 0.1em;
 }
@@ -373,7 +432,7 @@ body {
 
 .exlab-theme-welcome > header > div > p:last-child {
   color: var(--exlab-muted);
-  font-size: 13px;
+  font-size: var(--exlab-text-md);
   line-height: 1.55;
   max-width: 620px;
 }
@@ -402,7 +461,7 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 4px 8px 24px;
+  padding: var(--exlab-space-2xs) var(--exlab-space-sm) var(--exlab-space-3xl);
   scroll-padding-block: 24px;
   scrollbar-width: none;
 }
@@ -474,7 +533,7 @@ body {
 
 .exlab-onboarding-theme-picker .exlab-streamer-theme-list {
   align-content: center;
-  gap: 9px;
+  gap: var(--exlab-space-md);
   grid-template-columns: minmax(0, 1fr);
   inline-size: min(100%, 640px);
   margin-inline: auto;
@@ -491,7 +550,7 @@ body {
 .exlab-onboarding-theme-picker .exlab-theme-card {
   aspect-ratio: auto;
   block-size: 120px;
-  border-radius: 13px;
+  border-radius: var(--exlab-radius-md);
 }
 
 .exlab-theme-welcome.is-confirming
@@ -541,28 +600,28 @@ body {
   align-items: center;
   border-top: 1px solid var(--exlab-border);
   display: flex;
-  gap: 16px;
+  gap: var(--exlab-space-xl);
   justify-content: space-between;
-  padding-top: 18px;
+  padding-top: var(--exlab-space-2xl);
 }
 
 .exlab-theme-welcome-status {
   color: var(--exlab-muted);
   flex: 1;
-  font-size: 12px;
+  font-size: var(--exlab-text-sm);
   min-width: 0;
 }
 
 .exlab-theme-welcome-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--exlab-space-sm);
 }
 
 .exlab-theme-welcome > footer button {
-  border-radius: 10px;
-  font-size: 13px;
+  border-radius: var(--exlab-radius-sm);
+  font-size: var(--exlab-text-md);
   font-weight: 850;
-  min-height: 44px;
+  min-height: var(--exlab-control-lg);
   padding: 0 18px;
 }
 
@@ -593,11 +652,11 @@ body {
 .exlab-roster-dialog {
   background: var(--exlab-surface);
   border: 1px solid var(--exlab-border);
-  border-radius: 18px;
+  border-radius: var(--exlab-radius-lg);
   box-shadow: 0 24px 80px rgb(58 27 36 / 28%);
   color: var(--exlab-text);
   display: grid;
-  gap: 12px;
+  gap: var(--exlab-space-lg);
   max-height: min(760px, calc(100svh - 36px));
   max-width: 620px;
   overflow: auto;
@@ -620,21 +679,21 @@ body {
 
 .exlab-roster-dialog header p {
   color: var(--exlab-muted);
-  font-size: 11px;
+  font-size: var(--exlab-text-xs);
   font-weight: 800;
 }
 
 .exlab-roster-dialog header h2 {
-  font-size: 23px;
+  font-size: var(--exlab-text-2xl);
   letter-spacing: -0.03em;
 }
 
 .exlab-roster-dialog > header > strong {
   background: var(--exlab-surface-subtle);
-  border-radius: 999px;
+  border-radius: var(--exlab-radius-pill);
   color: var(--exlab-accent);
-  font-size: 12px;
-  padding: 6px 9px;
+  font-size: var(--exlab-text-sm);
+  padding: var(--exlab-space-xs) var(--exlab-space-md);
 }
 
 .exlab-roster-import {
@@ -643,14 +702,14 @@ body {
 
 .exlab-roster-import > summary {
   align-items: center;
-  border-radius: 9px;
+  border-radius: var(--exlab-radius-sm);
   color: var(--exlab-accent);
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   list-style: none;
-  min-height: 44px;
-  padding-inline: 6px;
+  min-height: var(--exlab-control-lg);
+  padding-inline: var(--exlab-space-xs);
 }
 
 .exlab-roster-import > summary::-webkit-details-marker {
@@ -660,7 +719,7 @@ body {
 .exlab-roster-import > summary::after {
   color: var(--exlab-muted);
   content: "+";
-  font-size: 18px;
+  font-size: var(--exlab-text-xl);
   font-weight: 700;
 }
 
@@ -670,11 +729,11 @@ body {
 
 .exlab-roster-import > summary span {
   display: grid;
-  gap: 2px;
+  gap: var(--exlab-space-3xs);
 }
 
 .exlab-roster-import > summary strong {
-  font-size: 12px;
+  font-size: var(--exlab-text-sm);
 }
 
 .exlab-roster-import > summary small,
@@ -682,13 +741,13 @@ body {
 .exlab-roster-import__action p,
 .exlab-roster-import-result {
   color: var(--exlab-muted);
-  font-size: 10px;
+  font-size: var(--exlab-text-2xs);
   line-height: 1.45;
 }
 
 .exlab-roster-import__body {
   display: grid;
-  gap: 8px;
+  gap: var(--exlab-space-sm);
   padding: 2px 0 13px;
 }
 
@@ -705,19 +764,19 @@ body {
 .exlab-roster-import__action {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: var(--exlab-space-md);
   justify-content: space-between;
 }
 
 .exlab-roster-import__action button {
   background: var(--exlab-surface);
   border: 1px solid var(--exlab-accent);
-  border-radius: 9px;
+  border-radius: var(--exlab-radius-sm);
   color: var(--exlab-accent);
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: var(--exlab-text-xs);
   font-weight: 800;
-  min-height: 36px;
+  min-height: var(--exlab-control-sm);
   padding: 0 12px;
 }
 
@@ -726,25 +785,25 @@ body {
 }
 
 .exlab-roster-dialog > label[for] {
-  font-size: 12px;
+  font-size: var(--exlab-text-sm);
   font-weight: 800;
 }
 
 .exlab-roster-dialog textarea {
   background: var(--exlab-background);
   border: 1px solid var(--exlab-border);
-  border-radius: 12px;
+  border-radius: var(--exlab-radius-md);
   color: var(--exlab-text);
-  font-size: 14px;
+  font-size: var(--exlab-text-lg);
   line-height: 1.55;
   min-height: min(360px, 42svh);
-  padding: 12px;
+  padding: var(--exlab-space-lg);
   resize: vertical;
 }
 
 .exlab-roster-dialog > p {
   color: var(--exlab-muted);
-  font-size: 11px;
+  font-size: var(--exlab-text-xs);
   line-height: 1.5;
 }
 
@@ -756,10 +815,10 @@ body {
   align-items: center;
   background: var(--exlab-surface-subtle);
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--exlab-radius-md);
   cursor: pointer;
   display: flex;
-  gap: 10px;
+  gap: var(--exlab-space-md);
   padding: 11px 12px;
   transition:
     background-color 140ms ease-out,
@@ -802,32 +861,32 @@ body {
 
 .exlab-roster-duplicate-policy span {
   display: grid;
-  gap: 2px;
+  gap: var(--exlab-space-3xs);
 }
 
 .exlab-roster-duplicate-policy strong {
-  font-size: 12px;
+  font-size: var(--exlab-text-sm);
 }
 
 .exlab-roster-duplicate-policy small {
   color: var(--exlab-muted);
-  font-size: 10px;
+  font-size: var(--exlab-text-2xs);
 }
 
 .exlab-roster-dialog > footer {
   display: flex;
-  gap: 8px;
+  gap: var(--exlab-space-sm);
   justify-content: flex-end;
 }
 
 .exlab-roster-dialog > footer button {
   background: var(--exlab-surface);
   border: 1px solid var(--exlab-border);
-  border-radius: 9px;
+  border-radius: var(--exlab-radius-sm);
   color: var(--exlab-text);
-  font-size: 12px;
+  font-size: var(--exlab-text-sm);
   font-weight: 800;
-  min-height: 40px;
+  min-height: var(--exlab-control-md);
   padding: 0 14px;
 }
 
@@ -862,9 +921,7 @@ body {
 
 @media (min-width: 901px) and (min-height: 600px) {
   .exlab-game-instance {
-    block-size: calc(
-      100dvh - var(--exlab-header-height)
-    );
+    block-size: var(--exlab-stage-height-dynamic);
     min-block-size: 0;
     overflow: hidden;
   }
@@ -883,9 +940,7 @@ body {
   .exlab-game-instance:has(
       > .showdown-game.preparation-screen
     ) {
-    block-size: calc(
-      100dvh - var(--exlab-header-height)
-    );
+    block-size: var(--exlab-stage-height-dynamic);
     min-block-size: 0;
     overflow: hidden;
   }
@@ -906,7 +961,7 @@ body {
 .exlab-game-instance > .preparation-screen,
 .exlab-game-instance > .race-screen,
 .exlab-game-instance > .result-screen {
-  min-height: calc(100svh - var(--exlab-header-height));
+  min-height: var(--exlab-stage-min-height);
 }
 
 /* The common shell replaces the standalone product header and the large
@@ -924,10 +979,10 @@ body {
   align-items: center;
   color: var(--exlab-muted);
   display: flex;
-  font-size: 13px;
+  font-size: var(--exlab-text-md);
   font-weight: 700;
   justify-content: center;
-  min-height: calc(100svh - var(--exlab-header-height));
+  min-height: var(--exlab-stage-min-height);
 }
 
 @keyframes exlab-game-enter {
@@ -948,12 +1003,12 @@ body {
   }
 
   .exlab-header {
-    gap: 10px;
-    padding-inline: 12px;
+    gap: var(--exlab-space-md);
+    padding-inline: var(--exlab-space-lg);
   }
 
   .exlab-toolbar {
-    gap: 7px;
+    gap: var(--exlab-space-sm);
   }
 
   .exlab-field-caption {
@@ -970,13 +1025,13 @@ body {
   }
 
   .exlab-select-field select {
-    min-height: 36px;
+    min-height: var(--exlab-control-sm);
     min-width: 92px;
-    padding-left: 9px;
+    padding-left: var(--exlab-space-md);
   }
 
   .exlab-current-theme {
-    gap: 5px;
+    gap: var(--exlab-space-xs);
   }
 
   .exlab-current-theme .exlab-theme-card-portrait {
@@ -986,13 +1041,13 @@ body {
   }
 
   .exlab-current-theme strong {
-    font-size: 11px;
+    font-size: var(--exlab-text-xs);
     max-width: 70px;
   }
 
   .exlab-theme-change-button {
-    min-height: 34px;
-    padding-inline: 8px;
+    min-height: var(--exlab-control-sm);
+    padding-inline: var(--exlab-space-sm);
   }
 
   .exlab-session-status {
@@ -1009,36 +1064,36 @@ body {
   }
 
   .exlab-roster-trigger {
-    min-height: 36px;
-    padding-inline: 9px;
+    min-height: var(--exlab-control-sm);
+    padding-inline: var(--exlab-space-md);
   }
 
   .exlab-theme-welcome {
-    gap: 10px;
+    gap: var(--exlab-space-md);
   }
 
   .exlab-theme-welcome > header {
-    gap: 9px;
+    gap: var(--exlab-space-md);
     grid-template-columns: 1fr;
   }
 
   .exlab-theme-welcome > header > .exlab-wordmark {
-    font-size: 15px;
+    font-size: var(--exlab-text-lg);
   }
 
   .exlab-onboarding-theme-picker .exlab-streamer-theme-list {
-    gap: 8px;
+    gap: var(--exlab-space-sm);
   }
 
   .exlab-theme-welcome > footer {
     align-items: stretch;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--exlab-space-md);
   }
 
   .exlab-theme-welcome > footer button {
     flex: 1;
-    padding-inline: 13px;
+    padding-inline: var(--exlab-space-lg);
   }
 
   .exlab-theme-welcome-actions {
@@ -1048,13 +1103,13 @@ body {
 
 @media (max-height: 560px) {
   .exlab-theme-welcome-layer {
-    padding: 8px;
+    padding: var(--exlab-space-sm);
   }
 
   .exlab-theme-welcome {
     block-size: calc(100svh - 16px);
-    gap: 8px;
-    padding: 10px 12px;
+    gap: var(--exlab-space-sm);
+    padding: var(--exlab-space-md) var(--exlab-space-lg);
   }
 
   .exlab-theme-welcome > header {
@@ -1067,11 +1122,11 @@ body {
   }
 
   .exlab-theme-welcome > header h1 {
-    font-size: 20px;
+    font-size: var(--exlab-text-xl);
   }
 
   .exlab-theme-welcome > footer {
-    padding-top: 8px;
+    padding-top: var(--exlab-space-sm);
   }
 }
 

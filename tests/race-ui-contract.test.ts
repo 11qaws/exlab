@@ -118,14 +118,14 @@ test("scoped Showdown roots retain their intended frame colors and sizing", () =
   assert.doesNotMatch(gameSource, /showdown-game result-screen/);
   assert.match(
     cssSource,
-    /:scope\.race-screen\.is-embedded\s*\{[\s\S]*?100dvh\s*-\s*var\(--exlab-header-height,\s*58px\)[\s\S]*?min-height:\s*0;/,
+    /:scope\.race-screen\.is-embedded\s*\{[\s\S]*?var\(--exlab-stage-height-dynamic\)[\s\S]*?min-height:\s*0;/,
   );
 });
 
 test("desktop Showdown setup uses the common viewport and overflow owner", () => {
   assert.match(
     globalsCssSource,
-    /@media \(min-width:\s*901px\) and \(min-height:\s*600px\)[\s\S]*?\.exlab-game-instance\s*\{[\s\S]*?100dvh\s*-\s*var\(--exlab-header-height\)[\s\S]*?overflow:\s*hidden;/,
+    /@media \(min-width:\s*901px\) and \(min-height:\s*600px\)[\s\S]*?\.exlab-game-instance\s*\{[\s\S]*?var\(--exlab-stage-height-dynamic\)[\s\S]*?overflow:\s*hidden;/,
   );
   assert.match(
     globalsCssSource,

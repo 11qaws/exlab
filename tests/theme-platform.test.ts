@@ -358,10 +358,13 @@ test("the shell previews draft themes and commits only after confirmation", asyn
     globalsSource,
     /\.exlab-current-theme \.exlab-theme-card-portrait\s*\{[\s\S]*?height: 32px;/,
   );
+  // The compact header control is still 34px. It now reads that value from a
+  // named rung instead of a literal, so both halves are pinned here.
   assert.match(
     globalsSource,
-    /\.exlab-theme-change-button\s*\{[\s\S]*?min-height: 34px;/,
+    /\.exlab-theme-change-button\s*\{[\s\S]*?min-height: var\(--exlab-control-xs\);/,
   );
+  assert.match(globalsSource, /--exlab-control-xs:\s*34px;/);
 });
 
 test("the first visit reuses profile cards and Showdown consumes stage tokens", async () => {

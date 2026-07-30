@@ -1,5 +1,18 @@
 # Development Log
 
+## 2026-07-31 공통 셸 눈금과 레이아웃 높이 계약
+
+- 눈금이 없다는 것을 먼저 수치로 확인했다. `app/globals.css`(1,111줄)에는 의미색과 `--exlab-header-height`만 있고 폰트·간격 단계가 없었다. 기준이 없으니 화면마다 절대값을 다시 재는 것이 당연했다.
+- **단계를 다른 제품에서 가져오지 않고 이 파일의 실제 사용 분포에서 뽑았다.** font-size는 12px(11회)·13px(5)·11px(5)가 지배적이었고, radius는 9px(6)·999px(3)·12px(2)였다. 지배적인 값이 곧 단이 되도록 잡아 대부분의 선언이 움직이지 않고 매핑되게 했다. 타입 8단, 간격 9단, radius 3종+pill, 컨트롤 높이 4종을 `:root`에 정본으로 두고 **96개 선언**을 단계로 올렸다. 스냅 폭은 전부 ±2px 이내다.
+- `.exlab-theme-change-button`의 34px는 `theme-platform.test.ts`가 고정한 **기록된 결정**이었다. 눈금이 기록을 덮어쓰면 안 되므로 36px로 스냅하지 않고 `--exlab-control-xs: 34px` 단을 새로 만들어 값에 이름을 줬다. 테스트도 리터럴 대신 토큰과 단의 값을 함께 고정하도록 바꿨다.
+- **게임 CSS는 이번 범위에서 제외했다.** `app/games/`의 값은 물리·가독성에 맞춰 튜닝했고 근거가 `docs/DESIGN_FINDINGS.md`에 있다. 일괄 스냅하면 기록된 튜닝을 근거 없이 되돌린다.
+- **레이아웃 높이 소유권을 한 곳으로 모았다.** 헤더 높이 뺄셈이 `globals.css`·`roulette-embed.css`·`showdown-game.css`·`SetupWorkspace.css` 4개 파일 **15곳**에 흩어져 있었고 `58px` 폴백이 중복돼 있었다. 같은 화면을 계속 되돌리던 `fix: fit setup controls at 720p` 류의 커밋 루프가 여기서 나왔다. 이제 셸이 `--exlab-stage-min-height`(svh)와 `--exlab-stage-height-dynamic`(dvh)를 소유하고 나머지는 소비만 한다.
+- `SetupWorkspace.css`의 `- 118px`은 이름 없는 상수였다. 워크스페이스 자신의 제목 행·푸터·바깥 여백이 쓰는 세로 공간이라는 뜻을 `--exlab-setup-preview-reserve`로 명시했다.
+- **규칙을 문서가 아니라 테스트로 내렸다.** `tests/shell-scale-contract.test.ts` 6종: 눈금 선언 존재, 셸 규칙에 생 px `font-size`·`border-radius` 없음, 헤더 높이 뺄셈은 셸에 svh·dvh 각각 정확히 1회, `app/` 아래 다른 어떤 스타일시트도 `--exlab-header-height`를 직접 빼지 않음, radius 4종 상한.
+- 기존 `race-ui-contract.test.ts`가 옛 리터럴(`100dvh - var(--exlab-header-height, 58px)`)을 고정하고 있어 새 토큰 계약으로 갱신했다. 검사하는 의미(뷰포트에 묶인다)는 그대로다.
+- 검증: lint 0건, typecheck 통과, `npm run test:ci` **200/200**, `pages:verify` 26파일.
+- 브라우저 실측(1440×900·1024×768·390×844): 헤더 58/58/54px, 컴팩트 컨트롤 34px 그대로, 스테이지 842px(=900−58)·710px(=768−58), 가로 넘침 없음, 헤더 줄바꿈 없음, 콘솔 오류 0건.
+
 ## 2026-07-30 1.3.29 테마 프로필 초기 선로딩·디코드 고정
 
 - 첫 방문 자동 테마 선택창과 빠른 재오픈에서 프로필이 뒤늦게 나타나던 경쟁 조건을 제거했다. 기존 로직은 모달이 열리면 실제 로드 여부와 무관하게 워밍 완료로 표시하고, 예약된 idle 저우선순위 요청까지 취소하고 있었다.
