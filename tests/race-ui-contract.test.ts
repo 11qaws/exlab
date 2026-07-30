@@ -3,15 +3,15 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const gameSource = readFileSync(
-  new URL("../app/marble/ShowdownGame.tsx", import.meta.url),
+  new URL("../app/games/showdown/ShowdownGame.tsx", import.meta.url),
   "utf8",
 );
 const canvasSource = readFileSync(
-  new URL("../app/marble/RaceCanvas.tsx", import.meta.url),
+  new URL("../app/games/showdown/RaceCanvas.tsx", import.meta.url),
   "utf8",
 );
 const cssSource = readFileSync(
-  new URL("../app/marble/showdown-game.css", import.meta.url),
+  new URL("../app/games/showdown/showdown-game.css", import.meta.url),
   "utf8",
 );
 const setupWorkspaceCssSource = readFileSync(

@@ -2,8 +2,8 @@ import {
   COURSE_RECTS,
   MARBLE_RADIUS,
   type CourseRect,
-} from "../app/marble/course";
-import { FRAME_RATE, simulateRace } from "../app/marble/simulation";
+} from "../app/games/showdown/course";
+import { FRAME_RATE, simulateRace } from "../app/games/showdown/simulation";
 
 const PARTICIPANT_COUNT = 8;
 const DEFAULT_RACE_COUNT = 48;

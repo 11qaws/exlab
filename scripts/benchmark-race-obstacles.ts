@@ -4,10 +4,10 @@ import {
   MARBLE_RADIUS,
   ROTATING_BARS,
   STRAIGHT_ZONES,
-} from "../app/marble/course";
-import { LEADER_FOCUS_DELAY_FRAMES } from "../app/marble/camera";
-import { simulateRace } from "../app/marble/simulation";
-import type { RaceFrame } from "../app/marble/types";
+} from "../app/games/showdown/course";
+import { LEADER_FOCUS_DELAY_FRAMES } from "../app/games/showdown/camera";
+import { simulateRace } from "../app/games/showdown/simulation";
+import type { RaceFrame } from "../app/games/showdown/types";
 
 type Point = { x: number; y: number };
 type MeasuredObstacle = {

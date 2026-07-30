@@ -368,7 +368,7 @@ test("the first visit reuses profile cards and Showdown consumes stage tokens", 
   const [appSource, showdownCss, pickerCss] = await Promise.all([
     readFile(new URL("../app/ExlabApp.tsx", import.meta.url), "utf8"),
     readFile(
-      new URL("../app/marble/showdown-game.css", import.meta.url),
+      new URL("../app/games/showdown/showdown-game.css", import.meta.url),
       "utf8",
     ),
     readFile(

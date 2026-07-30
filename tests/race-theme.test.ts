@@ -9,7 +9,7 @@ import {
   RACE_OBSTACLE_PALETTE,
   RACE_OBSTACLE_ROLE_COLORS,
   showdownWallColor,
-} from "../app/marble/race-theme";
+} from "../app/games/showdown/race-theme";
 import {
   getStreamerThemeTokens,
   STREAMER_THEMES,

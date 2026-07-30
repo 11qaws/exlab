@@ -22,7 +22,7 @@ import {
   courseBoundsAtY,
   rotatingBarAngle,
   rotatingBarTurnsTowardWall,
-} from "../app/marble/course";
+} from "../app/games/showdown/course";
 import {
   advanceVerticalCamera,
   INITIAL_LEADER_FOCUS_STATE,
@@ -31,7 +31,7 @@ import {
   LEADER_FOCUS_DELAY_SECONDS,
   REDUCED_MOTION_CAMERA_SNAP_DISTANCE,
   resolveLeaderFocus,
-} from "../app/marble/camera";
+} from "../app/games/showdown/camera";
 import {
   inspectCourseClearance,
   FINAL_BYPASS_MIN_CLEARANCE,
@@ -40,7 +40,7 @@ import {
   MIN_COURSE_CLEARANCE,
   ROTATING_BAR_CLEARANCE_MODEL,
   ROTATING_BAR_CLEARANCE_RADIUS,
-} from "../app/marble/course-clearance";
+} from "../app/games/showdown/course-clearance";
 import {
   assignParticipantThemes,
   buildRacePlan,
@@ -52,13 +52,13 @@ import {
   resolveFixedParticipantTheme,
   shuffleSeeded,
   splitCandidatesIntoGroups,
-} from "../app/marble/core";
+} from "../app/games/showdown/core";
 import {
   COUNTDOWN_SEQUENCE,
   countdownStepDuration,
   nextCountdownStep,
-} from "../app/marble/countdown";
-import { createRaceDynamics } from "../app/marble/dynamics";
+} from "../app/games/showdown/countdown";
+import { createRaceDynamics } from "../app/games/showdown/dynamics";
 import {
   CHASE_ASSIST_FULL_GAP,
   CHASE_ASSIST_CLOSING_SPEED_LIMIT,
@@ -76,7 +76,7 @@ import {
   sharedGravityMultiplier,
   simulateRace,
   simulateRacePreview,
-} from "../app/marble/simulation";
+} from "../app/games/showdown/simulation";
 import {
   OFFSCREEN_PODIUM_MAX_SCALE,
   OFFSCREEN_PODIUM_MIN_SCALE,
@@ -84,7 +84,7 @@ import {
   resolveOffscreenPodiumIndicators,
   resolveRaceFocusSlotId,
   resolveRaceFrame,
-} from "../app/marble/RaceCanvas";
+} from "../app/games/showdown/RaceCanvas";
 
 const simulationSlots = (participantCount: number) =>
   Object.fromEntries(

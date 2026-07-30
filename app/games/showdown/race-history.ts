@@ -3,7 +3,7 @@ import {
   removeMirroredStorage,
   writeMirroredStorage,
   type BrowserStorage,
-} from "../_platform/mirroredStorage";
+} from "../../_platform/mirroredStorage";
 import type { StoredRaceResult } from "./types";
 
 export const SHOWDOWN_HISTORY_KEY = "exlab:showdown:history:v1";

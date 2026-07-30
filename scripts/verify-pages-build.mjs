@@ -89,7 +89,7 @@ const dynamicEntries = Object.entries(manifest).filter(
 
 for (const expectedModule of [
   "app/games/roulette/RouletteGame.tsx",
-  "app/marble/ShowdownGame.tsx",
+  "app/games/showdown/ShowdownGame.tsx",
 ]) {
   const dynamicEntry = dynamicEntries.find(([source]) =>
     source.replaceAll("\\", "/").endsWith(expectedModule),

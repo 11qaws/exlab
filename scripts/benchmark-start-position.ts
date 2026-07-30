@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   createMarbleStartLayout,
   simulateRace,
-} from "../app/marble/simulation";
+} from "../app/games/showdown/simulation";
 
 const PARTICIPANT_COUNTS = [5, 10] as const;
 const DEFAULT_RACES_PER_COUNT = 120;

@@ -80,7 +80,7 @@ test("pins the integrated package and both game catalog entries to 1.3.29", asyn
   );
   const [catalogSource, showdownSource, readmeSource] = await Promise.all([
     readFile(new URL("../app/_platform/catalog.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/marble/ShowdownGame.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/games/showdown/ShowdownGame.tsx", import.meta.url), "utf8"),
     readFile(new URL("../README.md", import.meta.url), "utf8"),
   ]);
 

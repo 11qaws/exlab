@@ -38,7 +38,7 @@ const projection = (
 });
 
 const showdownSource = readFileSync(
-  new URL("../app/marble/ShowdownGame.tsx", import.meta.url),
+  new URL("../app/games/showdown/ShowdownGame.tsx", import.meta.url),
   "utf8",
 );
 const rouletteSource = readFileSync(

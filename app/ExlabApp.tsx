@@ -65,7 +65,7 @@ const GAME_SURFACES = {
     return { default: game.RouletteGame };
   }),
   showdown: lazy(async () => {
-    const game = await import("./marble/ShowdownGame");
+    const game = await import("./games/showdown/ShowdownGame");
     return { default: game.ShowdownGame };
   }),
 } as const;

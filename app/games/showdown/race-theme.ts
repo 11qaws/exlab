@@ -1,4 +1,4 @@
-import type { StreamerColorPalette } from "../_platform/theme/streamerPalettes";
+import type { StreamerColorPalette } from "../../_platform/theme/streamerPalettes";
 
 export type RaceMapMode = "light" | "dark";
 

@@ -15,25 +15,25 @@ import {
   SetupOptionGroup,
   SetupOptionRow,
   SetupWorkspace,
-} from "../_platform/components/SetupWorkspace";
-import { SharedSetupSummary } from "../_platform/components/SharedSetupSummary";
+} from "../../_platform/components/SetupWorkspace";
+import { SharedSetupSummary } from "../../_platform/components/SharedSetupSummary";
 import {
   INITIAL_GAME_HOST_STATE,
   isGameSwitchLocked,
   type EmbeddedGameProps,
   type GameHostState,
-} from "../_platform/contracts";
-import { sharedRosterSnapshotText } from "../_platform/sharedRosterSnapshot";
+} from "../../_platform/contracts";
+import { sharedRosterSnapshotText } from "../../_platform/sharedRosterSnapshot";
 import {
   advancePreviewCycle,
   createPreviewCycleBuffer,
   DEFAULT_PREVIEW_ROSTER_NAMES,
-} from "../_platform/previewRoster";
+} from "../../_platform/previewRoster";
 import {
   DEFAULT_STREAMER_THEME_ID,
   STREAMER_THEMES,
   getStreamerTheme,
-} from "../_platform/theme";
+} from "../../_platform/theme";
 import {
   createResultPresentationProjection,
   createResultPresentationState,
@@ -43,7 +43,7 @@ import {
   type ResultPresentationEvent,
   type ResultPresentationState,
   type ResultPresentationToken,
-} from "../_platform/presentation";
+} from "../../_platform/presentation";
 import {
   assignParticipantThemes,
   buildRacePlan,

@@ -7,8 +7,8 @@ import type {
   RosterOptions,
   RosterValidation,
 } from "./types";
-import { sharedRosterNameKey } from "../_platform/roster";
-import { STREAMER_COLOR_PALETTES } from "../_platform/theme/streamerPalettes";
+import { sharedRosterNameKey } from "../../_platform/roster";
+import { STREAMER_COLOR_PALETTES } from "../../_platform/theme/streamerPalettes";
 
 export const MIN_PARTICIPANTS = 2;
 export const MAX_GROUP_SIZE = 10;

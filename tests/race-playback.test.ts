@@ -9,7 +9,7 @@ import {
   overtakeZoomIntensity,
   RESULT_HOLD_DURATION_MS,
   resolveFinalOvertakeTriggerFrame,
-} from "../app/marble/race-playback";
+} from "../app/games/showdown/race-playback";
 
 const event = (triggerFrameIndex: number) => ({ triggerFrameIndex });
 

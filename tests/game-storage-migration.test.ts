@@ -29,8 +29,8 @@ import {
   removeStoredRaceHistory,
   SHOWDOWN_HISTORY_KEY,
   writeStoredRaceHistory,
-} from "../app/marble/race-history";
-import type { StoredRaceResult } from "../app/marble/types";
+} from "../app/games/showdown/race-history";
+import type { StoredRaceResult } from "../app/games/showdown/types";
 
 class MemoryStorage implements Storage {
   readonly values = new Map<string, string>();

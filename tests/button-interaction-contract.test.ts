@@ -12,8 +12,8 @@ const themePickerCss = read(
 const setupWorkspaceSource = read(
   "../app/_platform/components/SetupWorkspace.tsx",
 );
-const showdownSource = read("../app/marble/ShowdownGame.tsx");
-const showdownCss = read("../app/marble/showdown-game.css");
+const showdownSource = read("../app/games/showdown/ShowdownGame.tsx");
+const showdownCss = read("../app/games/showdown/showdown-game.css");
 const rouletteSource = read(
   "../app/games/roulette/RouletteGame.tsx",
 );

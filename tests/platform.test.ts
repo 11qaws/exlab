@@ -499,7 +499,7 @@ test("game surfaces keep setup drafts mounted and isolate activity locks", async
 
 test("integrated preparation source contains no large Showdown promotional copy", async () => {
   const source = await readFile(
-    new URL("../app/marble/ShowdownGame.tsx", import.meta.url),
+    new URL("../app/games/showdown/ShowdownGame.tsx", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(source, /모든 이름이/);

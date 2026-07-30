@@ -16,13 +16,13 @@ import {
   resolveFinishFrameIndex,
   resolveFinishRecords,
   resolveRaceElapsedMs,
-} from "../app/marble/race-presentation";
+} from "../app/games/showdown/race-presentation";
 import {
   COURSE_SECTIONS,
   FINISH_Y,
   MARBLE_RADIUS,
-} from "../app/marble/course";
-import type { RaceFrame } from "../app/marble/types";
+} from "../app/games/showdown/course";
+import type { RaceFrame } from "../app/games/showdown/types";
 
 function frame(
   order: string[],
