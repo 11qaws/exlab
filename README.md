@@ -197,7 +197,7 @@ exlab은 하나의 실용적인 운영 셸에서 `Roulette`와 `Showdown`을 선
 - Showdown과 Roulette 스타일은 각각 `.showdown-game`, `.roulette-game` 범위로 격리합니다. 공통 셸은 모든 하위 서체를 `Inter` → `Pretendard` → 시스템 산세리프로 덮어써 하나의 타이포그래피를 유지합니다.
 - Showdown의 스코프 루트 스타일을 복구해 라이트 맵에서도 방송 프레임과 순위표 대비를 유지하며, 데스크톱 준비 화면은 뷰포트 안에 고정하고 긴 설정만 패널 내부에서 스크롤합니다.
 
-자세한 공통 상태·저장·게임 adapter 계약은 [EXLAB_PLATFORM_SPEC.md](./EXLAB_PLATFORM_SPEC.md)를 참고하세요.
+자세한 공통 상태·저장·게임 adapter 계약은 [EXLAB_PLATFORM_SPEC.md](./docs/EXLAB_PLATFORM_SPEC.md)를 참고하세요.
 
 ## Showdown
 
@@ -348,4 +348,4 @@ npm run benchmark:stalls
 
 결승부의 목표는 “모두를 붙잡아 무작위로 다시 뽑기”가 아니라, 한쪽 위험 경로를 탄 선두가 잠깐 머뭇거리는 동안 열린 우회로의 후속 마블이 통과할 수 있게 하는 것입니다. 제한형 추격은 큰 격차의 후미 마블만 보조하며 결과를 참조하거나 선두를 늦추지 않습니다. 결승 진입 순위와 최종 순위의 상관관계, 선두 우승률, 격차 분포, 위험 장애물 접촉 에피소드를 함께 회귀 지표로 관리합니다.
 
-자세한 테스트 결과와 설계 결정은 [DESIGN_FINDINGS.md](./DESIGN_FINDINGS.md), 물리 변화 후보와 적용 기준은 [GAMEPLAY_VARIATION_DESIGN.md](./GAMEPLAY_VARIATION_DESIGN.md), 전체 명단·조 편성·풀 패키지 계약은 [EXLAB_SHOWDOWN_SYSTEM_SPEC.md](./EXLAB_SHOWDOWN_SYSTEM_SPEC.md)를 참고하세요.
+자세한 테스트 결과와 설계 결정은 [DESIGN_FINDINGS.md](./docs/DESIGN_FINDINGS.md), 물리 변화 후보와 적용 기준은 [GAMEPLAY_VARIATION_DESIGN.md](./docs/GAMEPLAY_VARIATION_DESIGN.md), 전체 명단·조 편성·풀 패키지 계약은 [EXLAB_SHOWDOWN_SYSTEM_SPEC.md](./docs/EXLAB_SHOWDOWN_SYSTEM_SPEC.md)를 참고하세요.

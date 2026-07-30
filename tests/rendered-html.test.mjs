@@ -1,9 +1,21 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+/**
+ * This suite renders the built worker, so it needs `npm run build` first and
+ * only runs under `npm run test:ci`. `npm test` covers the source-level tests
+ * without paying for a build.
+ */
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  if (!existsSync(new URL("../dist/server/index.js", import.meta.url))) {
+    throw new Error(
+      "dist/server/index.js is missing. Run `npm run test:ci` (or `npm run build`) "
+        + "before running this suite.",
+    );
+  }
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 

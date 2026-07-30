@@ -30,5 +30,16 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "worker", "db", "examples", "build"]
+  "exclude": [
+    "node_modules",
+    "worker",
+    "build",
+    "dist",
+    "dist-pages",
+    "graphify-out",
+    "Claude",
+    "Codex",
+    "Gemini",
+    "Opencode"
+  ]
 }

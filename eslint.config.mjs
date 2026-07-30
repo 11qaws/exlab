@@ -13,6 +13,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "dist-pages/**",
     "next-env.d.ts",
+    // Generated output and per-agent workspaces are never linted as source.
+    "**/dist/**",
+    "**/dist-pages/**",
+    "graphify-out/**",
+    "Claude/**",
+    "Codex/**",
+    "Gemini/**",
+    "Opencode/**",
   ]),
 ]);
 

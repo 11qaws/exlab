@@ -9,17 +9,16 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "npm run build && tsx --test tests/*.test.ts tests/*.test.mjs",
+    "test": "tsx --test tests/*.test.ts",
+    "test:ci": "npm run build && tsx --test tests/*.test.ts tests/*.test.mjs",
     "pages:build": "vite build --config vite.pages.config.ts",
     "pages:verify": "node scripts/verify-pages-build.mjs",
     "benchmark:stalls": "tsx scripts/benchmark-fixed-bar-stalls.ts",
     "benchmark:obstacles": "tsx scripts/benchmark-race-obstacles.ts",
     "benchmark:positions": "tsx scripts/benchmark-start-position.ts",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {
-    "drizzle-orm": "0.45.2",
     "matter-js": "^0.20.0",
     "next": "16.2.12",
     "react": "19.2.6",
@@ -34,7 +33,6 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
-    "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.12",
     "react-server-dom-webpack": "19.2.6",

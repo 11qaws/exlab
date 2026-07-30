@@ -47,3 +47,13 @@ next-env.d.ts
 # local development server logs
 /dev-server.log
 /dev-server.error.log
+
+# generated analysis output (derived artifact, never committed)
+/graphify-out/
+
+# per-agent workspaces (Claude / Codex / Gemini / Opencode)
+/Claude/
+/Codex/
+/Gemini/
+/Opencode/
+/.openai/

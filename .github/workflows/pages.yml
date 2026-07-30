@@ -31,8 +31,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run application tests
-        run: npm test
+      - name: Build and run application tests
+        run: npm run test:ci
 
       - name: Build GitHub Pages mirror
         run: npm run pages:build
