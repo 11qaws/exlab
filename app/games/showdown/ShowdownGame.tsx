@@ -35,13 +35,8 @@ import {
   getStreamerTheme,
 } from "../../_platform/theme";
 import {
-  createResultPresentationProjection,
   createResultPresentationState,
-  createStagePresentationAnchor,
-  reduceResultPresentation,
   resultPresentationToken,
-  type ResultPresentationEvent,
-  type ResultPresentationState,
   type ResultPresentationToken,
 } from "../../_platform/presentation";
 import {
@@ -63,11 +58,6 @@ import {
   type CountdownStep,
 } from "./countdown";
 import {
-  FINISH_LINE_WIDTH,
-  FINISH_LINE_X,
-  FINISH_Y,
-  WORLD_HEIGHT,
-  WORLD_WIDTH,
 } from "./course";
 import {
   CHASE_ASSIST_TARGET_GAP,
@@ -121,6 +111,15 @@ import {
   RaceCanvas,
   type RaceCanvasPlan,
 } from "./RaceCanvas";
+import {
+  RESULT_DOCK_DURATION_MS,
+  RESULT_HERO_HOLD_MS,
+  candidateForSlot,
+  createShowdownResultProjection,
+  showdownResultPresentationReducer,
+  type ShowdownResultPresentationEvent,
+  type ShowdownResultPresentationState,
+} from "./resultPresentation";
 import "./showdown-game.css";
 
 const DEFAULT_ROSTER = [
@@ -133,8 +132,6 @@ const DEFAULT_ROSTER = [
 const ROSTER_KEY = "marble-game:roster";
 const PREVIEW_DURATION_MS = 10_000;
 const MAX_PRESENTATION_DELTA_MS = 100;
-const RESULT_HERO_HOLD_MS = 2_200;
-const RESULT_DOCK_DURATION_MS = 400;
 const AUDIO_RESUME_TIMEOUT_MS = 350;
 
 type Phase =
@@ -155,13 +152,6 @@ type FinalOvertakeCue = {
   hasOvertaken: boolean;
 };
 
-function candidateForSlot(
-  plan: RacePlan,
-  slotId: string,
-): Candidate | undefined {
-  const candidateId = plan.slotToCandidateId[slotId];
-  return plan.candidates.find((candidate) => candidate.id === candidateId);
-}
 
 type ParticipantStyle = CSSProperties & {
   "--participant-primary": string;
@@ -188,104 +178,6 @@ type LiveLeaderboardRow = {
   candidate: Candidate;
 };
 
-type ShowdownPresentationWinner = Readonly<{
-  slotId: string;
-  candidateId: string;
-  name: string;
-  elapsedMs?: number;
-}>;
-
-type ShowdownPresentationRow = Readonly<{
-  rank: number;
-  slotId: string;
-  candidateId: string;
-  name: string;
-}>;
-
-type ShowdownPresentationSummary = Readonly<{
-  winnerCount: number;
-  arrivedCount: number;
-  participantCount: number;
-}>;
-
-type ShowdownResultPresentationState = ResultPresentationState<
-  ShowdownPresentationWinner,
-  ShowdownPresentationRow,
-  ShowdownPresentationSummary
->;
-
-type ShowdownResultPresentationEvent = ResultPresentationEvent<
-  ShowdownPresentationWinner,
-  ShowdownPresentationRow,
-  ShowdownPresentationSummary
->;
-
-function showdownResultPresentationReducer(
-  state: ShowdownResultPresentationState,
-  event: ShowdownResultPresentationEvent,
-) {
-  return reduceResultPresentation(state, event);
-}
-
-function showdownPresentationIdentity(
-  runId: string,
-  playbackEpoch: number,
-): ResultPresentationToken {
-  return {
-    runId: `showdown:${runId}`,
-    presentationId: `showdown-reveal:${runId}:${playbackEpoch}`,
-  };
-}
-
-function createShowdownResultProjection(
-  plan: RacePlan,
-  frameIndex: number,
-  playbackEpoch: number,
-) {
-  const frame =
-    plan.simulation.frames[
-      Math.min(frameIndex, plan.simulation.frames.length - 1)
-    ];
-  const finishRecords = resolveFinishRecords(plan.simulation.frames);
-  const arrivedRows = frame.finishedSlotIds.flatMap((slotId, index) => {
-    const candidate = candidateForSlot(plan, slotId);
-    if (!candidate) return [];
-    return [{
-      rank: index + 1,
-      slotId,
-      candidateId: candidate.id,
-      name: candidate.name,
-    }];
-  });
-  const token = showdownPresentationIdentity(plan.runId, playbackEpoch);
-
-  return createResultPresentationProjection({
-    gameId: "showdown",
-    runId: token.runId,
-    presentationId: token.presentationId,
-    committedAt: new Date().toISOString(),
-    anchor: createStagePresentationAnchor({
-      xRatio:
-        (FINISH_LINE_X + FINISH_LINE_WIDTH / 2) / WORLD_WIDTH,
-      yRatio: FINISH_Y / WORLD_HEIGHT,
-      sourceId: "finish-line",
-    }),
-    primaryWinners: arrivedRows
-      .slice(0, plan.winnerCount)
-      .map((row) => ({
-        slotId: row.slotId,
-        candidateId: row.candidateId,
-        name: row.name,
-        elapsedMs: finishRecords.get(row.slotId)?.elapsedMs,
-      })),
-    rankingRows: arrivedRows,
-    summary: {
-      winnerCount: plan.winnerCount,
-      arrivedCount: arrivedRows.length,
-      participantCount: plan.candidates.length,
-    },
-  });
-}
 
 type StandingsRow = LiveLeaderboardRow | null;
 

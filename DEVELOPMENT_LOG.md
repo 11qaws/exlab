@@ -1,5 +1,18 @@
 # Development Log
 
+## 2026-07-31 게임 본체에서 순수 로직 분리 (1단계)
+
+- `RouletteGame.tsx` 앞부분 314줄이 React를 전혀 건드리지 않는 타입·포매터·감사 헬퍼였다. `lib/roundContract.ts`로 옮겨 3,425 → 3,132줄이 됐다. `ShowdownGame.tsx`의 연출 층(연출 레코드·reducer·reveal 식별자·projection·`candidateForSlot`)도 `resultPresentation.ts`로 옮겨 2,629 → 2,520줄이 됐다.
+- 경계가 늦었다는 증거가 이미 코드에 있었다. `lib/prizeRecipients.ts`가 `createId`를 **파라미터로 주입받고 있었는데**, 그 함수가 컴포넌트 파일에 있어 lib가 import할 수 없었기 때문이다.
+- **이번에는 함수 본문을 한 줄도 다시 타이핑하지 않았다.** 연속 구간을 그대로 잘라 옮기는 스크립트를 써서, 해시 구분자나 조회식이 옮기는 중에 바뀔 여지를 없앴다. 이전 시도에서 `` 구분자 유실과 `plan.slotToCandidateId` → `plan.slotAssignments.find(...)` 오기를 겪었고, 둘 다 타입 검사를 통과하는 종류였다.
+- 모듈이 한 단계 깊어져 상대경로가 어긋나는 함정은 `app/marble` 이동과 동일했다. `../../_platform` → `../../../_platform`, `./lib/x` → `./x`, `./components/x` → `../components/x`로 조정했다.
+- **참가자 ID와 후보 핑거프린트는 저장된 기록에 들어간다.** 값이 조용히 달라져도 타입 검사·린트·빌드가 모두 통과하고 나중에 깨진 이력으로만 드러난다. `tests/roulette-round-contract.test.ts`에 이동 전 값을 고정했다 — 참가자 ID 3종(`shared-f636bf94` 등), 핑거프린트 3종(`fnv1a-4fec72ae` 등), 명단 재파싱 시 가중치·ID 보존, 감사 레코드 필드와 상품 전용 필드 미유출, 범위 밖 당첨 인덱스 거부.
+- `tests/result-presentation.test.ts`가 게임 파일 안에 `reduceResultPresentation` 문자열이 있는지로 "공용 reducer 사용"을 검사하고 있었다. 호출부가 모듈로 옮겨졌으므로 게임 파일과 연출 모듈을 함께 읽도록 바꿨다. 계약의 의미는 그대로다.
+- 검증: lint 0건, typecheck 통과, `npm run test:ci` **207/207**, `pages:verify` 26파일.
+- 브라우저에서 두 게임 마운트와 전환, keep-alive 유지를 확인하고, 옮긴 모듈을 페이지에서 직접 import해 `stableSharedParticipantId('가나다', 0) === 'shared-f636bf94'`, `fingerprintOptions(...) === 'fnv1a-4fec72ae'`가 실제 런타임에서도 일치하는 것을 확인했다.
+- 중간 편집 상태에서 HMR이 남긴 `sharedRosterNameKey is not defined` 오류 로그를 한때 현재 결함으로 오판했다. 콘솔 항목의 타임스탬프가 서버 재시작 이전이었고, 실제로는 이미 고쳐진 상태였다. 콘솔 로그를 볼 때는 타임스탬프를 먼저 본다.
+- **남은 것:** 컴포넌트 본체는 그대로다. `RouletteGame`은 3,132줄, `ShowdownGame`은 2,520줄이며 연출 타이머·늦은 콜백·재시도가 얽혀 있다. 공용 규칙 9에 따라 상태 단위·이벤트·허용 전이·확정 조건을 문서로 먼저 정의한 뒤 그 문서를 따라 쪼개야 한다. 문서 없이 큰 JSX 블록을 프롭 수십 개짜리 컴포넌트로 들어올리면, 방금 없앤 레이아웃 fix 루프와 같은 종류의 부채가 생긴다.
+
 ## 2026-07-31 공통 셸 눈금과 레이아웃 높이 계약
 
 - 눈금이 없다는 것을 먼저 수치로 확인했다. `app/globals.css`(1,111줄)에는 의미색과 `--exlab-header-height`만 있고 폰트·간격 단계가 없었다. 기준이 없으니 화면마다 절대값을 다시 재는 것이 당연했다.

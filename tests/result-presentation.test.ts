@@ -37,14 +37,23 @@ const projection = (
   summary: { elapsedMs: 30_000 },
 });
 
-const showdownSource = readFileSync(
-  new URL("../app/games/showdown/ShowdownGame.tsx", import.meta.url),
-  "utf8",
-);
-const rouletteSource = readFileSync(
-  new URL("../app/games/roulette/RouletteGame.tsx", import.meta.url),
-  "utf8",
-);
+/**
+ * Each game is read together with the module that owns its presentation
+ * layer. The reducer call moved out of the component, but the contract being
+ * checked is unchanged: a game must drive the common reducer, not roll its own.
+ */
+const showdownSource = [
+  "../app/games/showdown/ShowdownGame.tsx",
+  "../app/games/showdown/resultPresentation.ts",
+]
+  .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
+  .join("\n");
+const rouletteSource = [
+  "../app/games/roulette/RouletteGame.tsx",
+  "../app/games/roulette/lib/roundContract.ts",
+]
+  .map((path) => readFileSync(new URL(path, import.meta.url), "utf8"))
+  .join("\n");
 
 test("presentation phases and transitions preserve the approved sequence", () => {
   assert.deepEqual(RESULT_PRESENTATION_PHASES, [

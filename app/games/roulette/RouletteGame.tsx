@@ -6,7 +6,6 @@
  * commitment and recovery ordering less safe. */
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
 
 import { SetupWorkspace } from '../../_platform/components/SetupWorkspace';
 import { SharedSetupSummary } from '../../_platform/components/SharedSetupSummary';
@@ -16,10 +15,8 @@ import {
   type EmbeddedGameProps,
   type GameHostState,
 } from '../../_platform/contracts';
-import { sharedRosterNameKey } from '../../_platform/roster';
 import {
   sharedRosterSnapshotText,
-  type SharedRosterSnapshot,
 } from '../../_platform/sharedRosterSnapshot';
 import {
   advancePreviewCycle,
@@ -31,12 +28,7 @@ import {
   createResultPresentationProjection,
   createResultPresentationState,
   createStagePresentationAnchor,
-  reduceResultPresentation,
   resultPresentationToken,
-  type ResultPresentationEvent,
-  type ResultPresentationPhase,
-  type ResultPresentationState,
-  type ResultPresentationToken,
 } from '../../_platform/presentation';
 import BroadcastActionDock, { type BroadcastDockAction } from './components/BroadcastActionDock';
 import BroadcastCandidateRoster from './components/BroadcastCandidateRoster';
@@ -45,7 +37,6 @@ import DrawPreviewDirector from './components/DrawPreviewDirector';
 import ParticipantSetup from './components/ParticipantSetup';
 import RouletteWheel, {
   type RouletteRevealEvent,
-  type RouletteRevealPhase,
   type RouletteWheelHandle,
 } from './components/RouletteWheel';
 import RoundSetupPanel, {
@@ -103,7 +94,6 @@ import {
 } from './lib/prizeAssignmentStorage';
 import {
   isCurrentPresentationCompletion,
-  type PresentationRunToken,
 } from './lib/presentationRun';
 import {
   createDartAimSession,
@@ -113,8 +103,6 @@ import {
   resolveDartImpactPoint,
   type DartAimSession,
   type DartPhysicalCommit,
-  type DartShotPlan,
-  type RouletteFinishLanding,
   type SpinPhysicalCommit,
 } from './lib/roulette';
 import type {
@@ -139,319 +127,39 @@ import './styles/roulette-viewport.css';
 import './styles/roulette-live-info.css';
 import './styles/roulette-embed.css';
 
-type DrawOption = {
-  id: string;
-  /** Inventory source for a product sector; participant options use their own id. */
-  sourceId?: string;
-  name: string;
-  weight: number;
-};
-
-type SideTab = 'participants' | 'prizes' | 'history';
-type SetupStartStep = 'edit';
-type SetupReturnStatus = Extract<RaffleStatus, 'configuring' | 'ready' | 'completed'>;
-
-type CurrentRound = {
-  id: string;
-  sessionId: string;
-  /** Optional broadcaster-supplied context shown throughout the live result. */
-  label?: string;
-  /** Optional reward/event separated from the on-air title. */
-  rewardLabel?: string;
-  target: DrawTarget;
-  mode: DrawMode;
-  wheelPresentation: WheelPresentation;
-  candidateCount: number;
-  /** A limited people pool stays fixed for the whole active round. */
-  poolLimit: number;
-  removeAfterDraw: boolean;
-  useWeights: boolean;
-  recipientId?: string;
-  recipient?: string;
-  prizeAssignmentBatchId?: string;
-  results: DrawRecord[];
-};
-
-type PlannedPresentation = {
-  options: DrawOption[];
-  winnerIndex: number;
-  target: DrawTarget;
-  selectedAt: string;
-  candidateFingerprint: string;
-  candidateTotalWeight: number;
-  /** Physical coordinate inside the slice that selected this result. */
-  landing: RouletteFinishLanding;
-  /** Click-time rotor coordinate that physically selected an automatic winner. */
-  spinCommit?: SpinPhysicalCommit;
-  /** Result-neutral physical coordinates fixed once for a dart reveal. */
-  dartShot?: DartShotPlan;
-  /** Rotor/aim impact that physically selected a dart winner at click time. */
-  dartCommit?: DartPhysicalCommit;
-  recipientId?: string;
-  recipient?: string;
-};
-
-type CommittedPresentation = PlannedPresentation & {
-  /** Click-time audit record persisted before the reveal starts. */
-  lockedResult: DrawRecord;
-};
-
-type ActivePresentation = CommittedPresentation & {
-  /** Rejects an animation callback from an older result or abandoned round. */
-  revealId: number;
-  /** Replays the same committed result without entering any persistence path. */
-  isReplay?: boolean;
-};
-
-type PresentationBeat = 'idle' | 'motion' | 'hero' | 'dock';
-type CinematicRevealPhase = 'idle' | 'result-committed' | 'motion-started' | RouletteRevealPhase;
-type PresentationCompletion = PresentationRunToken;
-
-type CinematicCameraStyle = CSSProperties & {
-  '--cinematic-impact-x': string;
-  '--cinematic-impact-y': string;
-  '--cinematic-final-x': string;
-  '--cinematic-final-y': string;
-};
-
-type WinnerHeroState = {
-  revealId: number;
-  result: DrawRecord;
-};
-
-type RoulettePresentationWinner = Readonly<{
-  id: string;
-  name: string;
-  target: DrawTarget;
-}>;
-
-type RoulettePresentationRow = Readonly<{
-  id: string;
-  name: string;
-}>;
-
-type RoulettePresentationSummary = Readonly<{
-  target: DrawTarget;
-  presentation?: WheelPresentation;
-}>;
-
-type RouletteResultPresentationState = ResultPresentationState<
-  RoulettePresentationWinner,
-  RoulettePresentationRow,
-  RoulettePresentationSummary
->;
-
-type RouletteResultPresentationEvent = ResultPresentationEvent<
-  RoulettePresentationWinner,
-  RoulettePresentationRow,
-  RoulettePresentationSummary
->;
-
-const WINNER_HERO_HOLD_MS = 2_200;
-const WINNER_DOCK_DURATION_MS = 400;
-
-function prefersReducedMotion() {
-  return typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-function rouletteResultPresentationReducer(
-  state: RouletteResultPresentationState,
-  event: RouletteResultPresentationEvent,
-) {
-  return reduceResultPresentation(state, event);
-}
-
-function roulettePresentationBeat(phase: ResultPresentationPhase): PresentationBeat {
-  if (phase === 'evidence') return 'motion';
-  if (phase === 'hero') return 'hero';
-  if (phase === 'docking') return 'dock';
-  return 'idle';
-}
-
-function roulettePresentationIdentity(
-  resultId: string,
-  revealId: number,
-): ResultPresentationToken {
-  return {
-    runId: `roulette:${resultId}`,
-    presentationId: `roulette-reveal:${revealId}`,
-  };
-}
-
-function createId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function sharedRosterNames(value: string) {
-  return value
-    .split(/[\r\n,]+/)
-    .map((name) => name.trim())
-    .filter(Boolean);
-}
-
-function stableSharedParticipantId(name: string, index: number) {
-  let hash = 0x811c9dc5;
-  const token = `${index}\u001f${name}`;
-  for (let cursor = 0; cursor < token.length; cursor += 1) {
-    hash ^= token.charCodeAt(cursor);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return `shared-${(hash >>> 0).toString(16).padStart(8, '0')}`;
-}
-
-function participantsFromSharedRoster(
-  value: string,
-  current: readonly Participant[] = [],
-) {
-  const currentByName = new Map<string, Participant[]>();
-  current.forEach((participant) => {
-    const key = sharedRosterNameKey(participant.name);
-    const matchingParticipants = currentByName.get(key) ?? [];
-    matchingParticipants.push(participant);
-    currentByName.set(key, matchingParticipants);
-  });
-
-  return sharedRosterNames(value).map((name, index) => {
-    const existing = currentByName
-      .get(sharedRosterNameKey(name))
-      ?.shift();
-    return existing
-      ? { ...existing, name }
-      : {
-          id: stableSharedParticipantId(name, index),
-          name,
-          weight: 1,
-        };
-  });
-}
-
-function participantsFromSharedRosterSnapshot(
-  snapshot: SharedRosterSnapshot,
-  current: readonly Participant[] = [],
-) {
-  const currentById = new Map(
-    current.map((participant) => [participant.id, participant]),
-  );
-
-  return snapshot.participants.map((sharedParticipant) => {
-    const existing = currentById.get(sharedParticipant.id);
-    return existing
-      ? {
-          ...existing,
-          id: sharedParticipant.id,
-          name: sharedParticipant.name,
-        }
-      : {
-          id: sharedParticipant.id,
-          name: sharedParticipant.name,
-          weight: 1,
-        };
-  });
-}
-
-function sharedRosterTextFromParticipants(participants: readonly Participant[]) {
-  return participants.map((participant) => participant.name.trim()).filter(Boolean).join('\n');
-}
-
-function findDuplicateParticipantNames(
-  participants: readonly Participant[],
-) {
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
-  participants.forEach((participant) => {
-    const name = participant.name.trim();
-    const key = sharedRosterNameKey(name);
-    if (seen.has(key)) duplicates.add(name);
-    else seen.add(key);
-  });
-  return [...duplicates];
-}
-
-const TIME_FORMATTER = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' });
-const TIME_WITH_SECONDS_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-});
-
-function formatTime(iso: string, includeSeconds = false) {
-  return (includeSeconds ? TIME_WITH_SECONDS_FORMATTER : TIME_FORMATTER).format(new Date(iso));
-}
-
-function endedSessionNotice(session: BroadcastSession) {
-  if (session.results.length === 0) {
-    return '공개 결과 없이 세션을 종료했습니다. 방송 화면을 다시 열면 새 추첨 세션이 시작됩니다.';
-  }
-  const unit = session.target === 'people' ? '명' : '회';
-  return `공개 결과 ${session.results.length}${unit}은 당첨 기록에 남았습니다. 방송 화면을 다시 열면 새 추첨 세션이 시작됩니다.`;
-}
-
-function prizeTotal(prizes: Prize[]) {
-  return prizes.reduce((sum, prize) => (
-    prize.name.trim() ? sum + Math.max(0, prize.quantity) : sum
-  ), 0);
-}
-
-function totalEffectiveWeight(options: readonly DrawOption[]) {
-  return options.reduce((sum, option) => sum + Math.max(0, option.weight), 0);
-}
-
-/** A compact audit marker without persisting an unbounded copy of a large roster. */
-function fingerprintOptions(options: readonly DrawOption[]) {
-  let hash = 0x811c9dc5;
-
-  for (const option of options) {
-    const token = `${option.id}\u001f${option.name}\u001f${option.weight}\u001e`;
-    for (let index = 0; index < token.length; index += 1) {
-      hash ^= token.charCodeAt(index);
-      hash = Math.imul(hash, 0x01000193);
-    }
-  }
-
-  return `fnv1a-${(hash >>> 0).toString(16).padStart(8, '0')}`;
-}
-
-function attachLockedResult(
-  presentation: PlannedPresentation,
-  round: CurrentRound,
-  roundOrder: number,
-): CommittedPresentation | null {
-  const chosen = presentation.options[presentation.winnerIndex];
-  if (!chosen) return null;
-
-  return {
-    ...presentation,
-    lockedResult: {
-      id: createId('result'),
-      sessionId: round.sessionId,
-      createdAt: presentation.selectedAt,
-      roundId: round.id,
-      roundLabel: round.label,
-      rewardLabel: round.rewardLabel,
-      roundOrder,
-      mode: round.mode,
-      presentation: round.mode === 'wheel' ? round.wheelPresentation : undefined,
-      candidateCount: presentation.options.length,
-      candidateFingerprint: presentation.candidateFingerprint,
-      candidateTotalWeight: presentation.candidateTotalWeight,
-      useWeights: round.useWeights,
-      removeAfterDraw: round.removeAfterDraw,
-      target: presentation.target,
-      winner: chosen.name,
-      prize: presentation.target === 'prizes' ? chosen.name : undefined,
-      prizeId: presentation.target === 'prizes' ? chosen.sourceId ?? chosen.id : undefined,
-      prizeUnitId: presentation.target === 'prizes' ? `${chosen.id}::${round.id}` : undefined,
-      prizeProbabilityModel: presentation.target === 'prizes' ? 'quantity-ratio' : undefined,
-      recipientId: presentation.target === 'prizes' ? presentation.recipientId : undefined,
-      recipient: presentation.target === 'prizes' ? presentation.recipient : undefined,
-      prizeAssignmentBatchId: presentation.target === 'prizes'
-        ? round.prizeAssignmentBatchId
-        : undefined,
-    },
-  };
-}
+import {
+  WINNER_DOCK_DURATION_MS,
+  WINNER_HERO_HOLD_MS,
+  attachLockedResult,
+  createId,
+  endedSessionNotice,
+  findDuplicateParticipantNames,
+  fingerprintOptions,
+  formatTime,
+  participantsFromSharedRoster,
+  participantsFromSharedRosterSnapshot,
+  prefersReducedMotion,
+  prizeTotal,
+  roulettePresentationBeat,
+  roulettePresentationIdentity,
+  rouletteResultPresentationReducer,
+  sharedRosterNames,
+  sharedRosterTextFromParticipants,
+  totalEffectiveWeight,
+  type ActivePresentation,
+  type CinematicCameraStyle,
+  type CinematicRevealPhase,
+  type CommittedPresentation,
+  type CurrentRound,
+  type DrawOption,
+  type PresentationCompletion,
+  type RouletteResultPresentationEvent,
+  type RouletteResultPresentationState,
+  type SetupReturnStatus,
+  type SetupStartStep,
+  type SideTab,
+  type WinnerHeroState,
+} from './lib/roundContract';
 
 export type RouletteGameProps = EmbeddedGameProps;
 
