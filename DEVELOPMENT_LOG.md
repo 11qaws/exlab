@@ -7,6 +7,14 @@
 - 하위 호환 범위: 저장 키를 하나도 바꾸지 않았다. `exlab:*`와 레거시 `marble-game:roster`, `retto-*`가 모두 그대로다. 참가자 ID 해시와 후보 핑거프린트도 이동 전과 같은 값을 내는 것을 회귀 테스트로 고정했으므로, 기존 사용자의 명단·테마·추첨 이력은 그대로 이어진다.
 - 검증(CI와 동일 경로): `npm run test:ci` 207/207, `npm run lint` 0건, typecheck 통과, `pages:build` + `pages:verify` 26파일·2청크·base `/exlab/`.
 
+### 배포 직후 CI 실패: Windows `npm install`이 락파일을 플랫폼 편향시켰다
+
+- 푸시 후 Actions의 `npm ci`가 `EUSAGE ... Missing: @emnapi/core@1.10.0 from lock file`로 실패했다. drizzle 의존성을 제거하면서 Windows에서 `npm install`을 돌렸고, 그 과정에서 현재 플랫폼에 설치되지 않는 Linux 전용 선택적 의존성 항목이 `package-lock.json`에서 빠졌다. 기준 커밋의 락파일에는 `@emnapi/core`·`@emnapi/runtime`이 있었고 내 락파일에는 없었다.
+- 이 저장소는 같은 문제를 이미 겪었다(`7a6b95a fix(ci): normalize lockfile for Linux npm ci`). 기존 해결 흔적을 먼저 찾았어야 했다.
+- 해결: 기준 커밋의 락파일로 되돌린 뒤 `npm install --package-lock-only`로 갱신했다. 이 플래그는 실제 설치를 하지 않으므로 플랫폼별 가지치기가 일어나지 않고, drizzle 항목만 정확히 사라진다(`grep -c drizzle` → 0, `@emnapi/*` 유지).
+- 검증: 로컬에서 `npm ci`가 통과하는 것까지 확인한 뒤 다시 푸시했다. lint 0건, `test:ci` 207/207, `pages:verify` 26파일.
+- 규칙화: `AGENTS.md` 6장에 "의존성을 바꾸면 `npm install --package-lock-only`로 락파일을 갱신한다"를 넣었다.
+
 ### 이번 사이클에서 크게 잘못한 것: 오래된 베이스 위에서 작업했다
 
 - 로컬 클론이 원격보다 **22커밋 뒤처져 있었다**. 로컬은 1.3.9, 원격은 1.3.29였다. `RouletteGame.tsx`도 로컬 2,739줄 / 원격 3,424줄이었다.
