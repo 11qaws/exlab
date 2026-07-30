@@ -67,7 +67,7 @@ npm run pages:build && npm run pages:verify    Pages 미러와 자산 경로
 - 버전은 커밋 단위가 아니라 배포 단위로 올린다. 일반 배포는 patch, 하위 호환이 깨지면 minor를 올리고 patch를 0으로 되돌린다. major는 사용자가 직접 지시할 때만 올린다.
 - 버전 표기는 `package.json`, `app/_platform/catalog.ts`의 두 게임 항목, Showdown 화면 배지, `README.md`에 있고 `tests/rendered-html.test.mjs`가 고정한다. 한 곳만 고치면 테스트가 막는다.
 - 파생 산출물(`dist/`, `dist-pages/`, `graphify-out/`, 에이전트 작업 폴더)은 커밋하지 않는다.
-- **의존성을 바꾸면 `npm install --package-lock-only`로 락파일을 갱신한다.** Windows에서 그냥 `npm install`을 돌리면 Linux 전용 선택적 의존성(`@emnapi/*` 등)이 락파일에서 빠지고, CI의 `npm ci`가 sync 오류로 실패한다.
+- **의존성을 바꾸면 락파일이 플랫폼 편향되지 않았는지 확인한다.** Windows에서 `npm install`을 돌리면 다른 플랫폼 전용 선택적 패키지(`@rolldown/binding-wasm32-wasi` 아래 중첩된 `@emnapi/*` 등)가 락파일에서 잘리고 CI의 `npm ci`가 sync 오류로 실패한다. `--package-lock-only`도 이 가지치기를 막지 못한다. 락파일이 깨지면 통째로 재생성하지 말고, 이전 커밋의 락파일과 패키지 키를 비교해 무엇이 왜 사라졌는지 분류한 뒤 잘못 잘린 항목만 되돌린다.
 
 ## 7. 만들기 전에 찾는다
 

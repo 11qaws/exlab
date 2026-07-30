@@ -11,7 +11,9 @@
 
 - 푸시 후 Actions의 `npm ci`가 `EUSAGE ... Missing: @emnapi/core@1.10.0 from lock file`로 실패했다. drizzle 의존성을 제거하면서 Windows에서 `npm install`을 돌렸고, 그 과정에서 현재 플랫폼에 설치되지 않는 Linux 전용 선택적 의존성 항목이 `package-lock.json`에서 빠졌다. 기준 커밋의 락파일에는 `@emnapi/core`·`@emnapi/runtime`이 있었고 내 락파일에는 없었다.
 - 이 저장소는 같은 문제를 이미 겪었다(`7a6b95a fix(ci): normalize lockfile for Linux npm ci`). 기존 해결 흔적을 먼저 찾았어야 했다.
-- 해결: 기준 커밋의 락파일로 되돌린 뒤 `npm install --package-lock-only`로 갱신했다. 이 플래그는 실제 설치를 하지 않으므로 플랫폼별 가지치기가 일어나지 않고, drizzle 항목만 정확히 사라진다(`grep -c drizzle` → 0, `@emnapi/*` 유지).
+- **`--package-lock-only`도 플랫폼 가지치기를 한다.** 처음에는 그 플래그면 해결된다고 판단해 푸시했지만 CI가 같은 오류로 다시 실패했다. 실제로 빠진 것은 최상위 `@emnapi/*`가 아니라 `node_modules/@rolldown/binding-wasm32-wasi/node_modules/@emnapi/core@1.10.0`처럼 **wasm32 선택적 패키지 아래 중첩된 항목**이었고, Windows에서는 그 상위 패키지 자체가 설치 대상이 아니라 통째로 잘렸다.
+- 해결: 기준 락파일과 재생성 락파일의 패키지 키를 비교해 무엇이 사라졌는지 분류했다. 85개 중 82개는 정당한 제거였고(drizzle 58개 + `@esbuild-kit` 전이 의존성 24개), **잘못 잘린 것은 중첩 emnapi 2개뿐**이었다. 그 2개만 기준 락파일에서 되돌렸다.
+- 교훈: 락파일이 깨졌을 때 통째로 재생성하지 말고 **무엇이 왜 사라졌는지 분류한 뒤 최소한만 되돌린다.** 재생성은 문제를 다른 모습으로 바꿀 뿐이었다.
 - 검증: 로컬에서 `npm ci`가 통과하는 것까지 확인한 뒤 다시 푸시했다. lint 0건, `test:ci` 207/207, `pages:verify` 26파일.
 - 규칙화: `AGENTS.md` 6장에 "의존성을 바꾸면 `npm install --package-lock-only`로 락파일을 갱신한다"를 넣었다.
 
