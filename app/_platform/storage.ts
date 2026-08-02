@@ -38,14 +38,16 @@ export const LEGACY_PLATFORM_STORAGE_KEYS = {
 
 export const DEFAULT_SHARED_ROSTER = DEFAULT_ROSTER_TEXT;
 
+const LEGACY_SHORT_FIVE_ROSTER = [
+  "레또",
+  "레카",
+  "세나",
+  "코코",
+  "망징",
+].join("\n");
+
 const LEGACY_DEFAULT_SHARED_ROSTERS = new Set([
-  [
-    "레또",
-    "레카",
-    "세나",
-    "코코",
-    "망징",
-  ].join("\n"),
+  LEGACY_SHORT_FIVE_ROSTER,
   [
     "아모",
     "유레카",
@@ -235,10 +237,15 @@ function migrateLegacyDefaultRoster(
   roster: SharedRosterSnapshot,
   requirePristineSnapshot: boolean,
 ): SharedRosterSnapshot {
-  if (!LEGACY_DEFAULT_SHARED_ROSTERS.has(sharedRosterSnapshotText(roster))) {
+  const rosterText = sharedRosterSnapshotText(roster);
+  if (!LEGACY_DEFAULT_SHARED_ROSTERS.has(rosterText)) {
     return roster;
   }
-  if (requirePristineSnapshot && !isPristineInitialRosterSnapshot(roster)) {
+  if (
+    requirePristineSnapshot
+    && rosterText !== LEGACY_SHORT_FIVE_ROSTER
+    && !isPristineInitialRosterSnapshot(roster)
+  ) {
     return roster;
   }
 
