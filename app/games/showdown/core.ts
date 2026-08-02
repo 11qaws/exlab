@@ -194,9 +194,9 @@ export function resolveFixedParticipantTheme(
 
 /**
  * Keeps the four public streamer colours and hidden compatibility aliases
- * stable by name, then deals every other racer a unique colour from the existing
- * participant palette. The seed
- * makes setup, live playback, and replay agree without render-time randomness.
+ * stable by name, then deals every other racer a unique colour from the
+ * existing participant palette. The seed makes setup, live playback, and
+ * replay agree without render-time randomness.
  */
 export function assignParticipantThemes(
   candidates: readonly Candidate[],
