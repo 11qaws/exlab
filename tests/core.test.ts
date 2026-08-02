@@ -170,6 +170,43 @@ test("canonical streamer marbles keep their own palette main by name", () => {
   }
 });
 
+test("hidden Torori aliases keep the sky marble colour", () => {
+  const aliases = [
+    "토로리",
+    "코코",
+    "토로리코코",
+    "토로리 코코",
+  ] as const;
+
+  for (const alias of aliases) {
+    assert.equal(resolveFixedParticipantTheme(alias)?.key, "sky");
+    assert.equal(
+      resolveFixedParticipantTheme(`  ${alias.normalize("NFKD")}  `)?.key,
+      "sky",
+    );
+  }
+
+  const assigned = assignParticipantThemes(
+    parseRoster(
+      [
+        "토로리 코코",
+        ...Array.from(
+          { length: 9 },
+          (_, index) => `참가자 ${index + 1}`,
+        ),
+      ].join("\n"),
+    ).candidates,
+    "hidden-sky",
+  );
+
+  assert.equal(assigned[0].theme.key, "sky");
+  assert.equal(
+    assigned.slice(1).some(({ theme }) => theme.key === "sky"),
+    false,
+    "the hidden fixed colour must be reserved from random participants",
+  );
+});
+
 test("group palette deals are deterministic and reserve four streamer colours", () => {
   const validation = parseRoster(
     [
