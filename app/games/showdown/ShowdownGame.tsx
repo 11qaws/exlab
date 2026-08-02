@@ -23,7 +23,12 @@ import {
   type EmbeddedGameProps,
   type GameHostState,
 } from "../../_platform/contracts";
+import { DEFAULT_ROSTER_TEXT } from "../../_platform/defaultRoster";
 import { sharedRosterSnapshotText } from "../../_platform/sharedRosterSnapshot";
+import {
+  readPlatformPreferences,
+  writeSharedRoster,
+} from "../../_platform/storage";
 import {
   advancePreviewCycle,
   createPreviewCycleBuffer,
@@ -31,7 +36,6 @@ import {
 } from "../../_platform/previewRoster";
 import {
   DEFAULT_STREAMER_THEME_ID,
-  STREAMER_THEMES,
   getStreamerTheme,
 } from "../../_platform/theme";
 import {
@@ -122,14 +126,6 @@ import {
 } from "./resultPresentation";
 import "./showdown-game.css";
 
-const DEFAULT_ROSTER = [
-  ...STREAMER_THEMES.map(({ name }) => name),
-  "로티",
-  "토리",
-  "마루",
-].join("\n");
-
-const ROSTER_KEY = "marble-game:roster";
 const PREVIEW_DURATION_MS = 10_000;
 const MAX_PRESENTATION_DELTA_MS = 100;
 const AUDIO_RESUME_TIMEOUT_MS = 350;
@@ -708,7 +704,7 @@ export function ShowdownGame({
 }: ShowdownGameProps = {}) {
   const [title, setTitle] = useState("오늘의 Showdown");
   const [internalRosterText, setInternalRosterText] =
-    useState(DEFAULT_ROSTER);
+    useState(DEFAULT_ROSTER_TEXT);
   const [isEditingRoster, setIsEditingRoster] = useState(false);
   const [mapMode, setMapMode] = useState<RaceMapMode>(
     DEFAULT_RACE_MAP_MODE,
@@ -935,10 +931,12 @@ export function ShowdownGame({
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        const storedRoster = localStorage.getItem(ROSTER_KEY);
         const storedHistory = readStoredRaceHistory(localStorage);
-        if (storedRoster && !hasControlledRoster) {
-          setInternalRosterText(storedRoster);
+        if (!hasControlledRoster) {
+          const preferences = readPlatformPreferences(localStorage);
+          setInternalRosterText(
+            sharedRosterSnapshotText(preferences.roster),
+          );
         }
         if (storedHistory.length > 0) {
           historyRef.current = storedHistory;
@@ -1247,7 +1245,7 @@ export function ShowdownGame({
     try {
       writeStoredRaceHistory(localStorage, nextHistory);
       if (!hasControlledRoster) {
-        localStorage.setItem(ROSTER_KEY, rosterText);
+        writeSharedRoster(localStorage, rosterText);
       }
     } catch {
       window.setTimeout(
@@ -2221,7 +2219,7 @@ export function ShowdownGame({
             exlab
           </span>
           <div className="product-header-actions">
-            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.32</span>
+            <span className="prototype-badge">SHOWDOWN · VERSION 1.3.33</span>
           </div>
         </header>
       )}

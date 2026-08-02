@@ -1,9 +1,6 @@
-export const DEFAULT_PREVIEW_ROSTER_NAMES = Object.freeze([
-  "레또",
-  "레카",
-  "세나",
-  "망징",
-] as const);
+import { DEFAULT_ROSTER_NAMES } from "./defaultRoster";
+
+export const DEFAULT_PREVIEW_ROSTER_NAMES = DEFAULT_ROSTER_NAMES;
 
 export type PreviewCycleBuffer<T> = Readonly<{
   active: T;

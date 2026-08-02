@@ -3,9 +3,9 @@ import {
   isGameId,
   type GameId,
 } from "./catalog";
+import { DEFAULT_ROSTER_TEXT } from "./defaultRoster";
 import {
   DEFAULT_STREAMER_THEME_ID,
-  STREAMER_THEMES,
   isStreamerThemeId,
   type StreamerThemeId,
 } from "./theme/streamerThemes";
@@ -36,12 +36,49 @@ export const LEGACY_PLATFORM_STORAGE_KEYS = {
   streamerTheme: "ex-lab:theme:v1",
 } as const;
 
-export const DEFAULT_SHARED_ROSTER = [
-  ...STREAMER_THEMES.map(({ name }) => name),
-  "로티",
-  "토리",
-  "마루",
-].join("\n");
+export const DEFAULT_SHARED_ROSTER = DEFAULT_ROSTER_TEXT;
+
+const LEGACY_DEFAULT_SHARED_ROSTERS = new Set([
+  [
+    "아모",
+    "유레카",
+    "세나",
+    "코코",
+    "망징이",
+    "로티",
+    "토리",
+    "마루",
+  ].join("\n"),
+  [
+    "아모레또",
+    "유레카",
+    "세나",
+    "코코",
+    "망징이",
+    "로티",
+    "토리",
+    "마루",
+  ].join("\n"),
+  [
+    "아모레또",
+    "유레카",
+    "세나 아르벨",
+    "토로리 코코",
+    "망징이",
+    "로티",
+    "토리",
+    "마루",
+  ].join("\n"),
+  [
+    "아모레또",
+    "유레카",
+    "세나 아르벨",
+    "망징이",
+    "로티",
+    "토리",
+    "마루",
+  ].join("\n"),
+]);
 
 export type PlatformPreferences = {
   roster: SharedRosterSnapshot;
@@ -168,16 +205,57 @@ export function writeSharedRosterSnapshot(
   storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.rosterMigration, "1");
 }
 
+function isPristineInitialRosterSnapshot(
+  roster: SharedRosterSnapshot,
+): boolean {
+  if (roster.revision !== 1) return false;
+
+  const initial = createSharedRosterSnapshot(
+    sharedRosterSnapshotText(roster),
+    roster.allowDuplicateNames,
+  );
+  return initial.participants.every((participant, index) => {
+    const current = roster.participants[index];
+    return (
+      current?.id === participant.id &&
+      current.name === participant.name &&
+      current.ordinal === participant.ordinal
+    );
+  });
+}
+
+function migrateLegacyDefaultRoster(
+  roster: SharedRosterSnapshot,
+  requirePristineSnapshot: boolean,
+): SharedRosterSnapshot {
+  if (!LEGACY_DEFAULT_SHARED_ROSTERS.has(sharedRosterSnapshotText(roster))) {
+    return roster;
+  }
+  if (requirePristineSnapshot && !isPristineInitialRosterSnapshot(roster)) {
+    return roster;
+  }
+
+  return reconcileSharedRosterSnapshot(
+    roster,
+    DEFAULT_SHARED_ROSTER,
+    roster.allowDuplicateNames,
+  );
+}
+
 export function readPlatformPreferences(storage: Storage): PlatformPreferences {
   const storedRoster = parseStoredSharedRosterSnapshot(
     storage.getItem(PLATFORM_STORAGE_KEYS.rosterSnapshot),
   );
-  const roster =
+  const restoredRoster =
     storedRoster ??
     createSharedRosterSnapshot(
       readSharedRosterText(storage),
       readDuplicateNamePolicy(storage),
     );
+  const roster = migrateLegacyDefaultRoster(
+    restoredRoster,
+    storedRoster !== null,
+  );
   try {
     writeSharedRosterSnapshot(storage, roster);
   } catch {
