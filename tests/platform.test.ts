@@ -187,6 +187,7 @@ test("fresh platform storage uses the exact shared four-person default", () => {
 test("known legacy product defaults migrate once to the four-person roster", () => {
   const legacyDefaults = [
     "레또\n레카\n세나\n코코\n망징",
+    "아모레또\n유레카\n세나\n코코\n망징이",
     "아모\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
     "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
     "아모레또\n유레카\n세나 아르벨\n토로리 코코\n망징이\n로티\n토리\n마루",
@@ -293,34 +294,44 @@ test("the four-person migration preserves custom hidden-colour participants", ()
   assert.equal(preferences.roster.allowDuplicateNames, true);
 });
 
-test("the exact short-five product default migrates after a persisted rewrite", () => {
-  const storage = new MemoryStorage();
-  const initialRoster = createSharedRosterSnapshot(
-    "사용자 A\n사용자 B",
-    false,
-  );
-  const rewrittenDefault = reconcileSharedRosterSnapshot(
-    initialRoster,
+test("exact persisted five-person defaults migrate after a rewrite", () => {
+  const persistedDefaults = [
     "레또\n레카\n세나\n코코\n망징",
-    false,
-  );
-  storage.setItem(
-    PLATFORM_STORAGE_KEYS.rosterSnapshot,
-    JSON.stringify(rewrittenDefault),
-  );
+    "아모레또\n유레카\n세나\n코코\n망징이",
+  ];
 
-  const preferences = readPlatformPreferences(storage);
+  persistedDefaults.forEach((persistedDefault) => {
+    const storage = new MemoryStorage();
+    const initialRoster = createSharedRosterSnapshot(
+      "사용자 A\n사용자 B",
+      false,
+    );
+    const rewrittenDefault = reconcileSharedRosterSnapshot(
+      initialRoster,
+      persistedDefault,
+      false,
+    );
+    storage.setItem(
+      PLATFORM_STORAGE_KEYS.rosterSnapshot,
+      JSON.stringify(rewrittenDefault),
+    );
 
-  assert.equal(
-    sharedRosterSnapshotText(preferences.roster),
-    DEFAULT_SHARED_ROSTER,
-  );
-  assert.deepEqual(
-    preferences.roster.participants.map(({ name, id }) => ({ name, id })),
-    rewrittenDefault.participants
-      .filter(({ name }) => name !== "코코")
-      .map(({ name, id }) => ({ name, id })),
-  );
+    const preferences = readPlatformPreferences(storage);
+
+    assert.equal(
+      sharedRosterSnapshotText(preferences.roster),
+      DEFAULT_SHARED_ROSTER,
+      persistedDefault,
+    );
+    if (persistedDefault.startsWith("레또")) {
+      assert.deepEqual(
+        preferences.roster.participants.map(({ name, id }) => ({ name, id })),
+        rewrittenDefault.participants
+          .filter(({ name }) => name !== "코코")
+          .map(({ name, id }) => ({ name, id })),
+      );
+    }
+  });
 });
 
 test("an edited snapshot is never mistaken for a pristine product default", () => {
