@@ -186,6 +186,7 @@ test("fresh platform storage uses the exact shared four-person default", () => {
 
 test("known legacy product defaults migrate once to the four-person roster", () => {
   const legacyDefaults = [
+    "레또\n레카\n세나\n코코\n망징",
     "아모\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
     "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
     "아모레또\n유레카\n세나 아르벨\n토로리 코코\n망징이\n로티\n토리\n마루",
@@ -229,7 +230,7 @@ test("known legacy product defaults migrate once to the four-person roster", () 
 
 test("a raw legacy default also migrates before the v2 snapshot is created", () => {
   const legacyDefault =
-    "아모\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루";
+    "레또\n레카\n세나\n코코\n망징";
   const rawKeys = [
     PLATFORM_STORAGE_KEYS.roster,
     LEGACY_PLATFORM_STORAGE_KEYS.roster,
@@ -300,7 +301,7 @@ test("an edited snapshot is never mistaken for a pristine product default", () =
   );
   const intentionalRoster = reconcileSharedRosterSnapshot(
     initialRoster,
-    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+    "레또\n레카\n세나\n코코\n망징",
     false,
   );
   storage.setItem(
@@ -313,12 +314,12 @@ test("an edited snapshot is never mistaken for a pristine product default", () =
   assert.deepEqual(preferences.roster, intentionalRoster);
   assert.equal(
     sharedRosterSnapshotText(preferences.roster),
-    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+    "레또\n레카\n세나\n코코\n망징",
   );
 
   const nonCanonicalStorage = new MemoryStorage();
   const pristine = createSharedRosterSnapshot(
-    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+    "레또\n레카\n세나\n코코\n망징",
     false,
   );
   const nonCanonical = {

@@ -1,12 +1,18 @@
 # Development Log
 
+## 2026-08-02 1.3.34 구형 5인 명단 정합성
+
+- 실제 GitHub Pages에서 공용 참가자 명단은 `레또 / 레카 / 세나 / 코코 / 망징` 5명인데 Roulette 미리보기는 새 4인 정본을 보여주는 불일치를 재현했다.
+- 구형 short-five 문자열을 공식 제품 기본 signature에 추가해 편집 전 v2 초기 스냅샷, raw v1 세 경로와 손상 v2 fallback을 `레또 / 레카 / 세나 / 망징`으로 이관한다.
+- revision이 증가했거나 비정본 참가자 ID를 가진 명단, 이름이 추가·재정렬된 코코 포함 사용자 명단은 자동 변경하지 않는 기존 데이터 보존 경계를 유지한다.
+
 ## 2026-08-02 1.3.33 기본 참가자 4인 정합성
 
 - 미리보기만 `레또 / 레카 / 세나 / 망징` 4명이었고 공용 명단과 standalone Showdown은 streamer theme 4명에 일반 예시 3명을 더한 별도 기본값을 사용하던 불일치를 제거했다. `defaultRoster.ts`의 이름 배열과 텍스트를 공용 명단, Roulette·Showdown 미리보기와 standalone Showdown이 함께 사용한다.
 - 유효한 `exlab:roster:v2`가 코드 기본값보다 우선해 과거 코코 포함 기본 명단이 계속 복원되던 문제를 해결했다. 공식 제품 기본값과 전체 문자열이 정확히 일치하고 revision·참가자 ID가 초기 생성 상태인 경우만 4인 정본으로 reconcile한 뒤 v2, `exlab:roster:v1`, `ex-lab:roster:v1`, `marble-game:roster`를 함께 갱신한다.
 - 임의의 코코 행을 삭제하지 않는다. 사용자가 구성한 `코코 / 사용자 A / 토로리 코코` 명단과 동일 이름 정책·참가자 ID는 그대로 보존한다. 변경 후 텍스트가 더 이상 과거 기본 signature와 일치하지 않으므로 별도 영구 marker 없이 멱등적으로 한 번만 적용된다.
 - standalone Showdown의 `marble-game:roster` 직접 복원·저장도 공용 snapshot API로 연결해 별도 진입점에서도 같은 4인 기본과 안전한 이관을 적용한다.
-- 회귀 검증은 빈 저장소, 편집되지 않은 v2 과거 기본 4종, 세 raw 저장 우선순위와 손상 v2 fallback, custom 숨은색 명단, 수정 이력·비정본 ID 보존, 이관 뒤 revision·ID 불변과 standalone 저장 연결을 포함한다.
+- 회귀 검증은 빈 저장소, 편집되지 않은 v2 과거 기본 5종, 세 raw 저장 우선순위와 손상 v2 fallback, custom 숨은색 명단, 수정 이력·비정본 ID 보존, 이관 뒤 revision·ID 불변과 standalone 저장 연결을 포함한다.
 
 ## 2026-08-02 1.3.32 숨은 참가자 고유색 호환
 
