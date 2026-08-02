@@ -40,6 +40,13 @@ export const DEFAULT_SHARED_ROSTER = DEFAULT_ROSTER_TEXT;
 
 const LEGACY_DEFAULT_SHARED_ROSTERS = new Set([
   [
+    "레또",
+    "레카",
+    "세나",
+    "코코",
+    "망징",
+  ].join("\n"),
+  [
     "아모",
     "유레카",
     "세나",
