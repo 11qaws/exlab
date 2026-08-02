@@ -100,6 +100,21 @@ test("embedded Race uses the shared roster contract without promotional copy", (
   assert.doesNotMatch(cssSource, /\.intro(?:\s|[>{.:])/);
 });
 
+test("standalone Showdown uses the same default roster as the platform", () => {
+  assert.match(
+    gameSource,
+    /import \{ DEFAULT_ROSTER_TEXT \} from "\.\.\/\.\.\/_platform\/defaultRoster";/,
+  );
+  assert.match(gameSource, /useState\(DEFAULT_ROSTER_TEXT\)/);
+  assert.match(
+    gameSource,
+    /readPlatformPreferences\(localStorage\)/,
+  );
+  assert.match(gameSource, /writeSharedRoster\(localStorage, rosterText\)/);
+  assert.doesNotMatch(gameSource, /const DEFAULT_ROSTER\s*=/);
+  assert.doesNotMatch(gameSource, /localStorage\.getItem\(ROSTER_KEY\)/);
+});
+
 test("scoped Showdown roots retain their intended frame colors and sizing", () => {
   assert.match(
     cssSource,

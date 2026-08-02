@@ -18,6 +18,7 @@ import {
   type EmbeddedGameProps,
 } from "../app/_platform/contracts";
 import {
+  DEFAULT_SHARED_ROSTER,
   LEGACY_PLATFORM_STORAGE_KEYS,
   PLATFORM_STORAGE_KEYS,
   hasStoredStreamerThemeChoice,
@@ -31,6 +32,7 @@ import {
 } from "../app/_platform/storage";
 import {
   createSharedRosterSnapshot,
+  reconcileSharedRosterSnapshot,
   sharedRosterSnapshotText,
 } from "../app/_platform/sharedRosterSnapshot";
 import {
@@ -156,6 +158,184 @@ test("host uses catalog-driven lifecycle and one shared roster snapshot", async 
     /setRoster\(\(current\) =>\s+reconcileSharedRosterSnapshot\(/,
   );
   assert.doesNotMatch(appSource, /activityByGame/);
+});
+
+test("fresh platform storage uses the exact shared four-person default", () => {
+  const storage = new MemoryStorage();
+
+  const preferences = readPlatformPreferences(storage);
+
+  assert.equal(DEFAULT_SHARED_ROSTER, "레또\n레카\n세나\n망징");
+  assert.equal(
+    sharedRosterSnapshotText(preferences.roster),
+    DEFAULT_SHARED_ROSTER,
+  );
+  assert.equal(
+    storage.getItem(PLATFORM_STORAGE_KEYS.roster),
+    DEFAULT_SHARED_ROSTER,
+  );
+  assert.equal(
+    storage.getItem(LEGACY_PLATFORM_STORAGE_KEYS.roster),
+    DEFAULT_SHARED_ROSTER,
+  );
+  assert.equal(
+    storage.getItem(PLATFORM_STORAGE_KEYS.legacyRaceRoster),
+    DEFAULT_SHARED_ROSTER,
+  );
+});
+
+test("known legacy product defaults migrate once to the four-person roster", () => {
+  const legacyDefaults = [
+    "아모\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+    "아모레또\n유레카\n세나 아르벨\n토로리 코코\n망징이\n로티\n토리\n마루",
+    "아모레또\n유레카\n세나 아르벨\n망징이\n로티\n토리\n마루",
+  ];
+
+  legacyDefaults.forEach((legacyDefault) => {
+    const storage = new MemoryStorage();
+    const legacySnapshot = createSharedRosterSnapshot(legacyDefault, true);
+    storage.setItem(
+      PLATFORM_STORAGE_KEYS.rosterSnapshot,
+      JSON.stringify(legacySnapshot),
+    );
+    storage.setItem(PLATFORM_STORAGE_KEYS.roster, legacyDefault);
+
+    const preferences = readPlatformPreferences(storage);
+
+    assert.equal(
+      sharedRosterSnapshotText(preferences.roster),
+      DEFAULT_SHARED_ROSTER,
+      legacyDefault,
+    );
+    assert.equal(preferences.roster.allowDuplicateNames, true);
+    assert.equal(
+      storage.getItem(PLATFORM_STORAGE_KEYS.roster),
+      DEFAULT_SHARED_ROSTER,
+    );
+    assert.equal(
+      storage.getItem(PLATFORM_STORAGE_KEYS.legacyRaceRoster),
+      DEFAULT_SHARED_ROSTER,
+    );
+
+    const migratedSnapshot = preferences.roster;
+    assert.deepEqual(
+      readPlatformPreferences(storage).roster,
+      migratedSnapshot,
+      "the migrated revision and participant ids stay stable",
+    );
+  });
+});
+
+test("a raw legacy default also migrates before the v2 snapshot is created", () => {
+  const legacyDefault =
+    "아모\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루";
+  const rawKeys = [
+    PLATFORM_STORAGE_KEYS.roster,
+    LEGACY_PLATFORM_STORAGE_KEYS.roster,
+    PLATFORM_STORAGE_KEYS.legacyRaceRoster,
+  ];
+
+  rawKeys.forEach((rawKey) => {
+    const storage = new MemoryStorage();
+    storage.setItem(rawKey, legacyDefault);
+
+    const preferences = readPlatformPreferences(storage);
+
+    assert.equal(
+      sharedRosterSnapshotText(preferences.roster),
+      DEFAULT_SHARED_ROSTER,
+      rawKey,
+    );
+    assert.equal(
+      storage.getItem(PLATFORM_STORAGE_KEYS.roster),
+      DEFAULT_SHARED_ROSTER,
+    );
+    assert.equal(
+      storage.getItem(PLATFORM_STORAGE_KEYS.legacyRaceRoster),
+      DEFAULT_SHARED_ROSTER,
+    );
+  });
+
+  const malformedV2Storage = new MemoryStorage();
+  malformedV2Storage.setItem(
+    PLATFORM_STORAGE_KEYS.rosterSnapshot,
+    "{broken",
+  );
+  malformedV2Storage.setItem(PLATFORM_STORAGE_KEYS.roster, legacyDefault);
+  assert.equal(
+    sharedRosterSnapshotText(
+      readPlatformPreferences(malformedV2Storage).roster,
+    ),
+    DEFAULT_SHARED_ROSTER,
+  );
+});
+
+test("the four-person migration preserves custom hidden-colour participants", () => {
+  const storage = new MemoryStorage();
+  const customSnapshot = createSharedRosterSnapshot(
+    "코코\n사용자 A\n토로리 코코",
+    true,
+  );
+  storage.setItem(
+    PLATFORM_STORAGE_KEYS.rosterSnapshot,
+    JSON.stringify(customSnapshot),
+  );
+
+  const preferences = readPlatformPreferences(storage);
+
+  assert.deepEqual(preferences.roster, customSnapshot);
+  assert.equal(
+    sharedRosterSnapshotText(preferences.roster),
+    "코코\n사용자 A\n토로리 코코",
+  );
+  assert.equal(preferences.roster.allowDuplicateNames, true);
+});
+
+test("an edited snapshot is never mistaken for a pristine product default", () => {
+  const storage = new MemoryStorage();
+  const initialRoster = createSharedRosterSnapshot(
+    "사용자 A\n사용자 B",
+    false,
+  );
+  const intentionalRoster = reconcileSharedRosterSnapshot(
+    initialRoster,
+    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+    false,
+  );
+  storage.setItem(
+    PLATFORM_STORAGE_KEYS.rosterSnapshot,
+    JSON.stringify(intentionalRoster),
+  );
+
+  const preferences = readPlatformPreferences(storage);
+
+  assert.deepEqual(preferences.roster, intentionalRoster);
+  assert.equal(
+    sharedRosterSnapshotText(preferences.roster),
+    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+  );
+
+  const nonCanonicalStorage = new MemoryStorage();
+  const pristine = createSharedRosterSnapshot(
+    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+    false,
+  );
+  const nonCanonical = {
+    ...pristine,
+    participants: pristine.participants.map((participant) => ({
+      ...participant,
+      id: `user-${participant.id}`,
+    })),
+  };
+  nonCanonicalStorage.setItem(
+    PLATFORM_STORAGE_KEYS.rosterSnapshot,
+    JSON.stringify(nonCanonical),
+  );
+  assert.deepEqual(
+    readPlatformPreferences(nonCanonicalStorage).roster,
+    nonCanonical,
+  );
 });
 
 test("shared roster migrates v1 text and policy without deleting legacy data", () => {

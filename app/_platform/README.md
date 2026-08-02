@@ -41,18 +41,22 @@ participant number instead of deduplicating the list.
 2. The shell never reads or changes engine-specific result or physics state.
 3. The shared roster has one owner (`ExlabApp`) and is passed to every game as a
    controlled value.
-4. Previous `ex-lab:roster:v1` and Race-engine rosters migrate to
+4. The platform, both previews, and standalone Showdown share the exact
+   `레또 / 레카 / 세나 / 망징` default from `defaultRoster.ts`. Known product
+   defaults migrate only from a pristine initial snapshot; custom rosters
+   containing hidden Coco or Torori aliases remain untouched.
+5. Previous `ex-lab:roster:v1` and Race-engine rosters migrate to
    `exlab:roster:v1`. Every subsequent shared-roster write mirrors the legacy
    keys for rollback
    compatibility.
-5. A game cannot be switched while its adapter reports an active session.
-6. New games register one catalog entry and one component implementing
+6. A game cannot be switched while its adapter reports an active session.
+7. New games register one catalog entry and one component implementing
    `EmbeddedGameProps`; the shell layout does not change.
-7. Editing-state game surfaces stay mounted so their local setup drafts survive
+8. Editing-state game surfaces stay mounted so their local setup drafts survive
    a switch; inactive previews and other continuous work must not advance.
-8. Unvisited game modules are not loaded.
-9. Showdown styles stay inside `.showdown-game` and Roulette styles stay inside
+9. Unvisited game modules are not loaded.
+10. Showdown styles stay inside `.showdown-game` and Roulette styles stay inside
    `.roulette-game`; the common shell overrides descendants with the
    Inter → Pretendard → system sans stack.
-10. Stored Showdown history validates rows, drops malformed legacy data, and
+11. Stored Showdown history validates rows, drops malformed legacy data, and
     migrates a valid legacy `winnerName` into `winnerNames`.

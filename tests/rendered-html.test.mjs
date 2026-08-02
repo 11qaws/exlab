@@ -74,7 +74,7 @@ test("server-renders the practical exlab shell while preferences load", async ()
   );
 });
 
-test("pins the integrated package and both game catalog entries to 1.3.32", async () => {
+test("pins the integrated package and both game catalog entries to 1.3.33", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
@@ -84,12 +84,12 @@ test("pins the integrated package and both game catalog entries to 1.3.32", asyn
     readFile(new URL("../README.md", import.meta.url), "utf8"),
   ]);
 
-  assert.equal(packageJson.version, "1.3.32");
-  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.32"/);
+  assert.equal(packageJson.version, "1.3.33");
+  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.33"/);
   assert.match(
     catalogSource,
-    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.32"/,
+    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.33"/,
   );
-  assert.match(showdownSource, /SHOWDOWN · VERSION 1\.3\.32/);
-  assert.match(readmeSource, /현재 버전은 `1\.3\.32`/);
+  assert.match(showdownSource, /SHOWDOWN · VERSION 1\.3\.33/);
+  assert.match(readmeSource, /현재 버전은 `1\.3\.33`/);
 });
