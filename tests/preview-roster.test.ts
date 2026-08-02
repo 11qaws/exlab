@@ -9,14 +9,14 @@ import {
   queuePreviewCycleValue,
 } from "../app/_platform/previewRoster";
 
-test("Roulette and Showdown share the exact five-person default preview roster", () => {
+test("Roulette and Showdown share the exact four-person default preview roster", () => {
   assert.deepEqual(
     [...DEFAULT_PREVIEW_ROSTER_NAMES],
-    ["레또", "레카", "세나", "코코", "망징"],
+    ["레또", "레카", "세나", "망징"],
   );
   assert.deepEqual(
     previewRosterNamesOrDefault([" ", ""]),
-    ["레또", "레카", "세나", "코코", "망징"],
+    ["레또", "레카", "세나", "망징"],
   );
 });
 
@@ -37,7 +37,7 @@ test("preview roster edits stay pending until the current cycle advances", () =>
 
   assert.deepEqual(
     editedAgain.active,
-    ["레또", "레카", "세나", "코코", "망징"],
+    ["레또", "레카", "세나", "망징"],
   );
   assert.deepEqual(
     editedAgain.pending,

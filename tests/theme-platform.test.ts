@@ -3,7 +3,6 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
-  getStreamerThemeTokens,
   STREAMER_THEMES,
   STREAMER_THEME_CONTRAST_TARGETS,
   streamerThemeContrastReport,
@@ -16,10 +15,10 @@ import {
   streamerThemePickerPortraitOffsetY,
 } from "../app/_platform/theme/streamerThemePresentation";
 
-test("streamer theme registry exposes the five canonical profile assets", async () => {
+test("streamer theme registry exposes the four canonical profile assets", async () => {
   assert.deepEqual(
     STREAMER_THEMES.map(({ name }) => name),
-    ["아모레또", "유레카", "세나 아르벨", "토로리 코코", "망징이"],
+    ["아모레또", "유레카", "세나 아르벨", "망징이"],
   );
   assert.deepEqual(
     STREAMER_THEMES.map(({ id, portrait }) => [id, portrait.offsetY]),
@@ -27,7 +26,6 @@ test("streamer theme registry exposes the five canonical profile assets", async 
       ["amoretto", 0],
       ["eureka", 0],
       ["sena", 0],
-      ["torori", 0],
       ["mangjing", 0],
     ],
   );
@@ -60,13 +58,6 @@ test("streamer theme registry exposes the five canonical profile assets", async 
         mimeType: "image/webp",
         path: "themes/streamers/sena-portrait.webp",
         width: 400,
-      },
-      {
-        height: 960,
-        id: "torori",
-        mimeType: "image/webp",
-        path: "themes/streamers/torori-portrait.webp",
-        width: 960,
       },
       {
         height: 720,
@@ -103,11 +94,6 @@ test("streamer palettes expose one image-derived dark, main, and light triad", (
       main: "#443e4b",
       light: "#bdacbb",
     },
-    torori: {
-      dark: "#176188",
-      main: "#4baedc",
-      light: "#d6f1fb",
-    },
     mangjing: {
       dark: "#2f478f",
       main: "#7d90ca",
@@ -119,7 +105,6 @@ test("streamer palettes expose one image-derived dark, main, and light triad", (
     amoretto: "#2a0c16",
     eureka: "#062c25",
     sena: "#ffffff",
-    torori: "#041f2b",
     mangjing: "#01040c",
   } as const;
 
@@ -173,11 +158,11 @@ test("only the wide theme picker lowers Eureka and Sena portraits", () => {
     STREAMER_THEMES.map((theme) => (
       streamerThemePickerPortraitOffsetY(theme)
     )),
-    [0, 10, 10, 0, 0],
+    [0, 10, 10, 0],
   );
   assert.deepEqual(
     STREAMER_THEMES.map(({ portrait }) => portrait.offsetY),
-    [0, 0, 0, 0, 0],
+    [0, 0, 0, 0],
     "compact current-theme avatars must keep the canonical crop",
   );
 });
@@ -190,10 +175,10 @@ test("only compact current avatars shrink Amoretto and Mangjing portraits", () =
     ({ portrait }) => portrait.zoom,
   );
 
-  assert.deepEqual(currentZooms, [1.935, 1.15, 1.15, 1.8, 3.15]);
+  assert.deepEqual(currentZooms, [1.935, 1.15, 1.15, 3.15]);
   assert.deepEqual(
     canonicalZooms,
-    [2.15, 1.15, 1.15, 1.8, 3.5],
+    [2.15, 1.15, 1.15, 3.5],
     "theme picker portraits must keep their canonical zoom",
   );
 });
@@ -222,34 +207,6 @@ test("every streamer owns a unique dark-stage palette for Showdown", () => {
   });
 
   assert.equal(new Set(stagePalettes).size, STREAMER_THEMES.length);
-});
-
-test("Torori Koko uses a sky-blue axis distinct from Mangjing blue", () => {
-  const torori = STREAMER_THEMES.find((theme) => theme.id === "torori");
-  const mangjing = STREAMER_THEMES.find(
-    (theme) => theme.id === "mangjing",
-  );
-  assert.ok(torori);
-  assert.ok(mangjing);
-
-  const hueDistance = Math.min(
-    Math.abs(torori.hue - mangjing.hue),
-    360 - Math.abs(torori.hue - mangjing.hue),
-  );
-  assert.equal(torori.hue, 198);
-  assert.ok(hueDistance >= 25);
-  assert.match(
-    getStreamerThemeTokens(torori, "light").accentInk,
-    /^hsl\(198 /,
-  );
-  assert.match(
-    getStreamerThemeTokens(torori, "dark").background,
-    /^hsl\(198 /,
-  );
-  assert.match(
-    getStreamerThemeTokens(torori, "dark").accentInk,
-    /^hsl\(198 /,
-  );
 });
 
 test("the shell previews draft themes and commits only after confirmation", async () => {

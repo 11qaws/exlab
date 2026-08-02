@@ -81,7 +81,7 @@ function loadAndDecodePortrait(src: string): Promise<boolean> {
 }
 
 /**
- * Starts all five portrait requests together and resolves only after each
+ * Starts all four portrait requests together and resolves only after each
  * image is decoded or reaches an explicit failure/timeout state.
  */
 export async function preloadStreamerThemePortraits(

@@ -47,9 +47,9 @@ export type RaceMapTheme = {
 export const DEFAULT_RACE_MAP_MODE: RaceMapMode = "light";
 
 /**
- * The shared five-streamer palette in the canonical profile order.
- * Map themes may change the course surfaces, but obstacles always use these
- * canonical colors so their identity remains stable between light and dark.
+ * The shared obstacle-role palette. Map themes may change the course surfaces,
+ * but obstacles keep these colors so their physical roles remain stable
+ * between light and dark.
  */
 export const RACE_OBSTACLE_PALETTE = [
   { key: "hot-pink", label: "핫핑크", value: "#ffb6c1" },

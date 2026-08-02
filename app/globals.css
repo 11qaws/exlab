@@ -54,6 +54,9 @@
   --exlab-control-md: 40px;
   --exlab-control-lg: 44px;
 
+  /* Shared large-dialog limit. */
+  --exlab-dialog-max-size: 760px;
+
   /* Layout height contract. The header owns its height and every
      full-height surface derives from it here. Do not subtract the header
      from the viewport again in a game stylesheet. */
@@ -387,12 +390,12 @@ body {
   border-radius: var(--exlab-radius-lg);
   box-shadow: 0 28px 90px
     color-mix(in srgb, var(--exlab-text) 28%, transparent);
-  block-size: min(860px, calc(100svh - 24px));
+  block-size: min(var(--exlab-dialog-max-size), calc(100svh - 24px));
   color: var(--exlab-text);
   display: grid;
   gap: clamp(10px, 1.7vh, 16px);
   grid-template-rows: auto minmax(0, 1fr) auto;
-  max-width: 760px;
+  max-width: var(--exlab-dialog-max-size);
   min-block-size: 0;
   overflow: hidden;
   padding: clamp(14px, 2.2vw, 24px);
@@ -657,7 +660,10 @@ body {
   color: var(--exlab-text);
   display: grid;
   gap: var(--exlab-space-lg);
-  max-height: min(760px, calc(100svh - 36px));
+  max-height: min(
+    var(--exlab-dialog-max-size),
+    calc(100svh - 36px)
+  );
   max-width: 620px;
   overflow: auto;
   padding: clamp(18px, 3vw, 28px);

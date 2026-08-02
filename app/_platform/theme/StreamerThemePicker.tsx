@@ -147,7 +147,7 @@ export function StreamerThemeCurrent({
  * Controlled, native-radio theme picker.
  *
  * The host owns persistence and applies `streamerThemeCssVariables` to the
- * common shell. This component only renders the five canonical choices.
+ * common shell. This component only renders the four canonical choices.
  */
 export function StreamerThemePicker({
   value,

@@ -39,9 +39,9 @@ test('the candidate fingerprint stays stable across the move', () => {
   assert.equal(
     fingerprintOptions([
       { id: 'shared-0001', name: '세나 아르벨', weight: 3 },
-      { id: 'shared-0002', name: '토로리 코코', weight: 1 },
+      { id: 'shared-0002', name: '망징이', weight: 1 },
     ]),
-    'fnv1a-4fec72ae',
+    'fnv1a-818810c0',
   );
 });
 

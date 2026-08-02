@@ -6,14 +6,13 @@ import {
 } from "./streamerPalettes";
 
 /**
- * The five public product identities. Keep this list intentionally narrow:
+ * The four public product identities. Keep this list intentionally narrow:
  * product defaults and semantic game colours are not streamer themes.
  */
 export const STREAMER_THEME_IDS = [
   "amoretto",
   "eureka",
   "sena",
-  "torori",
   "mangjing",
 ] as const;
 
@@ -237,58 +236,6 @@ export const STREAMER_THEMES = [
       textFaint: "hsl(277 12% 46%)",
       railStart: STREAMER_COLOR_PALETTES.sena.light,
       railEnd: STREAMER_COLOR_PALETTES.sena.main,
-    },
-  },
-  {
-    id: "torori",
-    name: "토로리 코코",
-    subtitle: "교환학생 1기 ORIENT",
-    hue: 198,
-    chroma: 1.04,
-    tone: "pale",
-    palette: STREAMER_COLOR_PALETTES.torori,
-    portrait: {
-      ...STREAMER_THEME_PORTRAIT_ASSETS.torori,
-      focus: "40% 61%",
-      zoom: 1.8,
-      offsetY: 0,
-      fallback: "토",
-    },
-    light: {
-      accent: "hsl(198 58% 82%)",
-      accentOn: "#041f2b",
-      accentInk: "hsl(198 58% 31%)",
-      accentBg: "hsl(198 58% 93%)",
-      accentLine: "hsl(198 58% 82%)",
-      background: "hsl(198 34% 97%)",
-      surface: "hsl(198 0% 100%)",
-      surfaceSubtle: "hsl(198 31% 93%)",
-      border: "hsl(198 28% 90%)",
-      borderStrong: "hsl(198 31% 80%)",
-      text: "hsl(198 30% 13%)",
-      textMuted: "hsl(198 20% 32%)",
-      textSubtle: "hsl(198 14% 48%)",
-      textFaint: "hsl(198 12% 64%)",
-      railStart: "rgb(229 246 251)",
-      railEnd: "hsl(198 58% 82%)",
-    },
-    dark: {
-      accent: "hsl(198 65% 86%)",
-      accentOn: "hsl(198 60% 27%)",
-      accentInk: "hsl(198 60% 69%)",
-      accentBg: "hsl(198 48% 20%)",
-      accentLine: "hsl(198 46% 34%)",
-      background: "hsl(198 56% 8%)",
-      surface: "hsl(198 38% 13%)",
-      surfaceSubtle: "hsl(198 45% 19%)",
-      border: "hsl(198 42% 24%)",
-      borderStrong: "hsl(198 44% 34%)",
-      text: "hsl(198 24% 93%)",
-      textMuted: "hsl(198 18% 84%)",
-      textSubtle: "hsl(198 14% 66%)",
-      textFaint: "hsl(198 12% 46%)",
-      railStart: "rgb(232 247 252)",
-      railEnd: "hsl(198 65% 86%)",
     },
   },
   {

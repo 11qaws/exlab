@@ -31,11 +31,6 @@ export const STREAMER_COLOR_PALETTES = {
     main: "#443e4b",
     light: "#bdacbb",
   },
-  torori: {
-    dark: "#176188",
-    main: "#4baedc",
-    light: "#d6f1fb",
-  },
   mangjing: {
     dark: "#2f478f",
     main: "#7d90ca",

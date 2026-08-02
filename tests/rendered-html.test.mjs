@@ -63,18 +63,18 @@ test("server-renders the practical exlab shell while preferences load", async ()
         && /\bas="image"/.test(tag)
         && /\bhref="\/themes\/streamers\/[^"]+\.webp"/.test(tag),
     );
-  assert.equal(portraitPreloads.length, 5);
+  assert.equal(portraitPreloads.length, 4);
   assert.equal(
     new Set(
       portraitPreloads.map(
         (tag) => tag.match(/\bhref="([^"]+)"/)?.[1],
       ),
     ).size,
-    5,
+    4,
   );
 });
 
-test("pins the integrated package and both game catalog entries to 1.3.30", async () => {
+test("pins the integrated package and both game catalog entries to 1.3.31", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
@@ -84,12 +84,12 @@ test("pins the integrated package and both game catalog entries to 1.3.30", asyn
     readFile(new URL("../README.md", import.meta.url), "utf8"),
   ]);
 
-  assert.equal(packageJson.version, "1.3.30");
-  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.30"/);
+  assert.equal(packageJson.version, "1.3.31");
+  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.31"/);
   assert.match(
     catalogSource,
-    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.30"/,
+    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.31"/,
   );
-  assert.match(showdownSource, /SHOWDOWN · VERSION 1\.3\.30/);
-  assert.match(readmeSource, /현재 버전은 `1\.3\.30`/);
+  assert.match(showdownSource, /SHOWDOWN · VERSION 1\.3\.31/);
+  assert.match(readmeSource, /현재 버전은 `1\.3\.31`/);
 });

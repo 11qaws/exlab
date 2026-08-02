@@ -1,6 +1,6 @@
 # exlab platform contract
 
-The platform owns the game catalog, shared roster, last-used game, five
+The platform owns the game catalog, shared roster, last-used game, four
 streamer identity themes, and cross-game navigation. The shell keeps a
 practical light base and stores the selected profile's product-chrome colours.
 Roulette and Showdown continue to own their rules, preview, run state, physics

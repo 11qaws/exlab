@@ -156,7 +156,6 @@ test("canonical streamer marbles keep their own palette main by name", () => {
     [["아모레또", "레또"], "rose"],
     [["유레카", "레카"], "mint"],
     [["세나", "세나아르벨", "세나 아르벨"], "violet"],
-    [["코코", "토로리코코", "토로리 코코", "토로리"], "sky"],
     [["망징", "망징이"], "blue"],
   ] as const;
 
@@ -171,19 +170,19 @@ test("canonical streamer marbles keep their own palette main by name", () => {
   }
 });
 
-test("group palette deals are deterministic and reserve five streamer colours", () => {
+test("group palette deals are deterministic and reserve four streamer colours", () => {
   const validation = parseRoster(
     [
       "아모레또",
       "유레카",
       "세나 아르벨",
-      "토로리 코코",
       "망징이",
       "참가자 1",
       "참가자 2",
       "참가자 3",
       "참가자 4",
       "참가자 5",
+      "참가자 6",
     ].join("\n"),
   );
   const first = assignParticipantThemes(validation.candidates, "palette-a");
@@ -195,8 +194,8 @@ test("group palette deals are deterministic and reserve five streamer colours", 
 
   assert.deepEqual(first, replay);
   assert.deepEqual(
-    first.slice(0, 5).map(({ theme }) => theme.key),
-    ["rose", "mint", "violet", "sky", "blue"],
+    first.slice(0, 4).map(({ theme }) => theme.key),
+    ["rose", "mint", "violet", "blue"],
   );
   assert.equal(
     new Set(first.map(({ theme }) => theme.key)).size,
@@ -204,8 +203,8 @@ test("group palette deals are deterministic and reserve five streamer colours", 
     "a full group should not reuse a participant colour",
   );
   assert.notDeepEqual(
-    first.slice(5).map(({ theme }) => theme.key),
-    alternate.slice(5).map(({ theme }) => theme.key),
+    first.slice(4).map(({ theme }) => theme.key),
+    alternate.slice(4).map(({ theme }) => theme.key),
   );
 });
 

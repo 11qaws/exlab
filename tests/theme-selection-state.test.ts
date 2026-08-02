@@ -44,13 +44,13 @@ test("a returning visit hydrates into the closed state", () => {
 
 test("opening always resets a stale draft to the committed theme", () => {
   const initial = {
-    ...createThemeSelectionState("torori"),
+    ...createThemeSelectionState("sena"),
     draftId: "mangjing" as const,
   };
   const state = themeSelectionReducer(initial, { type: "open" });
 
   assert.equal(state.phase, "choosing");
-  assert.equal(state.draftId, "torori");
+  assert.equal(state.draftId, "sena");
 });
 
 test("preview changes only the effective theme", () => {
@@ -146,7 +146,7 @@ test("confirming blocks preview, cancellation, and reopening", () => {
       themeSelectionReducer(createThemeSelectionState(), {
         type: "open",
       }),
-      { type: "preview", themeId: "torori" },
+      { type: "preview", themeId: "mangjing" },
     ),
     { type: "confirm" },
   );
@@ -189,7 +189,7 @@ test("only the matching confirmation token closes the dialog", () => {
   assert.equal(finished.draftId, finished.committedId);
 });
 
-test("a completed confirmation reopens as five-choice selection state", () => {
+test("a completed confirmation reopens as four-choice selection state", () => {
   const opened = themeSelectionReducer(
     createThemeSelectionState("eureka"),
     { type: "open" },

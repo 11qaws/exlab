@@ -2,7 +2,6 @@ export const DEFAULT_PREVIEW_ROSTER_NAMES = Object.freeze([
   "레또",
   "레카",
   "세나",
-  "코코",
   "망징",
 ] as const);
 

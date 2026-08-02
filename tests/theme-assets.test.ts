@@ -91,7 +91,7 @@ test("streamer portraits stay optimized and match their asset manifest", async (
 test("streamer portrait URLs preserve root and GitHub Pages bases", () => {
   assert.deepEqual(
     streamerThemePortraitUrls("/").map((url) => url.slice(0, 1)),
-    ["/", "/", "/", "/", "/"],
+    ["/", "/", "/", "/"],
   );
   assert.ok(
     streamerThemePortraitUrls("/exlab/").every((url) =>

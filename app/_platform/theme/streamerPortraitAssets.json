@@ -17,12 +17,6 @@
     "height": 400,
     "mimeType": "image/webp"
   },
-  "torori": {
-    "path": "themes/streamers/torori-portrait.webp",
-    "width": 960,
-    "height": 960,
-    "mimeType": "image/webp"
-  },
   "mangjing": {
     "path": "themes/streamers/mangjing-portrait.webp",
     "width": 1280,

@@ -66,7 +66,7 @@ export const PARTICIPANT_THEMES: readonly ParticipantTheme[] = [
   },
   {
     key: "sky",
-    primary: STREAMER_COLOR_PALETTES.torori.main,
+    primary: "#4baedc",
     onPrimary: "#062635",
     surface: "#e4f5fc",
     onSurface: "#153d50",
@@ -166,9 +166,6 @@ const FIXED_PARTICIPANT_THEME_KEYS = new Map<string, string>([
   ["레카", "mint"],
   ["세나아르벨", "violet"],
   ["세나", "violet"],
-  ["토로리코코", "sky"],
-  ["토로리", "sky"],
-  ["코코", "sky"],
   ["망징이", "blue"],
   ["망징", "blue"],
 ]);
@@ -193,7 +190,7 @@ export function resolveFixedParticipantTheme(
 }
 
 /**
- * Keeps the five canonical streamer colours stable by name, then deals every
+ * Keeps the four canonical streamer colours stable by name, then deals every
  * other racer a unique colour from the existing participant palette. The seed
  * makes setup, live playback, and replay agree without render-time randomness.
  */

@@ -152,7 +152,6 @@ const legacyStreamerPortraitPaths = [
   "themes/streamers/amoretto.jpg",
   "themes/streamers/eureka.png",
   "themes/streamers/sena.jpg",
-  "themes/streamers/torori.webp",
   "themes/streamers/mangjing.jpg",
 ];
 

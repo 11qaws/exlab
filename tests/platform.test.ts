@@ -188,15 +188,15 @@ test("shared roster migrates v1 text and policy without deleting legacy data", (
     2,
   );
 
-  writeSharedRoster(storage, "세나\n코코");
+  writeSharedRoster(storage, "세나\n마루");
   assert.equal(
     storage.getItem(PLATFORM_STORAGE_KEYS.legacyRaceRoster),
-    "세나\n코코",
+    "세나\n마루",
   );
   writeLastGame(storage, "roulette");
   writeDuplicateNamePolicy(storage, true);
   const updated = readPlatformPreferences(storage);
-  assert.equal(sharedRosterSnapshotText(updated.roster), "세나\n코코");
+  assert.equal(sharedRosterSnapshotText(updated.roster), "세나\n마루");
   assert.equal(updated.roster.allowDuplicateNames, true);
   assert.equal(updated.gameId, "roulette");
   assert.equal(
