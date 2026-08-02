@@ -293,6 +293,36 @@ test("the four-person migration preserves custom hidden-colour participants", ()
   assert.equal(preferences.roster.allowDuplicateNames, true);
 });
 
+test("the exact short-five product default migrates after a persisted rewrite", () => {
+  const storage = new MemoryStorage();
+  const initialRoster = createSharedRosterSnapshot(
+    "사용자 A\n사용자 B",
+    false,
+  );
+  const rewrittenDefault = reconcileSharedRosterSnapshot(
+    initialRoster,
+    "레또\n레카\n세나\n코코\n망징",
+    false,
+  );
+  storage.setItem(
+    PLATFORM_STORAGE_KEYS.rosterSnapshot,
+    JSON.stringify(rewrittenDefault),
+  );
+
+  const preferences = readPlatformPreferences(storage);
+
+  assert.equal(
+    sharedRosterSnapshotText(preferences.roster),
+    DEFAULT_SHARED_ROSTER,
+  );
+  assert.deepEqual(
+    preferences.roster.participants.map(({ name, id }) => ({ name, id })),
+    rewrittenDefault.participants
+      .filter(({ name }) => name !== "코코")
+      .map(({ name, id }) => ({ name, id })),
+  );
+});
+
 test("an edited snapshot is never mistaken for a pristine product default", () => {
   const storage = new MemoryStorage();
   const initialRoster = createSharedRosterSnapshot(
@@ -301,7 +331,7 @@ test("an edited snapshot is never mistaken for a pristine product default", () =
   );
   const intentionalRoster = reconcileSharedRosterSnapshot(
     initialRoster,
-    "레또\n레카\n세나\n코코\n망징",
+    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
     false,
   );
   storage.setItem(
@@ -314,12 +344,12 @@ test("an edited snapshot is never mistaken for a pristine product default", () =
   assert.deepEqual(preferences.roster, intentionalRoster);
   assert.equal(
     sharedRosterSnapshotText(preferences.roster),
-    "레또\n레카\n세나\n코코\n망징",
+    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
   );
 
   const nonCanonicalStorage = new MemoryStorage();
   const pristine = createSharedRosterSnapshot(
-    "레또\n레카\n세나\n코코\n망징",
+    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
     false,
   );
   const nonCanonical = {
