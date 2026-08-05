@@ -390,3 +390,14 @@ npm run benchmark:stalls
 결승부의 목표는 “모두를 붙잡아 무작위로 다시 뽑기”가 아니라, 한쪽 위험 경로를 탄 선두가 잠깐 머뭇거리는 동안 열린 우회로의 후속 마블이 통과할 수 있게 하는 것입니다. 제한형 추격은 큰 격차의 후미 마블만 보조하며 결과를 참조하거나 선두를 늦추지 않습니다. 결승 진입 순위와 최종 순위의 상관관계, 선두 우승률, 격차 분포, 위험 장애물 접촉 에피소드를 함께 회귀 지표로 관리합니다.
 
 자세한 테스트 결과와 설계 결정은 [DESIGN_FINDINGS.md](./docs/DESIGN_FINDINGS.md), 물리 변화 후보와 적용 기준은 [GAMEPLAY_VARIATION_DESIGN.md](./docs/GAMEPLAY_VARIATION_DESIGN.md), 전체 명단·조 편성·풀 패키지 계약은 [EXLAB_SHOWDOWN_SYSTEM_SPEC.md](./docs/EXLAB_SHOWDOWN_SYSTEM_SPEC.md)를 참고하세요.
+
+
+The MIT License (MIT)
+
+Copyright (c) <year> <copyright holders>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
