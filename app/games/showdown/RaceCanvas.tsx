@@ -142,6 +142,25 @@ export const OFFSCREEN_PODIUM_MIN_SCALE = 0.82;
 export const OFFSCREEN_PODIUM_MAX_SCALE = 1.12;
 export const OFFSCREEN_PODIUM_FAR_DISTANCE = VIEW_HEIGHT * 0.68;
 
+const MARBLE_LABEL_MIN_SCALE = 0.55;
+
+export function resolveMarbleLabelMetrics(scale: number) {
+  const labelScale = Math.min(
+    1,
+    Math.max(
+      MARBLE_LABEL_MIN_SCALE,
+      Number.isFinite(scale) ? scale : 1,
+    ),
+  );
+  return {
+    fontSize: 13 * labelScale,
+    gap: 7 * labelScale,
+    height: 22 * labelScale,
+    padding: 16 * labelScale,
+    radius: 7 * labelScale,
+  };
+}
+
 export type OffscreenPodiumIndicator = {
   slotId: string;
   rank: 2 | 3;
@@ -897,24 +916,34 @@ export function RaceCanvas({
       context.fillText(String(candidate.number), 0, 0);
       context.restore();
 
-      if (topSlots.has(pose.slotId) && scale > 0.55) {
+      if (topSlots.has(pose.slotId)) {
         const label = shortName(candidate.name, 7);
-        context.font = `700 ${Math.max(11, 13 * scale)}px Inter, Pretendard, system-ui, sans-serif`;
-        const width = context.measureText(label).width + 16;
+        const labelMetrics = resolveMarbleLabelMetrics(scale);
+        context.font = `700 ${labelMetrics.fontSize}px Inter, Pretendard, system-ui, sans-serif`;
+        const width = context.measureText(label).width + labelMetrics.padding;
+        const labelTop =
+          y -
+          MARBLE_RADIUS * scale -
+          labelMetrics.gap -
+          labelMetrics.height;
         context.fillStyle = theme.label;
         context.beginPath();
         context.roundRect(
           x - width / 2,
-          y - MARBLE_RADIUS * scale - 29,
+          labelTop,
           width,
-          22,
-          7,
+          labelMetrics.height,
+          labelMetrics.radius,
         );
         context.fill();
         context.fillStyle = theme.labelText;
         context.textAlign = "center";
         context.textBaseline = "middle";
-        context.fillText(label, x, y - MARBLE_RADIUS * scale - 18);
+        context.fillText(
+          label,
+          x,
+          labelTop + labelMetrics.height / 2,
+        );
       }
 
       if (

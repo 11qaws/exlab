@@ -193,6 +193,17 @@ test("mobile leaderboard keeps the first active contender visible", () => {
   );
 });
 
+test("mobile Showdown canvas keeps scaled marble nameplates", () => {
+  assert.match(canvasSource, /if \(topSlots\.has\(pose\.slotId\)\) \{/);
+  assert.doesNotMatch(
+    canvasSource,
+    /topSlots\.has\(pose\.slotId\) && scale > 0\.55/,
+  );
+  assert.match(canvasSource, /resolveMarbleLabelMetrics\(scale\)/);
+  assert.match(canvasSource, /labelMetrics\.height/);
+  assert.match(canvasSource, /labelMetrics\.padding/);
+});
+
 test("live leaderboard records finish times and swaps ranks in 200ms", () => {
   assert.match(gameSource, /LEADERBOARD_SWAP_DURATION_MS = 200/);
   assert.match(gameSource, /resolveFinishRecords\(plan\.simulation\.frames\)/);

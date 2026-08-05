@@ -81,6 +81,7 @@ import {
   OFFSCREEN_PODIUM_MAX_SCALE,
   OFFSCREEN_PODIUM_MIN_SCALE,
   resolveFinishFlagLayout,
+  resolveMarbleLabelMetrics,
   resolveOffscreenPodiumIndicators,
   resolveRaceFocusSlotId,
   resolveRaceFrame,
@@ -102,6 +103,18 @@ test("roster accepts two through ten participants", () => {
     ).isValid,
     true,
   );
+});
+
+test("Showdown marble nameplates remain visible and scale with the marble", () => {
+  const desktop = resolveMarbleLabelMetrics(1);
+  const compact = resolveMarbleLabelMetrics(0.42);
+
+  assert.equal(desktop.fontSize, 13);
+  assert.equal(desktop.height, 22);
+  assert.ok(compact.fontSize < desktop.fontSize);
+  assert.ok(compact.height < desktop.height);
+  assert.equal(compact.fontSize, 13 * 0.55);
+  assert.equal(compact.height, 22 * 0.55);
 });
 
 test("roster preserves overflow names beyond the full-list limit", () => {
