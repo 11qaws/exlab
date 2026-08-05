@@ -32,7 +32,7 @@
 }
 
 .exlab-shared-roster small {
-  color: var(--exlab-text-subtle, var(--exlab-muted));
+  color: var(--exlab-muted);
   font-size: 10px;
   font-weight: 650;
 }

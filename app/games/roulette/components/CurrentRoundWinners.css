@@ -252,7 +252,7 @@
 
 .current-round-winners__list li.is-latest .current-round-winners__state {
   background: color-mix(in srgb, var(--hot-pink) 32%, var(--card));
-  color: var(--magenta);
+  color: var(--ink);
 }
 
 .current-round-winners__removal {

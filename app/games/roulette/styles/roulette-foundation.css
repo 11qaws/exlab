@@ -504,7 +504,7 @@ select:focus-visible {
 
 .draw-mode-button small,
 .target-button small {
-  color: color-mix(in srgb, var(--muted) 72%, var(--card));
+  color: var(--muted);
   font-family: 'Fredoka', 'Jua', sans-serif;
   font-size: 10px;
   font-weight: 500;

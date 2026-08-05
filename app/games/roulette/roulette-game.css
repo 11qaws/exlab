@@ -1472,7 +1472,7 @@
     border-radius: 11px;
     background: var(--hot-pink);
     box-shadow: 0 3px 0 var(--hot-pink-strong);
-    color: var(--ink);
+    color: var(--exlab-on-accent, var(--ink));
     font-family: 'Jua', sans-serif;
     font-size: 13px;
     cursor: pointer;

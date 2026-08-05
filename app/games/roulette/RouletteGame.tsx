@@ -1639,6 +1639,7 @@ export function RouletteGame({
     if (!transitionRaffle('start-next-round')) return;
     clearCurrentRound(true);
     setToolsOpen(false);
+    focusLiveStage();
   };
 
   const restoreParticipant = (id: string, name: string) => {
@@ -1724,7 +1725,6 @@ export function RouletteGame({
     setBroadcastSession(updateBroadcastSessionGoal(session, nextGoal));
     setWinnerGoals((goals) => ({ ...goals, [session.target]: nextGoal }));
     beginNextRound();
-    showToast(`목표를 ${nextGoal}${session.target === 'people' ? '명' : '회'}로 늘렸어요.`);
   };
   const applyLinkedPrizeRecipients = (
     linkedRecipients: readonly PrizeRecipient[],

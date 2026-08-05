@@ -177,7 +177,7 @@
   border: 1px solid var(--hot-pink-strong);
   background: var(--hot-pink);
   box-shadow: 0 3px 0 var(--hot-pink-strong);
-  color: var(--ink);
+  color: var(--exlab-on-accent, var(--ink));
 }
 
 .setup-secondary {

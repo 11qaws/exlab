@@ -207,6 +207,28 @@ test("Roulette session goal never drops below its revealed result count", () => 
   assert.equal(repairedByAppend.goal, 2);
 });
 
+test("Roulette extends the draw without adding a layout-changing confirmation toast", async () => {
+  const gameSource = await readFile(
+    new URL("../app/games/roulette/RouletteGame.tsx", import.meta.url),
+    "utf8",
+  );
+  const addOneMoreSource = gameSource.match(
+    /const addOneMoreResult = \(\) => \{[\s\S]*?\n  \};/,
+  )?.[0];
+
+  assert.ok(addOneMoreSource);
+  const successPath = addOneMoreSource.slice(
+    addOneMoreSource.indexOf("const nextGoal"),
+  );
+  assert.match(successPath, /updateBroadcastSessionGoal\(session, nextGoal\)/);
+  assert.match(successPath, /beginNextRound\(\)/);
+  assert.doesNotMatch(successPath, /showToast\(/);
+  assert.match(
+    gameSource,
+    /const beginNextRound = \(\) => \{[\s\S]*?focusLiveStage\(\);[\s\S]*?\n  \};/,
+  );
+});
+
 test("embedded Roulette pauses previews and locks navigation while editing a roster", async () => {
   const [gameSource, previewSource] = await Promise.all([
     readFile(
@@ -298,7 +320,7 @@ test("Roulette preserves unfinished progress but closes completed sessions", asy
   );
   assert.doesNotMatch(source, /결과 화면 다시 열기/);
   assert.doesNotMatch(source, /완료한 세션 종료/);
-  assert.match(source, /session\.target === 'people' \? '명' : '회'/);
+  assert.match(source, /updateBroadcastSessionGoal\(session, nextGoal\)/);
   assert.match(
     source,
     /session\.results\.length > 0 && lastCommittedPresentation[\s\S]*?setPresentedOptions\(lastCommittedPresentation\.options\)[\s\S]*?setWinnerIndex\(lastCommittedPresentation\.winnerIndex\)/,

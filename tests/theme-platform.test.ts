@@ -153,6 +153,22 @@ test("every light streamer theme keeps labels and text contrast-safe", () => {
   }
 });
 
+test("Mangjing uses its canonical identity colours with small-label contrast", () => {
+  const theme = STREAMER_THEMES.find(({ id }) => id === "mangjing");
+  assert.ok(theme);
+  assert.equal(theme.light.accent, STREAMER_COLOR_PALETTES.mangjing.main);
+  assert.equal(theme.light.accentInk, STREAMER_COLOR_PALETTES.mangjing.dark);
+  assert.equal(theme.light.accentLine, STREAMER_COLOR_PALETTES.mangjing.light);
+  assert.equal(theme.light.railStart, STREAMER_COLOR_PALETTES.mangjing.main);
+  assert.equal(theme.light.railEnd, STREAMER_COLOR_PALETTES.mangjing.dark);
+  assert.ok(
+    themeColorContrastRatio(theme.light.accentOn, theme.light.accent) >= 6.5,
+  );
+  assert.ok(
+    themeColorContrastRatio(theme.light.accentInk, theme.light.accentBg) >= 6.5,
+  );
+});
+
 test("only the wide theme picker lowers Eureka and Sena portraits", () => {
   assert.deepEqual(
     STREAMER_THEMES.map((theme) => (
