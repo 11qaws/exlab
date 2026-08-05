@@ -42,12 +42,10 @@ participant number instead of deduplicating the list.
 3. The shared roster has one owner (`ExlabApp`) and is passed to every game as a
    controlled value.
 4. The platform, both previews, and standalone Showdown share the exact
-   `레또 / 레카 / 세나 / 망징` default from `defaultRoster.ts`. Known product
-   defaults migrate only from a pristine initial snapshot, except the exact
-   persisted five-person signatures `레또 / 레카 / 세나 / 코코 / 망징` and
-   `아모레또 / 유레카 / 세나 / 코코 / 망징이`, which always migrate. Every
-   non-matching custom roster containing hidden Coco or Torori aliases remains
-   untouched.
+   `레또 / 레카 / 세나 / 망징` default from `defaultRoster.ts`. Every exact
+   known 5-, 7-, or 8-person product default migrates regardless of snapshot
+   revision or participant IDs. Every non-matching custom roster, including
+   one containing hidden Coco or Torori aliases, remains untouched.
 5. Previous `ex-lab:roster:v1` and Race-engine rosters migrate to
    `exlab:roster:v1`. Every subsequent shared-roster write mirrors the legacy
    keys for rollback

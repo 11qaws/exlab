@@ -188,6 +188,7 @@ test("known legacy product defaults migrate once to the four-person roster", () 
   const legacyDefaults = [
     "레또\n레카\n세나\n코코\n망징",
     "아모레또\n유레카\n세나\n코코\n망징이",
+    "아모레또\n유레카\n세나 아르벨\n토로리 코코\n망징이",
     "아모\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
     "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
     "아모레또\n유레카\n세나 아르벨\n토로리 코코\n망징이\n로티\n토리\n마루",
@@ -294,10 +295,15 @@ test("the four-person migration preserves custom hidden-colour participants", ()
   assert.equal(preferences.roster.allowDuplicateNames, true);
 });
 
-test("exact persisted five-person defaults migrate after a rewrite", () => {
+test("exact product defaults migrate after a rewrite", () => {
   const persistedDefaults = [
     "레또\n레카\n세나\n코코\n망징",
     "아모레또\n유레카\n세나\n코코\n망징이",
+    "아모레또\n유레카\n세나 아르벨\n토로리 코코\n망징이",
+    "아모\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+    "아모레또\n유레카\n세나 아르벨\n토로리 코코\n망징이\n로티\n토리\n마루",
+    "아모레또\n유레카\n세나 아르벨\n망징이\n로티\n토리\n마루",
   ];
 
   persistedDefaults.forEach((persistedDefault) => {
@@ -334,7 +340,7 @@ test("exact persisted five-person defaults migrate after a rewrite", () => {
   });
 });
 
-test("an edited snapshot is never mistaken for a pristine product default", () => {
+test("a custom roster that only resembles a product default stays untouched", () => {
   const storage = new MemoryStorage();
   const initialRoster = createSharedRosterSnapshot(
     "사용자 A\n사용자 B",
@@ -342,7 +348,7 @@ test("an edited snapshot is never mistaken for a pristine product default", () =
   );
   const intentionalRoster = reconcileSharedRosterSnapshot(
     initialRoster,
-    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루\n사용자 추가",
     false,
   );
   storage.setItem(
@@ -355,28 +361,21 @@ test("an edited snapshot is never mistaken for a pristine product default", () =
   assert.deepEqual(preferences.roster, intentionalRoster);
   assert.equal(
     sharedRosterSnapshotText(preferences.roster),
-    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루\n사용자 추가",
   );
 
-  const nonCanonicalStorage = new MemoryStorage();
-  const pristine = createSharedRosterSnapshot(
-    "아모레또\n유레카\n세나\n코코\n망징이\n로티\n토리\n마루",
+  const reorderedStorage = new MemoryStorage();
+  const reordered = createSharedRosterSnapshot(
+    "아모레또\n유레카\n세나\n망징이\n코코\n로티\n토리\n마루",
     false,
   );
-  const nonCanonical = {
-    ...pristine,
-    participants: pristine.participants.map((participant) => ({
-      ...participant,
-      id: `user-${participant.id}`,
-    })),
-  };
-  nonCanonicalStorage.setItem(
+  reorderedStorage.setItem(
     PLATFORM_STORAGE_KEYS.rosterSnapshot,
-    JSON.stringify(nonCanonical),
+    JSON.stringify(reordered),
   );
   assert.deepEqual(
-    readPlatformPreferences(nonCanonicalStorage).roster,
-    nonCanonical,
+    readPlatformPreferences(reorderedStorage).roster,
+    reordered,
   );
 });
 

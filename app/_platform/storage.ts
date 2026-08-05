@@ -38,13 +38,16 @@ export const LEGACY_PLATFORM_STORAGE_KEYS = {
 
 export const DEFAULT_SHARED_ROSTER = DEFAULT_ROSTER_TEXT;
 
-const LEGACY_PERSISTED_FIVE_ROSTERS = new Set([
+const LEGACY_PRODUCT_DEFAULT_ROSTERS = new Set([
   ["레또", "레카", "세나", "코코", "망징"].join("\n"),
   ["아모레또", "유레카", "세나", "코코", "망징이"].join("\n"),
-]);
-
-const LEGACY_DEFAULT_SHARED_ROSTERS = new Set([
-  ...LEGACY_PERSISTED_FIVE_ROSTERS,
+  [
+    "아모레또",
+    "유레카",
+    "세나 아르벨",
+    "토로리 코코",
+    "망징이",
+  ].join("\n"),
   [
     "아모",
     "유레카",
@@ -211,38 +214,11 @@ export function writeSharedRosterSnapshot(
   storage.setItem(LEGACY_PLATFORM_STORAGE_KEYS.rosterMigration, "1");
 }
 
-function isPristineInitialRosterSnapshot(
-  roster: SharedRosterSnapshot,
-): boolean {
-  if (roster.revision !== 1) return false;
-
-  const initial = createSharedRosterSnapshot(
-    sharedRosterSnapshotText(roster),
-    roster.allowDuplicateNames,
-  );
-  return initial.participants.every((participant, index) => {
-    const current = roster.participants[index];
-    return (
-      current?.id === participant.id &&
-      current.name === participant.name &&
-      current.ordinal === participant.ordinal
-    );
-  });
-}
-
 function migrateLegacyDefaultRoster(
   roster: SharedRosterSnapshot,
-  requirePristineSnapshot: boolean,
 ): SharedRosterSnapshot {
   const rosterText = sharedRosterSnapshotText(roster);
-  if (!LEGACY_DEFAULT_SHARED_ROSTERS.has(rosterText)) {
-    return roster;
-  }
-  if (
-    requirePristineSnapshot
-    && !LEGACY_PERSISTED_FIVE_ROSTERS.has(rosterText)
-    && !isPristineInitialRosterSnapshot(roster)
-  ) {
+  if (!LEGACY_PRODUCT_DEFAULT_ROSTERS.has(rosterText)) {
     return roster;
   }
 
@@ -263,10 +239,7 @@ export function readPlatformPreferences(storage: Storage): PlatformPreferences {
       readSharedRosterText(storage),
       readDuplicateNamePolicy(storage),
     );
-  const roster = migrateLegacyDefaultRoster(
-    restoredRoster,
-    storedRoster !== null,
-  );
+  const roster = migrateLegacyDefaultRoster(restoredRoster);
   try {
     writeSharedRosterSnapshot(storage, roster);
   } catch {
