@@ -368,7 +368,7 @@ test("Roulette preserves unfinished progress but closes completed sessions", asy
   assert.doesNotMatch(source, /participants\.slice\(0,\s*18\)/);
 });
 
-test("Roulette proof cards stay above the pointer and Dart boundary callout is restored", async () => {
+test("Roulette proof layer stays above the pointer and Dart boundary callout is restored", async () => {
   const [wheelSource, wheelCss, finishSource, finishCss] = await Promise.all([
     readFile(
       new URL("../app/games/roulette/components/RouletteWheel.tsx", import.meta.url),
@@ -419,6 +419,72 @@ test("Roulette proof cards stay above the pointer and Dart boundary callout is r
   assert.match(
     finishCss,
     /\.roulette-wheel\.is-dart-names-revealed \.dart-finish__boundary-callout\s*\{[\s\S]*?animation:\s*none;[\s\S]*?opacity:\s*0/,
+  );
+});
+
+test("Roulette stop proof stays inside a stable wheel frame and follows slice contrast", async () => {
+  const [wheelSource, finishSource, finishCss, viewportCss] = await Promise.all([
+    readFile(
+      new URL("../app/games/roulette/components/RouletteWheel.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/components/DartFinish.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/components/DartFinish.css", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/games/roulette/styles/roulette-viewport.css", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  const reservedBoundaryBand = viewportCss.match(
+    /:scope \.app-shell--live \.roulette-wheel :is\([\s\S]*?\)\s*\{[\s\S]*?bottom:\s*calc\(100% \+ 1rem\);[\s\S]*?\}/,
+  );
+  assert.ok(reservedBoundaryBand);
+  assert.doesNotMatch(reservedBoundaryBand[0], /winner-nameplate/);
+  assert.match(
+    finishCss,
+    /\.winner-nameplate\s*\{[\s\S]*?top:\s*8\.4%;/,
+    "the interior winner card remains below the pointer inside the wheel",
+  );
+  assert.match(
+    wheelSource,
+    /<WinnerNameplate[\s\S]*?tone=\{[\s\S]*?slices\[winnerIndex\]\?\.labelTone/,
+  );
+  assert.match(
+    wheelSource,
+    /<BoundaryNames[\s\S]*?leftTone=\{[\s\S]*?slices\[boundaryLeftIndex\]\?\.labelTone[\s\S]*?rightTone=\{[\s\S]*?slices\[boundaryRightIndex\]\?\.labelTone/,
+  );
+  assert.match(finishSource, /winner-nameplate--tone-\$\{tone\}/);
+  assert.match(finishSource, /boundary-names__candidate--tone-\$\{leftTone\}/);
+  assert.match(
+    finishCss,
+    /\.boundary-names__candidate\s*\{[\s\S]*?color:\s*var\(--candidate-foreground, var\(--ink, #251c32\)\)/,
+  );
+  assert.match(
+    finishCss,
+    /\.boundary-names__candidate--tone-accent\s*\{[\s\S]*?--candidate-foreground:\s*var\(--exlab-on-accent, #251c32\)/,
+  );
+  assert.match(
+    finishCss,
+    /\.boundary-names__candidate--tone-stage\s*\{[\s\S]*?--candidate-foreground:\s*var\(--exlab-stage-text, #fff\);[\s\S]*?background:\s*var\(--candidate-color\)/,
+  );
+  assert.match(
+    viewportCss,
+    /\.app-shell--live[\s\S]*?\.broadcast-focus:has\(\.roulette-wheel:not\(\.is-dart\)\):not\(\.is-result-docking\)[\s\S]*?\.broadcast-focus__camera\s*\{[\s\S]*?animation:\s*none;[\s\S]*?transform:\s*none;[\s\S]*?transform-origin:\s*50% 50%;/,
+  );
+  assert.doesNotMatch(
+    viewportCss,
+    /reveal-phase--boundary-entered:not\(:has\(\.roulette-wheel\.is-dart\)\)[\s\S]*?--cinematic-camera-scale:/,
+  );
+  assert.match(
+    finishCss,
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.winner-nameplate,[\s\S]*?\.winner-nameplate \*[\s\S]*?animation-duration:\s*1ms !important;[\s\S]*?transition-duration:\s*1ms !important;/,
   );
 });
 

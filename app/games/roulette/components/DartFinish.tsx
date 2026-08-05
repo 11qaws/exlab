@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 
 import { DART_FLIGHT_DURATION_SECONDS } from '../lib/roulette';
+import type { RouletteWheelLabelTone } from '../lib/wheelPalette';
 import './DartFinish.css';
 
 /** The business state lives in App; these are visual beats only. */
@@ -160,6 +161,8 @@ export interface BoundaryNamesProps {
   rightName: string;
   leftColor: string;
   rightColor: string;
+  leftTone: RouletteWheelLabelTone;
+  rightTone: RouletteWheelLabelTone;
   visible: boolean;
   namesVisible?: boolean;
   mode: 'spin' | 'dart';
@@ -182,6 +185,8 @@ export function BoundaryNames({
   rightName,
   leftColor,
   rightColor,
+  leftTone,
+  rightTone,
   visible,
   namesVisible = true,
   mode,
@@ -199,12 +204,12 @@ export function BoundaryNames({
       style={style}
       aria-hidden="true"
     >
-      <span className={`boundary-names__candidate boundary-names__candidate--left${winnerSide === 'left' ? ' is-winner' : ''}`}>
+      <span className={`boundary-names__candidate boundary-names__candidate--left boundary-names__candidate--tone-${leftTone}${winnerSide === 'left' ? ' is-winner' : ''}`}>
         {winnerSide === 'left' && <span className="boundary-names__win">WIN!</span>}
         <ProofNickname name={leftName} />
       </span>
       <span className="boundary-names__marker">경계</span>
-      <span className={`boundary-names__candidate boundary-names__candidate--right${winnerSide === 'right' ? ' is-winner' : ''}`}>
+      <span className={`boundary-names__candidate boundary-names__candidate--right boundary-names__candidate--tone-${rightTone}${winnerSide === 'right' ? ' is-winner' : ''}`}>
         {winnerSide === 'right' && <span className="boundary-names__win">WIN!</span>}
         <ProofNickname name={rightName} />
       </span>
@@ -215,22 +220,23 @@ export function BoundaryNames({
 export interface WinnerNameplateProps {
   name: string;
   color: string;
+  tone: RouletteWheelLabelTone;
   visible: boolean;
   mode: 'spin' | 'dart';
 }
 
 /** Uses the boundary candidate card as the common proof language for interior stops. */
-export function WinnerNameplate({ name, color, visible, mode }: WinnerNameplateProps) {
+export function WinnerNameplate({ name, color, tone, visible, mode }: WinnerNameplateProps) {
   if (!visible) return null;
 
   const style: WinnerNameplateStyle = { '--candidate-color': color };
 
   return (
     <div
-      className={`winner-nameplate winner-nameplate--${mode}${visible ? ' is-visible' : ''}`}
+      className={`winner-nameplate winner-nameplate--${mode} winner-nameplate--tone-${tone}${visible ? ' is-visible' : ''}`}
       aria-hidden="true"
     >
-      <span className="boundary-names__candidate is-winner" style={style}>
+      <span className={`boundary-names__candidate boundary-names__candidate--tone-${tone} is-winner`} style={style}>
         <span className="boundary-names__win">WIN!</span>
         <ProofNickname name={name} />
       </span>

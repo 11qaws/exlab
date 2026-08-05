@@ -6,15 +6,13 @@
  * frozen, while choreography and setup layout stay in their existing files.
  */
 
-/* Result proof is screen-space information. Every live size places it in one
-   reserved band above the rim, rather than painting cards over the rotor. */
+/* Boundary proof needs the reserved band above the rim. Interior winner cards
+   stay inside the wheel, directly below the pointer, just like setup preview. */
 :scope .app-shell--live .roulette-wheel :is(
   .boundary-names,
   .boundary-names--dart,
   .boundary-names--dart.is-final-point,
-  .boundary-names--dart.is-final,
-  .winner-nameplate,
-  .winner-nameplate--dart
+  .boundary-names--dart.is-final
 ) {
   top: auto;
   bottom: calc(100% + 1rem);
@@ -23,10 +21,6 @@
 
 :scope .app-shell--live .roulette-wheel .boundary-names--dart {
   width: min(96%, 28rem);
-}
-
-:scope .app-shell--live .roulette-wheel .winner-nameplate {
-  width: min(72%, 16rem);
 }
 
 /* Desktop live sessions are a three-row viewport: header, phase, canvas.
@@ -210,16 +204,6 @@
     padding: 8px 10px;
   }
 
-  /* The auto close-up is anchored to the fixed twelve-o'clock proof point.
-     Dart keeps its own dynamic impact origin from cinematic.css. */
-  :scope .broadcast-focus:is(
-    .reveal-phase--boundary-entered,
-    .reveal-phase--boundary-crossed,
-    .reveal-phase--boundary-held,
-    .reveal-phase--rotation-stopped
-  ):not(:has(.roulette-wheel.is-dart)) .broadcast-focus__camera {
-    transform-origin: 50% 0%;
-  }
 }
 
 /* A medium-width desktop keeps readable controls in two rows, while the
@@ -319,17 +303,6 @@
     --wheel-stage-padding: var(--wheel-stage-side);
   }
 
-  :scope .broadcast-focus.reveal-phase--boundary-entered:not(:has(.roulette-wheel.is-dart)) {
-    --cinematic-camera-scale: 1.24;
-  }
-
-  :scope .broadcast-focus:is(
-    .reveal-phase--boundary-crossed,
-    .reveal-phase--boundary-held,
-    .reveal-phase--rotation-stopped
-  ):not(:has(.roulette-wheel.is-dart)) {
-    --cinematic-camera-scale: 1.44;
-  }
 }
 
 /* Tablet and mobile keep DOM, visual and keyboard order aligned: stage,
@@ -498,6 +471,17 @@
     position: static;
     bottom: auto;
   }
+}
+
+/* Spin Roulette keeps the same wheel frame from ready state through winner
+   proof. The rotor still brakes; only the clipping camera movement is removed.
+   Dart impact shots and the later result-docking move keep their choreography. */
+:scope .app-shell--live
+  .broadcast-focus:has(.roulette-wheel:not(.is-dart)):not(.is-result-docking)
+  .broadcast-focus__camera {
+  animation: none;
+  transform: none;
+  transform-origin: 50% 50%;
 }
 
 }

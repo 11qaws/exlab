@@ -404,7 +404,7 @@
   border-radius: 0.7rem;
   background: color-mix(in srgb, var(--candidate-color) 86%, var(--cream, #fff9e7));
   box-shadow: 0 0.26rem 0 var(--ink, #251c32), 0 0.48rem 1rem color-mix(in srgb, var(--ink, #251c32) 24%, transparent);
-  color: var(--ink, #251c32);
+  color: var(--candidate-foreground, var(--ink, #251c32));
   font-family: 'Jua', 'Noto Sans KR', sans-serif;
   font-size: clamp(0.72rem, 2.4vw, 1.05rem);
   line-height: 1.08;
@@ -417,7 +417,10 @@
 .boundary-names__win {
   display: block;
   align-self: end;
-  color: color-mix(in srgb, var(--ink, #251c32) 72%, #b20d45);
+  color: var(
+    --candidate-foreground,
+    color-mix(in srgb, var(--ink, #251c32) 72%, #b20d45)
+  );
   font-family: 'Fredoka', sans-serif;
   font-size: clamp(0.56rem, 1.5vw, 0.72rem);
   font-weight: 800;
@@ -438,6 +441,22 @@
 
 .boundary-names__candidate--right {
   --candidate-color: var(--boundary-right-color);
+}
+
+/* Proof cards use the same foreground role as their source wheel slice.
+   Stage tones keep the exact source colour because tinting a dark slice with
+   cream can invalidate the contrast decision. */
+.boundary-names__candidate--tone-accent {
+  --candidate-foreground: var(--exlab-on-accent, #251c32);
+}
+
+.boundary-names__candidate--tone-ink {
+  --candidate-foreground: #251c32;
+}
+
+.boundary-names__candidate--tone-stage {
+  --candidate-foreground: var(--exlab-stage-text, #fff);
+  background: var(--candidate-color);
 }
 
 .boundary-names__text {
@@ -608,10 +627,18 @@
   .embedded-dart *::before,
   .embedded-dart *::after,
   .boundary-names,
-  .boundary-names * {
+  .boundary-names *,
+  .winner-nameplate,
+  .winner-nameplate * {
     animation-duration: 1ms !important;
     animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  .winner-nameplate,
+  .winner-nameplate * {
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
   }
 
 }

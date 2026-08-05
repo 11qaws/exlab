@@ -1566,6 +1566,14 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
                 slices[boundaryRightIndex]?.color ??
                 ROULETTE_WHEEL_PALETTE[1].color
               }
+              leftTone={
+                slices[boundaryLeftIndex]?.labelTone ??
+                ROULETTE_WHEEL_PALETTE[0].labelTone
+              }
+              rightTone={
+                slices[boundaryRightIndex]?.labelTone ??
+                ROULETTE_WHEEL_PALETTE[1].labelTone
+              }
               visible={showBoundaryNames}
               namesVisible={!isDartPresentation || dartNamesRevealed}
               mode={isDartPresentation ? 'dart' : 'spin'}
@@ -1579,6 +1587,10 @@ const RouletteWheel = forwardRef<RouletteWheelHandle, RouletteWheelProps>(functi
               color={
                 slices[winnerIndex]?.color ??
                 ROULETTE_WHEEL_PALETTE[0].color
+              }
+              tone={
+                slices[winnerIndex]?.labelTone ??
+                ROULETTE_WHEEL_PALETTE[0].labelTone
               }
               visible={showWinnerNameplate}
               mode={isDartPresentation ? 'dart' : 'spin'}
