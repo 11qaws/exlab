@@ -1,5 +1,11 @@
 # Development Log
 
+## 2026-08-05 1.3.40 MIT 라이선스와 OG 이미지 정리
+
+- 원격 `main`에 먼저 들어온 README MIT 전문은 연도·권리자 placeholder가 남아 있어 저장소 루트의 표준 `LICENSE`로 교체하고, 패키지 정본에도 `license: MIT`를 선언했다. README에는 전문을 중복하지 않고 라이선스 파일 링크만 유지한다.
+- 더 이상 사용하지 않는 `public/og.png`와 원격에서 임시로 바뀐 `public/og_close.png`를 최종 트리에서 모두 제거했다. Sites metadata와 GitHub Pages 정적 head에서 이미지 참조를 없애고, Twitter 카드는 이미지가 필요 없는 `summary`로 변경했다.
+- Pages 검증기는 삭제된 OG 파일을 요구하는 대신 HTML에 잔여 참조가 없는지 검사한다. 앱 빌드·전체 테스트·Pages 산출물과 두 실제 배포 주소를 확인한 뒤 배포한다.
+
 ## 2026-08-05 1.3.39 Roulette·Showdown 예시 명단 동기화
 
 - canonical 기본값과 두 게임 미리보기는 이미 `레또 / 레카 / 세나 / 망징` 4인을 사용했지만, 예전 전체 이름형 5인·7인·8인 제품 예시가 한 번이라도 저장 과정에서 revision이나 참가자 ID를 바꾸면 초기 스냅샷 검사에 막혀 공용 명단으로 다시 주입되는 경로를 확인했다.

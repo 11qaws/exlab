@@ -55,6 +55,8 @@ test("server-renders the practical exlab shell while preferences load", async ()
   assert.doesNotMatch(html, /모든 이름이 조별 Race로 이어집니다/);
   assert.doesNotMatch(html, /codex-preview/i);
   assert.doesNotMatch(html, /react-loading-skeleton/i);
+  assert.doesNotMatch(html, /og(?:_close)?\.png/i);
+  assert.doesNotMatch(html, /summary_large_image/i);
   const portraitPreloads = [...html.matchAll(/<link\b[^>]*>/g)]
     .map((match) => match[0])
     .filter(
@@ -74,22 +76,27 @@ test("server-renders the practical exlab shell while preferences load", async ()
   );
 });
 
-test("pins the integrated package and both game catalog entries to 1.3.39", async () => {
+test("pins the integrated package, license and both games to 1.3.40", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
-  const [catalogSource, showdownSource, readmeSource] = await Promise.all([
+  const [catalogSource, showdownSource, readmeSource, licenseSource] = await Promise.all([
     readFile(new URL("../app/_platform/catalog.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/games/showdown/ShowdownGame.tsx", import.meta.url), "utf8"),
     readFile(new URL("../README.md", import.meta.url), "utf8"),
+    readFile(new URL("../LICENSE", import.meta.url), "utf8"),
   ]);
 
-  assert.equal(packageJson.version, "1.3.39");
-  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.39"/);
+  assert.equal(packageJson.version, "1.3.40");
+  assert.equal(packageJson.license, "MIT");
+  assert.match(licenseSource, /^MIT License\n/);
+  assert.match(licenseSource, /Copyright \(c\) 2026 11qaws/);
+  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.40"/);
   assert.match(
     catalogSource,
-    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.39"/,
+    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.40"/,
   );
-  assert.match(showdownSource, /SHOWDOWN · VERSION 1\.3\.39/);
-  assert.match(readmeSource, /현재 버전은 `1\.3\.39`/);
+  assert.match(showdownSource, /SHOWDOWN · VERSION 1\.3\.40/);
+  assert.match(readmeSource, /현재 버전은 `1\.3\.40`/);
+  assert.match(readmeSource, /\[MIT License\]\(\.\/LICENSE\)/);
 });

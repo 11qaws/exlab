@@ -16,20 +16,11 @@ export const metadata: Metadata = {
     siteName: "exlab",
     title: "exlab",
     description: "Roulette와 Showdown을 한 명단으로 운영하는 게임 도구.",
-    images: [
-      {
-        url: "/og.png",
-        width: 1731,
-        height: 909,
-        alt: "exlab Roulette와 Showdown",
-      },
-    ],
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "exlab",
     description: "Roulette와 Showdown을 한 명단으로 운영하는 게임 도구.",
-    images: ["/og.png"],
   },
 };
 

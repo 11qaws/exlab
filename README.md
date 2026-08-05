@@ -1,6 +1,12 @@
 # exlab
 
-exlab은 하나의 실용적인 운영 셸에서 `Roulette`와 `Showdown`을 선택해 실행하는 게임 도구입니다. 현재 버전은 `1.3.39`입니다.
+exlab은 하나의 실용적인 운영 셸에서 `Roulette`와 `Showdown`을 선택해 실행하는 게임 도구입니다. 현재 버전은 `1.3.40`입니다.
+
+## 1.3.40 MIT 라이선스와 OG 이미지 정리
+
+- 저장소 라이선스를 표준 MIT License로 지정하고 패키지 메타데이터와 README를 같은 기준으로 맞췄습니다.
+- 별도 소셜 미리보기 이미지가 필요하지 않아 `og.png`와 임시 이름 변경 파일을 삭제하고, Sites·GitHub Pages의 이미지 메타데이터 참조도 제거했습니다.
+- 제목과 설명 기반 Open Graph 메타데이터는 유지하며 Twitter 카드는 이미지가 필요 없는 `summary` 형식을 사용합니다.
 
 ## 1.3.39 Roulette·Showdown 예시 명단 동기화
 
@@ -408,3 +414,7 @@ npm run benchmark:stalls
 결승부의 목표는 “모두를 붙잡아 무작위로 다시 뽑기”가 아니라, 한쪽 위험 경로를 탄 선두가 잠깐 머뭇거리는 동안 열린 우회로의 후속 마블이 통과할 수 있게 하는 것입니다. 제한형 추격은 큰 격차의 후미 마블만 보조하며 결과를 참조하거나 선두를 늦추지 않습니다. 결승 진입 순위와 최종 순위의 상관관계, 선두 우승률, 격차 분포, 위험 장애물 접촉 에피소드를 함께 회귀 지표로 관리합니다.
 
 자세한 테스트 결과와 설계 결정은 [DESIGN_FINDINGS.md](./docs/DESIGN_FINDINGS.md), 물리 변화 후보와 적용 기준은 [GAMEPLAY_VARIATION_DESIGN.md](./docs/GAMEPLAY_VARIATION_DESIGN.md), 전체 명단·조 편성·풀 패키지 계약은 [EXLAB_SHOWDOWN_SYSTEM_SPEC.md](./docs/EXLAB_SHOWDOWN_SYSTEM_SPEC.md)를 참고하세요.
+
+## 라이선스
+
+[MIT License](./LICENSE)

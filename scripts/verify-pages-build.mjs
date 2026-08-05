@@ -135,7 +135,12 @@ for (const imagePath of streamerPortraitPaths) {
   );
 }
 
-for (const imagePath of ["og.png", ...streamerPortraitPaths]) {
+invariant(
+  !/og(?:_close)?\.png/.test(indexHtml),
+  "deleted OG image is still referenced by the Pages document.",
+);
+
+for (const imagePath of streamerPortraitPaths) {
   invariant(
     await exists(resolve(outputRoot, imagePath)),
     `public image ${imagePath} is missing.`,
