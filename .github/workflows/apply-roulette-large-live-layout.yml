@@ -31,10 +31,11 @@ jobs:
 
       - name: Select a supported runner Node.js
         run: |
-          NODE_BIN="$(find /opt/hostedtoolcache/node -mindepth 2 -maxdepth 2 -type d -name x64 | sort -V | tail -n 1)"
-          test -n "${NODE_BIN}"
+          NODE_EXE="$(find /opt/hostedtoolcache/node -type f -path '*/bin/node' -perm -111 | sort -V | tail -n 1)"
+          test -n "${NODE_EXE}"
+          NODE_BIN="$(dirname "${NODE_EXE}")"
           echo "${NODE_BIN}" >> "${GITHUB_PATH}"
-          "${NODE_BIN}/node" --version
+          "${NODE_EXE}" --version
           "${NODE_BIN}/npm" --version
 
       - name: Install dependencies
