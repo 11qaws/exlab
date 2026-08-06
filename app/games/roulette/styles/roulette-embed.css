@@ -418,4 +418,43 @@
       justify-content: flex-end;
     }
   }
+
+/* Above the 1440px design baseline, enlarge the complete live shell rather
+   than growing only the wheel. Inverse dimensions keep the zoomed shell
+   inside the shared Ex Lab stage; smaller windows continue through the
+   existing responsive breakpoints without any scale transform. */
+@supports (zoom: 1) {
+  @media (min-width: 1600px) and (min-height: 850px) {
+    :scope > .app-shell.app-shell--live.is-embedded {
+      width: 94.3396%;
+      height: 94.3396% !important;
+      zoom: 1.06;
+    }
+  }
+
+  @media (min-width: 1920px) and (min-height: 900px) {
+    :scope > .app-shell.app-shell--live.is-embedded {
+      width: 89.2857%;
+      height: 89.2857% !important;
+      zoom: 1.12;
+    }
+  }
+
+  @media (min-width: 2400px) and (min-height: 1080px) {
+    :scope > .app-shell.app-shell--live.is-embedded {
+      width: 84.7458%;
+      height: 84.7458% !important;
+      zoom: 1.18;
+    }
+  }
+
+  @media (min-width: 2880px) and (min-height: 1200px) {
+    :scope > .app-shell.app-shell--live.is-embedded {
+      width: 80.6452%;
+      height: 80.6452% !important;
+      zoom: 1.24;
+    }
+  }
+}
+
 }
