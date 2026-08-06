@@ -43,12 +43,17 @@ jobs:
 
           path = Path('.automation/validate-roulette-large-live-layout.mjs')
           lines = path.read_text(encoding='utf-8').splitlines()
-          for index, line in enumerate(lines):
+          normalized = []
+          for line in lines:
               if 'Boolean(document.querySelector' in line and 'select[aria-label=' in line:
-                  lines[index] = '      `Boolean(document.querySelector(\'select[aria-label="게임 선택"]\'))`,'
+                  normalized.append('      `Boolean(document.querySelector(\'select[aria-label="게임 선택"]\'))`,')
               elif '?.click()' in line and 'data-action-id=' in line and 'start-draw' in line:
-                  lines[index] = '      `document.querySelector(\'.roulette-game [data-action-id="start-draw"]\')?.click(); true`,'
-          path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+                  normalized.append('      `document.querySelector(\'.roulette-game [data-action-id="start-draw"]\')?.click(); true`,')
+              else:
+                  normalized.append(line)
+              if line.strip() == 'assert.equal(geometry.viewport.width, 2048);':
+                  normalized.insert(-1, '    console.log(JSON.stringify(geometry, null, 2));')
+          path.write_text('\n'.join(normalized) + '\n', encoding='utf-8')
           PY
           node --check .automation/validate-roulette-large-live-layout.mjs
 
