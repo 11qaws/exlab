@@ -36,6 +36,59 @@ jobs:
       - name: Apply the reviewed Roulette layout patch
         run: node .automation/apply-roulette-large-live-layout.mjs
 
+      - name: Give the roomy spin wheel more vertical canvas
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          css_path = Path('app/games/roulette/styles/roulette-live-info.css')
+          css = css_path.read_text(encoding='utf-8')
+          marker = """  :scope .app-shell--live .broadcast-action-dock--presenting
+              .broadcast-action-dock__button:disabled {
+                cursor: progress;
+                opacity: 0.78;
+              }
+            }"""
+          replacement = """  :scope .app-shell--live .broadcast-action-dock--presenting
+              .broadcast-action-dock__button:disabled {
+                cursor: progress;
+                opacity: 0.78;
+              }
+
+              /* A normal spin uses an in-wheel winner card, so it can spend less
+                 height on the external Dart proof band and keep the disc dominant. */
+              :scope .app-shell--live .broadcast-focus__visual
+                .roulette-wheel.roulette-wheel:not(.is-dart) {
+                --wheel-proof-band: 4rem;
+              }
+            }"""
+          if css.count(marker) != 1:
+              raise SystemExit('roomy live-frame marker was not unique')
+          css_path.write_text(css.replace(marker, replacement), encoding='utf-8')
+
+          test_path = Path('tests/roulette-large-live-layout.test.ts')
+          tests = test_path.read_text(encoding='utf-8')
+          test_marker = "  assert.ok(css.includes(\"'action action results'\"));\n"
+          if tests.count(test_marker) != 1:
+              raise SystemExit('large-layout contract marker was not unique')
+          tests = tests.replace(
+              test_marker,
+              test_marker + '  assert.ok(css.includes("--wheel-proof-band: 4rem"));\n',
+          )
+          test_path.write_text(tests, encoding='utf-8')
+
+          log_path = Path('DEVELOPMENT_LOG.md')
+          log = log_path.read_text(encoding='utf-8')
+          log_marker = '- 1600×850부터 embedded 라이브 셸 전체를 단계적으로 확대하고 역비율 폭·높이를 적용해 원판, 레일, 결과판, 버튼과 글자가 같은 비율로 커지도록 했다. 1440px 이하의 기존 반응형 구간과 모바일 순서는 변경하지 않았다.\n'
+          if log.count(log_marker) != 1:
+              raise SystemExit('development-log layout marker was not unique')
+          log = log.replace(
+              log_marker,
+              log_marker + '- 넓은 일반 회전 화면에서는 다트 전용 외부 판독 여백을 쓰지 않아 원판이 무대 높이의 중심을 차지하도록 하고, 다트 모드의 판독 여백은 그대로 보존했다.\n',
+          )
+          log_path.write_text(log, encoding='utf-8')
+          PY
+
       - name: Normalize temporary browser validator expressions
         run: |
           python3 - <<'PY'
