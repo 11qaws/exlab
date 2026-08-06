@@ -187,4 +187,52 @@
   animation-play-state: paused;
 }
 
+
+/* Roomy broadcast canvases keep the same operational frame while the
+   wheel is moving. The compact desktop and mobile contracts below 1181px
+   remain unchanged so the wheel never fights the controls for space. */
+@media (min-width: 1181px) and (min-height: 720px) {
+  :scope .app-shell--live .broadcast-focus.is-stage-only {
+    grid-template-areas:
+      'roster stage results'
+      'action action results';
+    grid-template-columns:
+      clamp(10rem, 11vw, 13.5rem)
+      minmax(0, 1fr)
+      clamp(19rem, 23vw, 29rem);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  :scope .app-shell--live .broadcast-focus.is-stage-only
+    > .broadcast-focus__results {
+    display: grid;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: none;
+    transition: none;
+  }
+
+  :scope .app-shell--live .broadcast-focus.is-stage-only
+    > .broadcast-focus__action {
+    display: grid;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: none;
+    transition: none;
+  }
+
+  :scope .app-shell--live .broadcast-action-dock--presenting
+    .broadcast-action-dock__button:disabled {
+    cursor: progress;
+    opacity: 0.78;
+  }
+
+  /* A normal spin uses an in-wheel winner card, so it can spend less
+     height on the external Dart proof band and keep the disc dominant. */
+  :scope .app-shell--live .broadcast-focus__visual
+    .roulette-wheel.roulette-wheel:not(.is-dart) {
+    --wheel-proof-band: 4rem;
+  }
+}
+
 }
