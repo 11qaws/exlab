@@ -43,25 +43,28 @@ jobs:
 
           css_path = Path('app/games/roulette/styles/roulette-live-info.css')
           css = css_path.read_text(encoding='utf-8')
-          marker = """  :scope .app-shell--live .broadcast-action-dock--presenting
-              .broadcast-action-dock__button:disabled {
-                cursor: progress;
-                opacity: 0.78;
-              }
-            }"""
-          replacement = """  :scope .app-shell--live .broadcast-action-dock--presenting
-              .broadcast-action-dock__button:disabled {
-                cursor: progress;
-                opacity: 0.78;
-              }
-
-              /* A normal spin uses an in-wheel winner card, so it can spend less
-                 height on the external Dart proof band and keep the disc dominant. */
-              :scope .app-shell--live .broadcast-focus__visual
-                .roulette-wheel.roulette-wheel:not(.is-dart) {
-                --wheel-proof-band: 4rem;
-              }
-            }"""
+          marker = (
+              "  :scope .app-shell--live .broadcast-action-dock--presenting\n"
+              "    .broadcast-action-dock__button:disabled {\n"
+              "    cursor: progress;\n"
+              "    opacity: 0.78;\n"
+              "  }\n"
+              "}"
+          )
+          replacement = (
+              "  :scope .app-shell--live .broadcast-action-dock--presenting\n"
+              "    .broadcast-action-dock__button:disabled {\n"
+              "    cursor: progress;\n"
+              "    opacity: 0.78;\n"
+              "  }\n\n"
+              "  /* A normal spin uses an in-wheel winner card, so it can spend less\n"
+              "     height on the external Dart proof band and keep the disc dominant. */\n"
+              "  :scope .app-shell--live .broadcast-focus__visual\n"
+              "    .roulette-wheel.roulette-wheel:not(.is-dart) {\n"
+              "    --wheel-proof-band: 4rem;\n"
+              "  }\n"
+              "}"
+          )
           if css.count(marker) != 1:
               raise SystemExit('roomy live-frame marker was not unique')
           css_path.write_text(css.replace(marker, replacement), encoding='utf-8')
