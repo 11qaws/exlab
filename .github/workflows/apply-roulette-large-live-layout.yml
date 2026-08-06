@@ -46,10 +46,11 @@ jobs:
           for index, line in enumerate(lines):
               if 'Boolean(document.querySelector' in line and 'select[aria-label=' in line:
                   lines[index] = '      `Boolean(document.querySelector(\'select[aria-label="게임 선택"]\'))`,'
-              elif 'document.querySelector' in line and 'data-action-id=' in line and 'start-draw' in line:
+              elif '?.click()' in line and 'data-action-id=' in line and 'start-draw' in line:
                   lines[index] = '      `document.querySelector(\'.roulette-game [data-action-id="start-draw"]\')?.click(); true`,'
           path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
           PY
+          node --check .automation/validate-roulette-large-live-layout.mjs
 
       - name: Lint
         run: npm run lint
