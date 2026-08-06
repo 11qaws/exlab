@@ -1,5 +1,11 @@
 # Development Log
 
+## 2026-08-07 1.3.43 Roulette 우상단 배지 및 당첨 제외 초기화 Toast 정리
+
+- `app/games/roulette/styles/roulette-cinematic.css`에서 `.broadcast-focus.reveal-phase--result-committed .broadcast-focus__stage::after` 선언을 `display: none !important; content: none !important;`로 직접 억제하여, CSS 번들 순서(cinematic.css 후순위)로 인해 무대 우상단 플로팅 배지("결과 고정 · 클릭 순간 확정")가 잔여 렌더링되던 현상을 제거했다.
+- `RouletteGame.tsx`의 `resetWinnerState()`에서 당첨 제외 인원 복원 완료 시 하단에 노출되던 `"당첨 제외를 초기화했어요. 이전 결과와 당첨 기록은 그대로예요."` toast 메시지를 제거했다.
+- 전체 224개 테스트 수트(`npm run test:ci`), Pages 정적 빌드 및 검증(`npm run pages:build`, `npm run pages:verify`) 통과.
+
 ## 2026-08-07 1.3.42 Roulette 대형 라이브 프레임 유지
 
 - 추첨 결과를 고정하고 공개하는 동안에도 대형 화면에서는 참여자 명단, 실제 누적 결과판과 비활성 진행 도크를 DOM과 그리드에 유지한다. 룰렛만 남기던 stage-only 구성은 1180px 이하 또는 낮은 화면에서만 사용해 작은 화면의 판독 공간을 보존한다.

@@ -76,7 +76,7 @@ test("server-renders the practical exlab shell while preferences load", async ()
   );
 });
 
-test("pins the integrated package, license and both games to 1.3.42", async () => {
+test("pins the integrated package, license and both games to 1.3.43", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
@@ -87,16 +87,16 @@ test("pins the integrated package, license and both games to 1.3.42", async () =
     readFile(new URL("../LICENSE", import.meta.url), "utf8"),
   ]);
 
-  assert.equal(packageJson.version, "1.3.42");
+  assert.equal(packageJson.version, "1.3.43");
   assert.equal(packageJson.license, "MIT");
   assert.match(licenseSource, /^MIT License\n/);
   assert.match(licenseSource, /Copyright \(c\) 2026 11qaws/);
-  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.42"/);
+  assert.match(catalogSource, /id:\s*"roulette"[\s\S]*?version:\s*"1\.3\.43"/);
   assert.match(
     catalogSource,
-    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.42"/,
+    /id:\s*"showdown"[\s\S]*?version:\s*"1\.3\.43"/,
   );
-  assert.match(showdownSource, /SHOWDOWN · VERSION 1\.3\.42/);
-  assert.match(readmeSource, /현재 버전은 `1\.3\.42`/);
+  assert.match(showdownSource, /SHOWDOWN · VERSION 1\.3\.43/);
+  assert.match(readmeSource, /현재 버전은 `1\.3\.43`/);
   assert.match(readmeSource, /\[MIT License\]\(\.\/LICENSE\)/);
 });

@@ -1657,7 +1657,6 @@ export function RouletteGame({
     }
     if (!window.confirm(`당첨 제외 ${excludedParticipantIds.length}명을 다시 명단에 넣을까요? 당첨 기록은 유지됩니다.`)) return;
     setExcludedParticipantIds([]);
-    showToast('당첨 제외를 초기화했어요. 이전 결과와 당첨 기록은 그대로예요.');
   };
 
   const recoverReadyDraw = () => {
