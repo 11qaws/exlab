@@ -195,7 +195,7 @@ jobs:
 
       - name: Commit the validated release implementation
         run: |
-          git rm -r .automation
+          git rm -rf .automation
           git rm .github/workflows/apply-roulette-large-live-layout.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
