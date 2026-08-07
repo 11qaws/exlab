@@ -1,5 +1,11 @@
 # Development Log
 
+## 2026-08-07 1.3.45 Roulette 대형 화면 무대 잘림 및 하단 도크 가림 수정
+
+- 1500px 이상 폭, 900px 이상 높이의 대형 화면 해상도에서 `roulette-cinematic.css`의 `.broadcast-focus.has-no-results-panel:not(.is-stage-only):not(.is-completed) .broadcast-focus__stage` 스타일 규칙에 고정 기재되어 있던 `grid-template-rows: auto auto minmax(0, 1fr) auto;` 및 `height: calc(100dvh - 192px)` 선언으로 인해, `.broadcast-focus__visual`이 2행(`auto`)에 할당되어 704px 고정 크기로 팽창하며 원판 하반신과 하단 버튼 도크를 무대 영역 밖으로 밀어내어 가리고 잘리게 만드는 심각한 레이아웃 결함을 재현 및 발굴했다.
+- 해당 대형 화면 미디어 쿼리 규칙의 무대 높이 및 그리드 세로 할당을 `height: 100%; grid-template-rows: minmax(0, 1fr);`로 올바르게 수리하여, 룰렛 원판 비주얼이 대형 뷰포트 영역의 높이에 맞게 반응형 축소(`100cqh` 기반 calc)되면서 하단 도크 및 룰렛 전체 모습이 잘림 없이 한 화면에 완벽히 표시되도록 고쳤다.
+- 검증: `npm run test:ci` (218개 테스트 전체 통과), `npm run pages:build`, `npm run pages:verify` (23개 파일, base `/exlab/`), `npm run lint` 0건.
+
 ## 2026-08-07 1.3.44 Commit 3d8f027 기반 롤백 배포
 
 - 최신 버전(1.3.42 ~ 1.3.43)에서 발생한 라이브 프레임 레이아웃 문제로 인해 어플리케이션 코드를 사용자 요청에 따라 검증된 Commit `3d8f027` (v1.3.41) 상태로 100% 롤백 복원했다.

@@ -933,7 +933,7 @@
   }
 
   .broadcast-focus.has-no-results-panel:not(.is-stage-only):not(.is-completed) {
-    height: calc(100dvh - 192px);
+    height: 100%;
     min-height: 0;
     gap: 18px;
     overflow: hidden;
@@ -942,7 +942,7 @@
   .broadcast-focus.has-no-results-panel:not(.is-stage-only):not(.is-completed) .broadcast-focus__stage {
     height: 100%;
     min-height: 0;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr);
     align-content: stretch;
     overflow: hidden;
   }
