@@ -1,5 +1,11 @@
 # Development Log
 
+## 2026-08-07 1.3.44 Commit 3d8f027 기반 롤백 배포
+
+- 최신 버전(1.3.42 ~ 1.3.43)에서 발생한 라이브 프레임 레이아웃 문제로 인해 어플리케이션 코드를 사용자 요청에 따라 검증된 Commit `3d8f027` (v1.3.41) 상태로 100% 롤백 복원했다.
+- 시맨틱 버저닝 및 GitHub Pages 자동 배포 파이프라인 연속성을 위해 버전을 `1.3.44`로 지정하여 커밋 및 배포했다.
+- 검증: `npm run test:ci` (218개 테스트 통과), `npm run pages:build`, `npm run pages:verify` (23개 파일, base `/exlab/`).
+
 ## 2026-08-07 1.3.43 Roulette 우상단 배지 및 당첨 제외 초기화 Toast 정리
 
 - `app/games/roulette/styles/roulette-cinematic.css`에서 `.broadcast-focus.reveal-phase--result-committed .broadcast-focus__stage::after` 선언을 `display: none !important; content: none !important;`로 직접 억제하여, CSS 번들 순서(cinematic.css 후순위)로 인해 무대 우상단 플로팅 배지("결과 고정 · 클릭 순간 확정")가 잔여 렌더링되던 현상을 제거했다.

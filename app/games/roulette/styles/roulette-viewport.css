@@ -173,7 +173,6 @@
 
   :scope .app-shell--live :is(
     .broadcast-action-dock--ready,
-    .broadcast-action-dock--presenting,
     .broadcast-action-dock--completed
   ) .broadcast-action-dock__controls {
     display: grid;
@@ -184,7 +183,6 @@
 
   :scope .app-shell--live :is(
     .broadcast-action-dock--ready,
-    .broadcast-action-dock--presenting,
     .broadcast-action-dock--completed
   ) .broadcast-action-dock__button--primary {
     grid-column: 1;
@@ -193,7 +191,6 @@
 
   :scope .app-shell--live :is(
     .broadcast-action-dock--ready,
-    .broadcast-action-dock--presenting,
     .broadcast-action-dock--completed
   ) .broadcast-action-dock__secondary {
     grid-column: 2;
@@ -214,7 +211,6 @@
 @media (min-width: 901px) and (max-width: 1180px) {
   :scope .app-shell--live :is(
     .broadcast-action-dock--ready,
-    .broadcast-action-dock--presenting,
     .broadcast-action-dock--completed
   ) .broadcast-action-dock__controls {
     grid-template-columns: minmax(0, 1fr);
@@ -222,7 +218,6 @@
 
   :scope .app-shell--live :is(
     .broadcast-action-dock--ready,
-    .broadcast-action-dock--presenting,
     .broadcast-action-dock--completed
   ) .broadcast-action-dock__button--primary {
     grid-column: 1;
@@ -231,7 +226,6 @@
 
   :scope .app-shell--live :is(
     .broadcast-action-dock--ready,
-    .broadcast-action-dock--presenting,
     .broadcast-action-dock--completed
   ) .broadcast-action-dock__secondary {
     grid-column: 1;

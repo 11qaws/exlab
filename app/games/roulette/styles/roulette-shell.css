@@ -12,13 +12,6 @@
   white-space: nowrap;
 }
 
-/* The phase bar already reports result commitment. Keep the stage free of
-   the short-lived duplicate badge during the locking beat. */
-.broadcast-focus.reveal-phase--result-committed .broadcast-focus__stage::after {
-  display: none !important;
-  content: none !important;
-}
-
 @media (max-width: 980px) {
   .app-shell {
     width: min(100% - 24px, 900px);

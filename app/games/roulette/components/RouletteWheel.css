@@ -385,9 +385,11 @@
   left: 50%;
   width: clamp(0.34rem, calc(var(--wheel-size) * 0.011), 0.48rem);
   aspect-ratio: 1;
+  border: 0.1rem solid var(--cream, #fff9e7);
   border-radius: 50%;
-  opacity: 0 !important;
-  pointer-events: none;
+  background: var(--ink, #251c32);
+  /* The first shadow is the visible contact ring measured by captureRotor(). */
+  box-shadow: 0 0 0 0.08rem var(--hot-pink, #ff4f87);
   transform: translate(-50%, 50%);
 }
 

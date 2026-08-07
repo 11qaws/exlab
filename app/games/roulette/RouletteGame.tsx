@@ -1657,6 +1657,7 @@ export function RouletteGame({
     }
     if (!window.confirm(`당첨 제외 ${excludedParticipantIds.length}명을 다시 명단에 넣을까요? 당첨 기록은 유지됩니다.`)) return;
     setExcludedParticipantIds([]);
+    showToast('당첨 제외를 초기화했어요. 이전 결과와 당첨 기록은 그대로예요.');
   };
 
   const recoverReadyDraw = () => {
@@ -2089,12 +2090,10 @@ export function RouletteGame({
       : upcomingDrawLabel;
   const isStageOnly =
     raffleStatus === 'locking' || presentationBeat === 'motion';
-  const isPresentationRunning =
-    raffleStatus === 'locking' || raffleStatus === 'presenting';
   const showWinnerHeroPanel = (
     presentationBeat === 'hero' || presentationBeat === 'dock'
   ) && winnerHero !== null;
-  const showResultsPanel = isStageOnly || (
+  const showResultsPanel = !isStageOnly && (
     visibleSessionResults.length > 0 ||
     raffleStatus === 'completed' ||
     presentationBeat === 'dock'
@@ -2126,11 +2125,7 @@ export function RouletteGame({
     presentationBeat === 'dock' ? 'is-result-docking' : '',
     raffleStatus === 'completed' ? 'is-completed' : '',
   ].filter(Boolean).join(' ');
-  const actionNote = raffleStatus === 'locking'
-    ? `진행 ${sessionProgress}/${sessionGoal} · 클릭 순간 결과를 고정했습니다.`
-    : raffleStatus === 'presenting'
-      ? `진행 ${sessionProgress}/${sessionGoal} · 추첨 연출이 끝나면 결과판이 갱신됩니다.`
-      : raffleStatus === 'completed'
+  const actionNote = raffleStatus === 'completed'
     ? sessionGoalReached
       ? `진행 ${sessionProgress}/${sessionGoal} · 목표한 결과가 모두 저장되었습니다.`
       : roundTarget === 'prizes' && prizeRecipients.length > 0 && nextPrizeRecipient
@@ -2160,30 +2155,6 @@ export function RouletteGame({
     onClick: noAvailableDrawOptions ? recoverReadyDraw : startDraw,
     disabled: toolsOpen || (!noAvailableDrawOptions && !rotorReady),
   };
-  const presentingPrimaryAction: BroadcastDockAction = {
-    id: 'presentation-running',
-    label: raffleStatus === 'locking' ? '결과 고정 중…' : '결과 공개 중…',
-    onClick: () => undefined,
-    disabled: true,
-  };
-  const presentingSecondaryActions: BroadcastDockAction[] = [
-    {
-      id: 'presentation-pause-locked',
-      label: '설계로 일시정지',
-      onClick: () => undefined,
-      disabled: true,
-      tone: 'quiet',
-      title: '연출이 끝나면 사용할 수 있습니다.',
-    },
-    {
-      id: 'presentation-tools-locked',
-      label: '명단 · 기록 잠김',
-      onClick: () => undefined,
-      disabled: true,
-      tone: 'quiet',
-      title: '결과 공개 중에는 명단과 기록 도구가 잠깁니다.',
-    },
-  ];
   const completedPrimaryLabel = noAvailableDrawOptions
       ? drawTarget === 'people'
         ? eligibleParticipants.length === 0 && excludedParticipantIds.length > 0
@@ -3121,7 +3092,7 @@ export function RouletteGame({
           </aside>
         )}
 
-        {(raffleStatus === 'ready' || isPresentationRunning || raffleStatus === 'completed') && (
+        {(raffleStatus === 'ready' || raffleStatus === 'completed') && (
           <div className="broadcast-focus__action">
             {raffleStatus === 'ready' && (
               <BroadcastActionDock
@@ -3137,15 +3108,6 @@ export function RouletteGame({
                     title: '현재 진행도와 결과를 유지한 채 설계 화면으로 돌아갑니다.',
                   },
                 ]}
-              />
-            )}
-            {isPresentationRunning && (
-              <BroadcastActionDock
-                phase="presenting"
-                ariaLabel="추첨 진행 상태"
-                note={actionNote}
-                primaryAction={presentingPrimaryAction}
-                secondaryActions={presentingSecondaryActions}
               />
             )}
             {raffleStatus === 'completed' && (
